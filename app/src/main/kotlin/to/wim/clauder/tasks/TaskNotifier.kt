@@ -11,8 +11,8 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import to.wim.clauder.R
+import to.wim.clauder.links.ClaudeApp
 
 /** Shows one notification per Claude session: a Live Update on Android 16, an ongoing progress
  * notification on older versions. */
@@ -79,7 +79,7 @@ object TaskNotifier {
         val open = PendingIntent.getActivity(
             context,
             id,
-            Intent(Intent.ACTION_VIEW, update.openUrl.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ClaudeApp.openIntent(context, update.openUrl).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val channel = if (update.status == LiveUpdate.Status.Waiting) CHANNEL_WAITING else CHANNEL_PROGRESS

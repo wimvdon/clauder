@@ -1,12 +1,11 @@
 package to.wim.clauder.shortcuts
 
 import android.content.Context
-import android.content.Intent
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
-import androidx.core.net.toUri
 import to.wim.clauder.R
+import to.wim.clauder.links.ClaudeApp
 
 /** Puts pinned shortcuts on the home screen and keeps them in step with the app's list. */
 object ShortcutPinner {
@@ -23,7 +22,7 @@ object ShortcutPinner {
             .setShortLabel(shortcut.name)
             .setLongLabel(shortcut.name)
             .setIcon(IconCompat.createWithResource(context, iconFor(shortcut.kind)))
-            .setIntent(Intent(Intent.ACTION_VIEW, shortcut.url.toUri()))
+            .setIntent(ClaudeApp.openIntent(context, shortcut.url))
             .build()
 
     fun canPin(context: Context): Boolean = ShortcutManagerCompat.isRequestPinShortcutSupported(context)

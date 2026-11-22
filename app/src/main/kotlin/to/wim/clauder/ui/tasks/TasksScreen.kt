@@ -1,6 +1,5 @@
 package to.wim.clauder.ui.tasks
 
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,10 +40,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import kotlinx.coroutines.launch
 import to.wim.clauder.ClauderApp
 import to.wim.clauder.R
+import to.wim.clauder.links.ClaudeApp
 import to.wim.clauder.push.Push
 import to.wim.clauder.push.WorkerClient
 import to.wim.clauder.settings.Settings
@@ -146,7 +145,7 @@ private fun SessionCard(list: TaskList) {
         modifier = Modifier
             .readableWidth()
             .clickable(onClickLabel = openLabel, role = Role.Button) {
-                context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+                ClaudeApp.open(context, url)
             },
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
