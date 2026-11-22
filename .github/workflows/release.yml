@@ -182,6 +182,7 @@ jobs:
           SIGNED: ${{ steps.signing.outputs.signed }}
           VERSION: ${{ steps.plan.outputs.version }}
           CODE: ${{ steps.plan.outputs.code }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
         run: |
           set -euo pipefail
           args=()

@@ -53,6 +53,10 @@ jobs:
 
       - name: Build debug and release APKs
         # The release build is unsigned here; building it catches R8/shrinking problems early.
+        env:
+          # Firebase Cloud Messaging key (see app/build.gradle.kts). Without it the APK builds
+          # but can't receive task updates.
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
         run: ./gradlew assembleDebug assembleRelease
 
       - name: Name the debug APK

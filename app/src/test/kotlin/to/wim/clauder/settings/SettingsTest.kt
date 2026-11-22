@@ -1,0 +1,39 @@
+package to.wim.clauder.settings
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+class SettingsTest {
+    @Test
+    fun `worker addresses are normalised to https hosts`() {
+        assertEquals("https://clauder.wim-d57.workers.dev", WorkerUrl.normalize("clauder.wim-d57.workers.dev"))
+        assertEquals("https://clauder.wim-d57.workers.dev", WorkerUrl.normalize(" https://Clauder.wim-d57.workers.dev/ "))
+        assertEquals("https://example.com:8443", WorkerUrl.normalize("https://example.com:8443"))
+        assertNull(WorkerUrl.normalize(""))
+        assertNull(WorkerUrl.normalize("http://clauder.example.dev"))
+        assertNull(WorkerUrl.normalize("localhost"))
+        assertNull(WorkerUrl.normalize("https://user@example.com"))
+        assertNull(WorkerUrl.normalize("not a url"))
+        assertEquals("clauder.wim-d57.workers.dev", WorkerUrl.host("https://clauder.wim-d57.workers.dev"))
+        assertEquals("", WorkerUrl.host(""))
+    }
+
+    @Test
+    fun `connected needs both an address and a token`() {
+        assertFalse(Settings().isConnected)
+        assertFalse(Settings(workerUrl = "https://a.dev").isConnected)
+        assertTrue(Settings(workerUrl = "https://a.dev", token = "t").isConnected)
+    }
+
+    @Test
+    fun `the setup block in the app matches hooks install-user-hooks sh`() {
+        // Unit tests run in the app module's folder.
+        val repoScript = File("../hooks/install-user-hooks.sh").readLines().dropWhile { !it.startsWith("mkdir") }
+        val appScript = HookSetup.script("clauder.wim-d57.workers.dev").lines().dropWhile { !it.startsWith("mkdir") }
+        assertEquals(repoScript.joinToString("\n").trimEnd(), appScript.joinToString("\n").trimEnd())
+    }
+}

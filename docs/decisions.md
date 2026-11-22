@@ -2,6 +2,22 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-22: The Android app: Firebase without google-services.json, a warm Claude-like theme
+
+The app receives the Worker's pushes through Firebase Cloud Messaging (`firebase-messaging`,
+through the Firebase BoM). Firebase is started by hand in `ClauderApp` from `BuildConfig` fields
+instead of the Google Services Gradle plugin and a `google-services.json` file: the project id,
+sender id and app ids are in `app/build.gradle.kts`, and the API key comes from the
+`FIREBASE_API_KEY` GitHub secret, so no Firebase file sits in the repository and no extra Gradle
+plugin is needed. `org.json` is a test-only dependency, because Android's own copy is a stub in
+JVM unit tests. The permissions INTERNET, POST_NOTIFICATIONS and POST_PROMOTED_NOTIFICATIONS
+come from the briefing (Worker, notifications, Live Updates on Android 16). The theme uses a full
+Material 3 scheme built around a terracotta primary on cream (Claude's own feel, not its logo),
+checked for WCAG AA contrast, with the system serif for display, headline and Title Large text.
+Dynamic color stays available as a switch, off by default. Rejected: the Google Services plugin
+(a JSON file with keys in the repository), and a bundled serif font (an extra asset for little
+gain over the system serif).
+
 ## 2026-11-22: Backend is a Cloudflare Worker fed by Claude Code HTTP hooks
 
 The live task list comes from Claude Code hooks (`hooks/settings.json`) that POST each task event

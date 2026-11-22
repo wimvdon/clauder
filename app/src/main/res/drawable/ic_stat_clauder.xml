@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar icon: the launcher icon's speech bubble with the check cut out. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M30,22h48a14,14 0,0 1,14 14v28a14,14 0,0 1,-14 14h-32l-16,14v-14h0a14,14 0,0 1,-14 -14v-28a14,14 0,0 1,14 -14zM36,50.5l6,-6 9,9 17,-17 6,6 -23,23z" />
+</vector>

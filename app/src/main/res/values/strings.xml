@@ -1,13 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The name shown under the launcher icon. Rename per app (also in every values-xx folder). -->
-    <string name="app_name">Template</string>
-    <string name="home_title">Hello!</string>
-    <string name="home_body">This is the placeholder screen of the app template.</string>
-    <plurals name="home_tap_count">
-        <item quantity="one">Tapped %d time</item>
-        <item quantity="other">Tapped %d times</item>
+    <string name="app_name" translatable="false">Clauder</string>
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_settings">Settings</string>
+    <string name="tasks_title">Tasks</string>
+    <string name="state_running">Working</string>
+    <string name="state_waiting">Waiting for you</string>
+    <string name="state_done">Done</string>
+    <string name="state_ended">Ended</string>
+    <string name="task_done">Done</string>
+    <string name="task_in_progress">In progress</string>
+    <string name="task_pending">To do</string>
+    <string name="notification_short" translatable="false">%1$d/%2$d</string>
+    <string name="notification_now">Now: %s</string>
+    <string name="notification_next">Next: %s</string>
+    <string name="channel_progress">Task progress</string>
+    <string name="channel_progress_description">Live progress of each Claude session</string>
+    <string name="channel_waiting">Waiting for you</string>
+    <string name="channel_waiting_description">When Claude stops and waits for your answer</string>
+    <string name="tasks_setup_title">Connect to your Worker</string>
+    <string name="tasks_setup_body">Add your Worker’s token in Settings to see Claude’s task lists here.</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="tasks_empty_title">No task lists yet</string>
+    <string name="tasks_empty_body">When Claude makes a task list in a session, it shows up here and as a notification.</string>
+    <string name="tasks_error_title">Couldn’t load tasks</string>
+    <string name="tasks_error_body">Check your internet connection.</string>
+    <string name="action_retry">Retry</string>
+    <string name="session_open">Open in Claude</string>
+    <string name="settings_title">Settings</string>
+    <string name="section_connection">Connection</string>
+    <string name="connect_intro">Clauder gets Claude’s task lists from your Worker.</string>
+    <string name="worker_address">Worker address</string>
+    <string name="worker_token">Token</string>
+    <string name="worker_token_help">The value of CLAUDER_HOOK_TOKEN</string>
+    <string name="action_connect">Connect</string>
+    <string name="action_disconnect">Disconnect</string>
+    <string name="connect_connected">Connected to %s</string>
+    <string name="connect_ok">This phone now gets task updates.</string>
+    <string name="connect_ok_no_push">Connected, but the Worker can’t send pushes yet: FCM_SERVICE_ACCOUNT is missing.</string>
+    <string name="connect_invalid_address">Enter an https address, such as clauder.example.workers.dev.</string>
+    <string name="connect_missing_token">Enter the token.</string>
+    <string name="connect_wrong_token">The Worker doesn’t accept this token.</string>
+    <string name="connect_unreachable">Couldn’t reach the Worker (%s).</string>
+    <string name="connect_push_unavailable">This build of Clauder can’t receive pushes. Install the APK from GitHub.</string>
+    <string name="section_notifications">Notifications</string>
+    <string name="notifications_on">Notifications are on</string>
+    <string name="notifications_off">Notifications are off</string>
+    <string name="notifications_off_body">Without them, Clauder can’t show a session’s progress.</string>
+    <string name="action_allow">Allow</string>
+    <string name="live_updates_off">Live updates are off</string>
+    <string name="live_updates_off_body">Progress then shows as an ordinary notification, not at the top of the screen.</string>
+    <string name="action_send_test">Send test</string>
+    <string name="test_no_push">The Worker can’t send pushes: FCM_SERVICE_ACCOUNT is missing.</string>
+    <string name="test_no_phones">No phone is connected to the Worker.</string>
+    <string name="test_failed">Test failed (%s).</string>
+    <string name="section_environments">Cloud environments</string>
+    <string name="env_steps_title">Set up an environment</string>
+    <string name="env_steps_summary">Once for each environment you use</string>
+    <string name="env_step_open">In the Claude app, open a project’s settings, then Cloud environment, then the gear next to the environment.</string>
+    <string name="env_step_script">Setup script: paste this at the end, before a final exit 0 if there is one.</string>
+    <string name="env_step_variable">Environment variables: add this line.</string>
+    <string name="env_step_domain">Network access: add this domain to the allowed domains.</string>
+    <string name="env_step_new">The hooks work in sessions and threads started after the change.</string>
+    <string name="action_copy">Copy</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="dynamic_color">Dynamic color</string>
+    <string name="dynamic_color_summary">Use colors from your wallpaper</string>
+    <string name="about_version" translatable="false">Clauder %s</string>
+    <string name="section_expanded">Expanded</string>
+    <string name="section_collapsed">Collapsed</string>
+    <plurals name="test_sent">
+        <item quantity="one">Sent to %d phone.</item>
+        <item quantity="other">Sent to %d phones.</item>
     </plurals>
-    <string name="home_tap_button">Tap me</string>
-    <string name="home_reset_button">Reset</string>
+    <plurals name="notification_counts">
+        <item quantity="one">%1$d/%2$d task</item>
+        <item quantity="other">%1$d/%2$d tasks</item>
+    </plurals>
 </resources>

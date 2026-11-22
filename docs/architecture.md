@@ -1,9 +1,24 @@
 # Architecture
 
-> Template skeleton. Fill in the "This app" section for each app and keep it up to date.
-
 ## This app
-_What the app does, its screens, and where its data lives. (Placeholder: one home screen with a tap counter. No stored data.)_
+Clauder shows the task list of every running Claude Code session on the phone.
+
+- **Data flow:** Claude Code hooks POST each task event to the Worker (`worker/`). The Worker keeps
+  each session's list and pushes every change to the registered phones as an FCM data message.
+  `push/ClauderMessagingService` parses it (`tasks/TaskList.fromPushData`), drops pushes older
+  than the last one per session (`SeqGate`) and shows it (`tasks/TaskNotifier`).
+- **Notification:** one per session (id from the session key). `tasks/LiveUpdate` works out what it
+  shows: one progress segment per task, done tasks filled, a point on the active task, the
+  current and next task, "Waiting for you" when Claude stopped, and "Done" that dismisses itself
+  after 3 minutes. Android 16 shows it as a Live Update (`ProgressStyle`, promoted ongoing);
+  older versions get a standard progress notification. A tap opens the session on claude.ai.
+- **Screens:** Tasks (the sessions from the Worker's `GET /sessions`, kept up to date by pushes,
+  `tasks/SessionBoard`) and Settings (connection, notifications, the setup block for cloud
+  environments, appearance).
+- **Stored data:** theme, Dynamic color and the Worker address in `backed_up_settings`; the
+  Worker token, the registered FCM token and pinned shortcuts in `device_state` (not backed up).
+  See `settings/SettingsStore.kt`.
+- **Worker client:** `push/WorkerClient.kt` (plain `HttpURLConnection`, no extra library).
 
 ## Structure
 ```
@@ -24,7 +39,7 @@ scripts/                   Release helpers (Python/Java) with their own tests.
 ## Conventions
 - **Single `app` module.** Split into modules only if the app grows large; record it in `decisions.md`.
 - **Logic in plain Kotlin classes** with no `Context`, `View` or Compose types, so it can be
-  tested on the JVM. Example: `ui/home/TapCounter.kt` (immutable; methods return a new value).
+  tested on the JVM. Example: `tasks/LiveUpdate.kt`.
 - **UI state**: small screens use `rememberSaveable`. When a screen gets real logic or data,
   add a `ViewModel` (`androidx.lifecycle:lifecycle-viewmodel-compose`) that exposes a
   `StateFlow<UiState>` and calls into the plain-Kotlin logic. Record it in `decisions.md`.

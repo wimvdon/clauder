@@ -1,17 +1,40 @@
 # Privacy policy
 
-_Last updated: 2026-10-15_
+_Last updated: 2026-11-22_
 
-**This app collects nothing.**
+Clauder shows the task lists of your own Claude Code sessions. It talks only to a Cloudflare
+Worker that you (the owner) run, and to Firebase Cloud Messaging to receive updates.
 
-- It does not collect, store, or share any personal data.
-- It has no internet access, no analytics, no advertising and no crash reporting.
-- It requests no Android permissions.
-- Anything the app may keep in the future stays on your device. Only your settings may be
-  included in Android's own backup (to your Google account, if you turned that on) and in a
-  transfer to a new phone; nothing else is.
+## What the app sends and receives
 
-If this changes, this file will be updated **before** the change is released, describing what is
-collected, why, where it is stored, and how to delete it.
+- **To your Worker:** the token you enter, this phone's Firebase Cloud Messaging token and its
+  model name (so the Worker knows where to push), and requests for the current task lists.
+- **From your Worker, through Firebase Cloud Messaging:** each session's title (the folder name),
+  task subjects and states, and a link to the session on claude.ai. Google's FCM service carries
+  these messages to the phone.
+- The app has no analytics, advertising or crash reporting.
+
+## What the Worker keeps
+
+The Worker receives the raw Claude Code hook events of your sessions: task text, the working
+folder, the transcript path and, when Claude stops, its last message. It keeps each session's task
+list for a day after its last change, and the last 500 raw events for debugging. It runs in your
+own Cloudflare account; nobody else has access.
+
+## Permissions
+
+- **Internet:** to reach the Worker and Firebase.
+- **Notifications** and **Live Updates:** to show each session's progress.
+
+## Stored on the phone
+
+Your theme choice and the Worker address are included in Android's own backup (to your Google
+account, if you turned that on) and in a transfer to a new phone. The Worker token, the Firebase
+token and pinned shortcuts stay on this phone only.
+
+## Deleting your data
+
+In Settings, tap Disconnect: the Worker forgets this phone. Uninstalling the app removes
+everything it stored on the phone.
 
 Questions: open an issue in this repository.

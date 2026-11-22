@@ -1,16 +1,28 @@
-# Android app template
+# Clauder
 
-A starting point for Android apps built with Claude Code and GitHub. Out of the box it
-**builds, tests and releases**. The only app content is a placeholder screen with a tap
-counter.
+An Android companion for Claude. Clauder shows the task list of every running Claude Code
+session as a Live Update notification: the session's title, "6/8 tasks", a progress bar with one
+segment per task, and the task Claude is on now. When Claude stops and waits for you, the
+notification says so; when every task is done it shows "Done" and goes away a few minutes later.
+Tap it to open the session on claude.ai.
 
-- Kotlin, Jetpack Compose, Material 3 (light/dark, wallpaper colours), Android 12+.
-- CI on every pull request: unit tests, lint, debug and release builds, and an installable APK.
-- One-click signed releases on GitHub, with automatic version numbers.
-- Weekly dependency updates (Dependabot).
-- Rules for Claude Code sessions in [`CLAUDE.md`](CLAUDE.md).
+- Built on Android 12+, Kotlin, Jetpack Compose and Material 3, in Claude-like warm colours.
+- The task lists come from Claude Code hooks, through your own Cloudflare Worker (`worker/`),
+  pushed to the phone with Firebase Cloud Messaging.
+- CI on every pull request, one-click signed releases on GitHub. Rules for Claude Code sessions
+  are in [`CLAUDE.md`](CLAUDE.md).
 
-> **New app from this template?** Start with [Using this template](#using-this-template).
+## Setting up on your phone
+
+1. Install the APK (see below) and open Clauder.
+2. **Settings → Connection:** the Worker address is filled in. Enter the token (the value of the
+   GitHub secret `CLAUDER_HOOK_TOKEN`) and tap **Connect**.
+3. **Notifications:** tap **Allow**, then **Send test**. A test task list appears as a notification.
+4. **Cloud environments → Set up an environment:** follow the steps once for each cloud environment
+   you use. The app shows the setup block, the variable and the domain to paste, each with a
+   **Copy** button.
+
+New sessions and project threads in those environments then report their task lists.
 
 ---
 
