@@ -226,8 +226,11 @@ app apart from their package (and `R` import) lines. Copy a change to the other 
 
 ## This app
 
-- **Icon:** a speech bubble (a Claude conversation) with a white check (a finished task), on the
-  gradient `#E8956E` → `#D97757` → `#B5532F`.
+- **Icon:** a progress ring of six segments, four done and two still to go, around a check:
+  the live notification's "4/6 tasks" as a shape. Gradient `#FAA75E` → `#DA6440` → `#A52E52`
+  (amber, terracotta, rose); the segments still to go are a pale tint (`#F0C9BC`). It sits on a
+  soft terracotta plate (`#FBF1EE` → `#F7E4DD`) instead of white. The themed icon draws the two
+  open segments half transparent.
 - **Colour:** a full Material 3 scheme around the terracotta `#B0502C` (dark: `#F0A487`) on cream
   `#FAF9F5` (dark: warm charcoal `#1F1E1D`), in the spirit of Claude's own colours
   (`ui/theme/Color.kt`). Every text and container pair meets WCAG AA.
