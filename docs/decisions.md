@@ -168,3 +168,13 @@ active cards. A session that closed with open steps reads "Ended early" instead 
 Rejected: a shorter silence timeout (a slow CI run or an evening reminder would flip a thread to
 Idle) and guessing from the time alone without the checklist.
 
+## 2026-11-22: A question in Claude's last reply means "Waiting for you"
+A project thread asked "Which do you like?" in a plain reply and waited for approval of a mockup,
+but Clauder showed it as idle: only decision cards and permission prompts counted. The hooks now
+also send the reply tool (`post_message`), and the Worker looks for a question put to the user in
+the turn's last reply. To avoid false alarms it needs words that address the user ("you", "should
+I", "want me", "je", "zal ik"), skips headings, quotes and code, and ignores "let me know if…".
+A pending step that starts with "After approval" (or "Na goedkeuring") also counts once nothing is
+in progress. Rejected: treating every turn that ends with pending steps as waiting, because
+threads often stop between steps without needing anything.
+

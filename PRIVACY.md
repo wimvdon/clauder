@@ -18,7 +18,8 @@ Worker that you (the owner) run, and to Firebase Cloud Messaging to receive upda
 
 The Worker receives the raw Claude Code hook events of your sessions: task text, the progress
 checklist of project threads, the working
-folder, the transcript path and, when Claude stops, its last message. When you send a prompt, a
+folder, the transcript path, the replies Claude posts in a project thread and, when Claude stops,
+its last message. Of the replies it keeps only the question Claude asks you, until your next message. When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,
 read from the session's own transcript; the prompt's text is left out. It keeps each session's task
 list for a day after its last change, and the last 500 raw events for debugging. It runs in your

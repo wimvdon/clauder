@@ -41,6 +41,7 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 | `PostToolUse` on `TaskCreate\|TaskUpdate` | Status changes (`pending` → `in_progress` → `completed`) and renames |
 | `PostToolUse` on `TodoWrite` and the checklist tool | To-dos, and a project thread's checklist (its steps) |
 | `PostToolUse` on `request_decision`, `close_decision` | A project thread asks you to choose: "Waiting for you" |
+| `PostToolUse` on `post_message` | A project thread replies: a question to you in the turn's last reply means "Waiting for you" |
 | `TaskCompleted` | A task was marked done |
 | `UserPromptSubmit` (user-level install only) | Claude starts working again. This is a small script (`~/.claude/clauder-prompt.py`) that also reads the project's and the thread's name from the session transcript and sends them along |
 | `Stop` | Claude finished its turn: "Idle", or "Running" while background work goes on |
