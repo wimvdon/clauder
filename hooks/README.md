@@ -3,7 +3,8 @@
 `settings.json` in this folder is the hook snippet that sends task events from a Claude Code
 session to the Clauder Worker. Copy its `hooks` block into `.claude/settings.json` of every
 repository that should report, and replace `WORKER_HOST` with the Worker's host name
-(for example `clauder.<your-subdomain>.workers.dev`).
+(ours is `clauder.wim-d57.workers.dev`). This repository uses the snippet itself, in
+`.claude/settings.json`.
 
 ## What each hook does
 
