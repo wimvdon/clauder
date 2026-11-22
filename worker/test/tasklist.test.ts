@@ -540,3 +540,32 @@ test("the last reply's link, the helpers and the usage reach the phone", () => {
   assert.equal(data.tokens, "1000000");
   assert.equal(data.cost, "2");
 });
+
+test("a CI or reminder wake keeps an open decision card or question waiting", () => {
+  // From the Worker log (22 nov 2026): a card went up, and a GitHub event woke the thread 7
+  // seconds later, before the person had answered.
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Add a summary?" }, tool_response: {} };
+  const wake = (source: string) => ({ hook_event_name: "UserPromptSubmit", clauder: { source } });
+  const stop = { hook_event_name: "Stop" };
+  const card = run([checklist(PLAN_DONE_BUT_ONE), decision, stop, wake("notification"), tool("ReadNotifications", {}), stop]);
+  assert.equal(card.state, "waiting");
+  assert.equal(card.needKind, "decision");
+  assert.equal(card.need, "Add a summary?");
+  assert.equal(run([wake("wake:decision-chosen")], card).state, "running");
+  assert.equal(run([wake("wake:mention")], card).state, "running");
+  // Claude may still close the card itself.
+  assert.equal(run([wake("notification"), tool("mcp__hearthbot__close_decision", {}), stop], card).state, "waiting");
+  assert.equal(run([wake("notification"), tool("mcp__hearthbot__close_decision", {})], card).state, "running");
+
+  // A question the model read in the last reply is kept the same way.
+  const asked = run([checklist(PLAN_DONE_BUT_ONE), reply("Shall I release?"), stop]);
+  const question = applyAsk(asked, asked.seq, { question: "Shall I release?", summary: "" }, NOW)!;
+  assert.equal(question.needKind, "question");
+  const later = run([wake("notification"), checklist("Plan\n\n✓ One\n✱ Two"), stop], question);
+  assert.equal(later.state, "waiting");
+  assert.equal(later.need, "Shall I release?");
+  assert.equal(run([wake("relay")], question).state, "running");
+  // A permission prompt is answered within its turn, so a new prompt ends it.
+  const permission = run([checklist(PLAN_DONE_BUT_ONE), { hook_event_name: "Notification", notification_type: "permission_prompt", message: "Allow Bash?" }]);
+  assert.equal(run([wake("notification")], permission).state, "running");
+});

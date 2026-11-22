@@ -30,7 +30,10 @@ Clauder shows the task list of every running Claude Code session on the phone.
   A project thread's session stops between wakes (`SessionEnd` reason "other") and pauses:
   watches, crons and helpers end with the session, while a reminder and a PR subscription live on
   the server, so without those the thread waits on the user. Every wake (a message, a CI event, a
-  reminder) is a new prompt and makes the session Running again. **Idle** means nothing known is
+  reminder) is a new prompt and makes the session Running again, except that an open decision card
+  or a question from the reply check stays Waiting for you through wakes the person didn't cause
+  (CI events, reminders): only a person's message, a decision tap, a coordinator message or
+  `close_decision` ends it. **Idle** means nothing known is
   armed but the Worker can't tell: Claude Code loads hook settings once, at session start, so a
   session started before the installer last changed may set up a wake the Worker never hears of.
   The hooks say which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's

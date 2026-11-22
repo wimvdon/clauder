@@ -270,8 +270,10 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   let reply = list.reply;
   let summary = list.summary;
   let askCheck: string | undefined;
-  // An open decision card keeps the session waiting while Claude goes on with the work.
-  const deciding = state === "waiting" && needKind === "decision";
+  // An open decision card, or a question the person hasn't answered yet, keeps the session
+  // waiting while Claude goes on with the work, also through wakes the person didn't cause (CI
+  // results, a reminder). Only the person's answer (see [reopens]) or a closed card ends it.
+  const deciding = state === "waiting" && (needKind === "decision" || needKind === "question");
   const working: SessionState = deciding ? "waiting" : "running";
   // Title: the checklist heading, else the thread's title, else the folder name.
   let thread = list.thread;
@@ -339,7 +341,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
         need = clip(str(toolInput?.question) ?? "", MAX_NEED) || undefined;
         needKind = "decision";
       } else if (tool === CLOSE_DECISION_TOOL) {
-        state = "running";
+        if (needKind === "decision") state = "running";
       } else if (tool === REPLY_TOOL) {
         const attached = linkFromOutputs(toolInput?.attached_outputs);
         if (attached) link = attached;
@@ -374,7 +376,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       const said = reply ?? str(input.last_assistant_message)?.slice(-MAX_REPLY_CHARS);
       if (said) askCheck = said;
       reply = undefined;
-      // Stop ends every turn. An open decision card keeps the session waiting. Otherwise it is
+      // Stop ends every turn. An open decision card or question keeps the session waiting. Otherwise it is
       // running while something Claude set up will wake it, and waiting on the user when
       // nothing will.
       if (deciding) break;
@@ -393,13 +395,14 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       break;
     }
     case "UserPromptSubmit": {
-      state = "running";
+      // A person's message, a decision tap or a coordinator message reopens a resolved thread and
+      // answers what Claude asked; background events such as CI results don't. Older hook scripts
+      // don't say, so any prompt counts as the person's.
+      const fromPerson = reopens(obj(input.clauder)?.source);
+      state = deciding && !fromPerson ? "waiting" : "running";
       reply = undefined;
       summary = undefined;
-      // A person's message, a decision tap or a coordinator message reopens a resolved thread;
-      // background events such as CI results don't. Older hook scripts don't say, so any prompt
-      // reopens.
-      if (reopens(obj(input.clauder)?.source)) resolved = false;
+      if (fromPerson) resolved = false;
       const info = projectInfo(input);
       project = info.project ?? project;
       projectId = info.projectId ?? projectId;

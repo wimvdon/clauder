@@ -326,3 +326,12 @@ the thread is then Done until the person writes again, like `set_thread_resolved
 the alert also drops its segmented progress bar and status bar chip: it was already not ongoing or
 promoted, but on Android 16 it still looked like a Live Update.
 
+
+## 2026-11-22: An open question survives background wakes
+
+The review of the hook handling found that any prompt set a thread to Working, so a CI event that
+arrived seconds after a decision card (the PR subscription's own event comes within a second) hid
+the card until the person answered. An open decision card, and a question the reply check found,
+now stay Waiting for you until the person answers (a message, a decision tap or a coordinator
+message, read from `clauder.source`) or Claude closes the card. A permission prompt still ends with
+the next prompt, because it is answered within its turn.
