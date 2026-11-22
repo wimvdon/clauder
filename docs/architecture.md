@@ -139,7 +139,9 @@ scripts/                   Release helpers (Python/Java) with their own tests.
 - **UI state**: small screens use `rememberSaveable`. When a screen gets real logic or data,
   add a `ViewModel` (`androidx.lifecycle:lifecycle-viewmodel-compose`) that exposes a
   `StateFlow<UiState>` and calls into the plain-Kotlin logic. Record it in `decisions.md`.
-- **Navigation**: one screen today. With several screens, use Navigation Compose.
+- **Navigation**: the sessions screen, with Settings as a child page behind the gear icon in its
+  top app bar (`ui/ClauderRoot.kt`, a saved flag and `BackHandler`). With more screens, use
+  Navigation Compose.
 - **Persistence**: Jetpack DataStore (version already in the catalog). Wrap it behind a small
   repository interface so logic tests can use a fake. Decide per value whether it is backed up
   (see "Backup" below).

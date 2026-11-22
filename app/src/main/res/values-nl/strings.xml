@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="nav_tasks">Taken</string>
-    <string name="nav_settings">Instellingen</string>
-    <string name="tasks_title">Taken</string>
+    <string name="tasks_title">Claude-sessies</string>
+    <string name="action_back">Terug</string>
     <string name="state_running">Bezig</string>
     <string name="state_waiting">Wacht op jou</string>
     <string name="state_done">Klaar</string>
