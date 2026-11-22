@@ -119,4 +119,34 @@ class ExtrasTest {
         assertEquals("900", Usage.tokens(900))
         assertEquals("$4.10", Usage.dollars(4.1))
     }
+
+    @Test
+    fun `the summary bar has one block per session, coloured by state, with a dot at its progress`() {
+        val summary = Summary.from(
+            listOf(
+                session("a", SessionState.Running, TaskStatus.Completed, TaskStatus.Completed, TaskStatus.InProgress, TaskStatus.Pending),
+                session("b", SessionState.Waiting, TaskStatus.Completed, TaskStatus.Pending),
+                session("c", SessionState.Running, TaskStatus.Completed, TaskStatus.Pending, pr = pr),
+            ),
+            muted = emptySet(),
+            nowMillis = now,
+        )
+        val bar = SummaryBar.from(summary, now)
+        assertEquals(listOf(SummaryBar.Kind.Waiting, SummaryBar.Kind.Working, SummaryBar.Kind.Holding), bar.blocks)
+        assertEquals(listOf(50, 150, 250), bar.points)
+        assertEquals(300, bar.max)
+    }
+
+    @Test
+    fun `a dot at the start or end of a session stays inside its block`() {
+        val summary = Summary.from(
+            listOf(
+                session("a", SessionState.Running, TaskStatus.InProgress, TaskStatus.Pending),
+                session("b", SessionState.Running, TaskStatus.Completed, TaskStatus.Completed),
+            ),
+            muted = emptySet(),
+            nowMillis = now,
+        )
+        assertEquals(listOf(10, 190), SummaryBar.from(summary, now).points)
+    }
 }

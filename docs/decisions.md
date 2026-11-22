@@ -201,3 +201,10 @@ hooks from before the reply tool was matched. The prompt hook now sends its inst
 and when the Worker answers that it is out of date, the hook runs `/install.sh` again; the new
 hooks apply from the next session start. Sessions with the old hook script can't update this way
 and only catch up when the environment rebuilds.
+
+## 2026-11-22: A visual summary notification
+Wim asked for a visual summary within what Live Updates allow. Of two mockups (one block per
+session, or every step in one bar) he chose one block per session: each block is coloured by
+state and carries a dot at the session's progress, so the one that needs him stands out. The bar
+stays full (`setStyledByProgress(false)`), so every block keeps its colour. Android may still
+adjust the colours for contrast.

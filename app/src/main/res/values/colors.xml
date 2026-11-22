@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Home screen shortcut icons: the middle stop of the app icon's gradient. -->
+    <!-- The summary notification's blocks: waiting for you (tertiary), working (primary), and
+         holding on CI, a reminder or helpers (outline). The night values sit on a dark shade. -->
+    <color name="summary_waiting">#5E6236</color>
+    <color name="summary_working">#B0502C</color>
+    <color name="summary_holding">#857B73</color>
+    <color name="summary_point">#1F1E1D</color>
 </resources>

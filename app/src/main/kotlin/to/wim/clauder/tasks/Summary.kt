@@ -24,6 +24,36 @@ data class Summary(
     }
 }
 
+/**
+ * The summary notification's progress bar: one block per active session, in [Summary.active]'s
+ * order (waiting first), coloured by what it is doing, with a dot at how far that session is.
+ */
+data class SummaryBar(val blocks: List<Kind>, val points: List<Int>) {
+    enum class Kind { Waiting, Working, Holding }
+
+    val max: Int get() = blocks.size * BLOCK
+
+    companion object {
+        const val BLOCK = 100
+
+        fun from(summary: Summary, nowMillis: Long): SummaryBar {
+            val blocks = summary.active.map { list ->
+                when {
+                    list.state == SessionState.Waiting -> Kind.Waiting
+                    LiveUpdate.holding(list, list.wakeAtMillis(nowMillis)) != null -> Kind.Holding
+                    else -> Kind.Working
+                }
+            }
+            // Kept off the block's edges, so a dot at 0 or at the end still reads as inside it.
+            val points = summary.active.mapIndexed { i, list ->
+                val part = if (list.items.isEmpty()) 0 else list.doneCount * BLOCK / list.items.size
+                i * BLOCK + part.coerceIn(BLOCK / 10, BLOCK - BLOCK / 10)
+            }
+            return SummaryBar(blocks, points)
+        }
+    }
+}
+
 /** Which notifications to show: one per session, or one summary plus the sessions that need you. */
 object NotificationPlan {
     /** True when [list] gets a notification of its own. In summary mode only a session waiting for
