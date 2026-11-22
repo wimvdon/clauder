@@ -120,7 +120,11 @@ object TaskNotifier {
                 .setProgressSegments(bar.blocks.map { NotificationCompat.ProgressStyle.Segment(SummaryBar.BLOCK).setColor(blockColor(context, it)) })
                 .setProgressPoints(bar.points.map { NotificationCompat.ProgressStyle.Point(it).setColor(context.getColor(R.color.summary_point)) })
                 .setProgress(bar.max)
-            notification.setStyle(style).setContentText(lines.joinToString("\n"))
+            // Collapsed is all a Live Update shows: the threads by name, in the blocks' order, and
+            // the steps done across them.
+            notification.setStyle(style)
+                .setContentText(summary.names.joinToString(" · "))
+                .setSubText(context.resources.getQuantityString(R.plurals.step_counts, summary.total, summary.done, summary.total))
         }
         try {
             manager.notify(SUMMARY_ID, notification.build())
@@ -310,9 +314,10 @@ object TaskNotifier {
                 .setProgressSegments(List(update.segmentCount) { NotificationCompat.ProgressStyle.Segment(LiveUpdate.SEGMENT_LENGTH) })
                 .setProgress(update.progress)
             update.pointPosition?.let { style.addProgressPoint(NotificationCompat.ProgressStyle.Point(it)) }
+            // A Live Update can't be expanded, so what matters fits on the one collapsed line: what
+            // Claude is on (or asks), then what it also waits on.
             builder.setStyle(style).setSubText(update.group?.let { "$it · $counts" } ?: counts)
-            val more = listOfNotNull(holding, next)
-            if (more.isNotEmpty()) builder.setContentText((listOf(text) + more).joinToString("\n"))
+                .setContentText(listOfNotNull(text, holding).joinToString(" · "))
         } else {
             update.group?.let { builder.setSubText(it) }
             builder.setProgress(update.max, update.progress, false)

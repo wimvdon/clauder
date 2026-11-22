@@ -149,4 +149,17 @@ class ExtrasTest {
         )
         assertEquals(listOf(10, 190), SummaryBar.from(summary, now).points)
     }
+
+    @Test
+    fun `the summary names the sessions in the bar's order, short enough to share one line`() {
+        val summary = Summary.from(
+            listOf(
+                session("a").copy(title = "Redesign app icons as a cohesive set"),
+                session("b", SessionState.Waiting).copy(title = "Icons"),
+            ),
+            muted = emptySet(),
+            nowMillis = now,
+        )
+        assertEquals(listOf("Icons", "Redesign app icons…"), summary.names)
+    }
 }
