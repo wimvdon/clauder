@@ -64,7 +64,7 @@ class SessionBoardTest {
     }
 
     @Test
-    fun `sections keep idle and finished sessions in their project, apart from the active ones`() {
+    fun `the board groups active sessions by project and puts every inactive one in one list`() {
         val running = list("a", 1, "5").copy(project = "Noter")
         val idle = list("b", 1, "4").copy(project = "Clauder", state = SessionState.Idle)
         val done = list("c", 1, "3").copy(project = "Noter", state = SessionState.Done)
@@ -72,13 +72,14 @@ class SessionBoardTest {
         val loose = list("e", 1, "1").copy(state = SessionState.Ended)
         val onlyIdle = list("f", 1, "6").copy(repo = "rss", state = SessionState.Idle)
         assertEquals(
-            listOf(
-                SessionBoard.Section("Noter", listOf(running), listOf(done)),
-                SessionBoard.Section("Clauder", listOf(waiting), listOf(idle)),
-                SessionBoard.Section("rss", emptyList(), listOf(onlyIdle)),
-                SessionBoard.Section(null, emptyList(), listOf(loose)),
+            SessionBoard.Board(
+                sections = listOf(
+                    SessionBoard.Section("Noter", listOf(running)),
+                    SessionBoard.Section("Clauder", listOf(waiting)),
+                ),
+                inactive = listOf(onlyIdle, idle, done, loose),
             ),
-            SessionBoard.sections(listOf(onlyIdle, running, idle, done, waiting, loose), nowMillis = 0),
+            SessionBoard.board(listOf(onlyIdle, running, idle, done, waiting, loose), nowMillis = 0),
         )
     }
 
@@ -91,49 +92,55 @@ class SessionBoardTest {
             steps = listOf(TaskItem("1", "Fix", TaskStatus.Completed), TaskItem("2", "Merge", TaskStatus.InProgress)),
             project = "Clauder",
         )
-        val section = SessionBoard.sections(listOf(working), now).single()
-        assertEquals(listOf(working.copy(state = SessionState.Running)), section.active)
-        assertEquals(emptyList<TaskList>(), section.inactive)
+        val board = SessionBoard.board(listOf(working), now)
+        assertEquals(listOf(working.copy(state = SessionState.Running)), board.sections.single().active)
+        assertEquals(emptyList<TaskList>(), board.inactive)
     }
 
     @Test
-    fun `inactive sessions start folded under one row per project, active ones stay in view`() {
+    fun `the inactive list sits below every project and starts folded`() {
         val running = list("a", 1, "5").copy(project = "Noter")
+        val waiting = list("d", 1, "4").copy(project = "Clauder", state = SessionState.Waiting)
         val done = list("c", 1, "3").copy(project = "Noter", state = SessionState.Done)
-        val idle = list("b", 1, "4").copy(project = "Noter", state = SessionState.Idle)
-        val sections = listOf(SessionBoard.Section("Noter", listOf(running), listOf(done, idle)))
-        assertEquals(
-            listOf(
-                SessionBoard.Row.Header("Noter", 3, open = true),
-                SessionBoard.Row.Active(running),
-                SessionBoard.Row.InactiveToggle("Noter", 2, open = false),
-            ),
-            SessionBoard.rows(sections, foldedGroups = emptySet(), openInactive = emptySet()),
+        val idle = list("b", 1, "2").copy(project = "rss", state = SessionState.Idle)
+        val board = SessionBoard.Board(
+            listOf(SessionBoard.Section("Noter", listOf(running)), SessionBoard.Section("Clauder", listOf(waiting))),
+            listOf(done, idle),
         )
         assertEquals(
             listOf(
-                SessionBoard.Row.Header("Noter", 3, open = true),
+                SessionBoard.Row.Header("Noter", 1, open = true),
                 SessionBoard.Row.Active(running),
-                SessionBoard.Row.InactiveToggle("Noter", 2, open = true),
+                SessionBoard.Row.Header("Clauder", 1, open = true),
+                SessionBoard.Row.Active(waiting),
+                SessionBoard.Row.InactiveHeader(2, open = false),
+            ),
+            SessionBoard.rows(board, foldedGroups = emptySet(), inactiveOpen = false),
+        )
+        assertEquals(
+            listOf(
+                SessionBoard.Row.Header("Noter", 1, open = false),
+                SessionBoard.Row.Header("Clauder", 1, open = true),
+                SessionBoard.Row.Active(waiting),
+                SessionBoard.Row.InactiveHeader(2, open = true),
                 SessionBoard.Row.Inactive(done),
                 SessionBoard.Row.Inactive(idle),
             ),
-            SessionBoard.rows(sections, foldedGroups = emptySet(), openInactive = setOf("Noter")),
+            SessionBoard.rows(board, foldedGroups = setOf("Noter"), inactiveOpen = true),
         )
     }
 
     @Test
-    fun `a folded project shows only its header, and a lone list without a project has none`() {
-        val running = list("a", 1, "5").copy(project = "Noter")
-        val loose = list("e", 1, "1").copy(state = SessionState.Ended)
-        val noter = SessionBoard.Section("Noter", listOf(running), emptyList())
+    fun `a lone list without a project has no header, and only inactive sessions show just the inactive list`() {
+        val loose = list("a", 1, "5")
+        val done = list("e", 1, "1").copy(project = "Noter", state = SessionState.Ended)
         assertEquals(
-            listOf(SessionBoard.Row.Header("Noter", 1, open = false)),
-            SessionBoard.rows(listOf(noter), foldedGroups = setOf("Noter"), openInactive = emptySet()),
+            listOf(SessionBoard.Row.Active(loose)),
+            SessionBoard.rows(SessionBoard.Board(listOf(SessionBoard.Section(null, listOf(loose))), emptyList()), emptySet(), false),
         )
         assertEquals(
-            listOf(SessionBoard.Row.InactiveToggle(null, 1, open = false)),
-            SessionBoard.rows(listOf(SessionBoard.Section(null, emptyList(), listOf(loose))), emptySet(), emptySet()),
+            listOf(SessionBoard.Row.InactiveHeader(1, open = false)),
+            SessionBoard.rows(SessionBoard.Board(emptyList(), listOf(done)), emptySet(), false),
         )
     }
 }

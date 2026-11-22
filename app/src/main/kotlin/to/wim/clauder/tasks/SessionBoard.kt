@@ -29,54 +29,49 @@ object SessionBoard {
         return if (rest.isEmpty()) named else named + (null to rest)
     }
 
-    /** One project (or repository) on the Tasks screen: what is working or waiting, and what is idle or finished. */
-    data class Section(val group: String?, val active: List<TaskList>, val inactive: List<TaskList>)
+    /** One project (or repository) on the Tasks screen, with its sessions that are working or waiting. */
+    data class Section(val group: String?, val active: List<TaskList>)
 
-    /** [groups] split into active and inactive sessions, with each session's state as shown at
-     * [nowMillis] (see [TaskList.shown]). Projects with something active come first; sessions
-     * without a project stay last. */
-    fun sections(lists: List<TaskList>, nowMillis: Long): List<Section> {
-        val all = groups(lists.map { it.shown(nowMillis) }).map { (group, members) ->
-            val (inactive, active) = members.partition { isInactive(it) }
-            Section(group, active, inactive)
-        }
-        val (named, rest) = all.partition { it.group != null }
-        return named.sortedBy { it.active.isEmpty() } + rest
+    /** The Tasks screen's content: projects with something working or waiting, and one list of
+     * every idle or finished session, whatever its project. */
+    data class Board(val sections: List<Section>, val inactive: List<TaskList>)
+
+    /** [lists] with each session's state as shown at [nowMillis] (see [TaskList.shown]): active
+     * sessions grouped by project (sessions without a project last), and all inactive sessions in
+     * one list, newest first. A project with only inactive sessions gets no section. */
+    fun board(lists: List<TaskList>, nowMillis: Long): Board {
+        val (inactive, active) = lists.map { it.shown(nowMillis) }.partition { isInactive(it) }
+        return Board(groups(active).map { (group, members) -> Section(group, members) }, inactive)
     }
 
     /** One line of the Tasks screen. */
     sealed interface Row {
-        /** A project's header; tapping it folds the whole project. */
+        /** A project's header; tapping it folds the project. */
         data class Header(val group: String?, val count: Int, val open: Boolean) : Row
 
         /** A session that is working or waiting for you, shown in full. */
         data class Active(val list: TaskList) : Row
 
-        /** "3 inactive" under a project's active sessions; tapping it shows or hides them. */
-        data class InactiveToggle(val group: String?, val count: Int, val open: Boolean) : Row
+        /** "Inactive" with a count, below every project; tapping it shows or hides the list. */
+        data class InactiveHeader(val count: Int, val open: Boolean) : Row
 
-        /** An idle or finished session, as one line. */
+        /** An idle or finished session, as one line with its project or repository above the title. */
         data class Inactive(val list: TaskList) : Row
     }
 
-    /** The Tasks screen, top to bottom. Projects start open and their inactive sessions start
-     * folded: [foldedGroups] holds the projects the user closed and [openInactive] the projects whose
-     * inactive sessions the user opened (by group name, "" for sessions without a project). */
-    fun rows(sections: List<Section>, foldedGroups: Set<String>, openInactive: Set<String>): List<Row> = sections.flatMap { section ->
-        val id = section.group.orEmpty()
-        val open = id !in foldedGroups
-        buildList {
+    /** The Tasks screen, top to bottom. Projects start open ([foldedGroups] holds the ones the user
+     * closed, by group name, "" for sessions without a project); the inactive list starts folded
+     * and shows only while [inactiveOpen]. */
+    fun rows(board: Board, foldedGroups: Set<String>, inactiveOpen: Boolean): List<Row> = buildList {
+        board.sections.forEach { section ->
+            val open = section.group.orEmpty() !in foldedGroups
             // A lone list of sessions without a project needs no header to fold it.
-            if (section.group != null || sections.size > 1) {
-                add(Row.Header(section.group, section.active.size + section.inactive.size, open))
-            }
-            if (!open) return@buildList
-            section.active.forEach { add(Row.Active(it)) }
-            if (section.inactive.isNotEmpty()) {
-                val showInactive = id in openInactive
-                add(Row.InactiveToggle(section.group, section.inactive.size, showInactive))
-                if (showInactive) section.inactive.forEach { add(Row.Inactive(it)) }
-            }
+            if (section.group != null || board.sections.size > 1) add(Row.Header(section.group, section.active.size, open))
+            if (open) section.active.forEach { add(Row.Active(it)) }
+        }
+        if (board.inactive.isNotEmpty()) {
+            add(Row.InactiveHeader(board.inactive.size, inactiveOpen))
+            if (inactiveOpen) board.inactive.forEach { add(Row.Inactive(it)) }
         }
     }
 

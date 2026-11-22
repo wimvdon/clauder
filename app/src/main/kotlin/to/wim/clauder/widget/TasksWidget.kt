@@ -105,18 +105,13 @@ class TasksWidget : GlanceAppWidget() {
                     )
                 }
             }
-            // Only what is working or waiting gets a card; idle and finished sessions fold into one
-            // line, as on the Tasks screen.
+            // Only what is working or waiting is shown; idle and finished sessions stay in the app.
             val sessions = SessionBoard.groups(active).flatMap { it.second }
             when {
                 !connected -> Message(context.getString(R.string.widget_connect))
-                sessions.isEmpty() && finished.isEmpty() -> Message(context.getString(R.string.widget_no_sessions))
-                sessions.isEmpty() -> Message(context.resources.getQuantityString(R.plurals.notification_inactive, finished.size, finished.size))
+                sessions.isEmpty() -> Message(context.getString(R.string.widget_no_sessions))
                 else -> LazyColumn {
                     items(sessions, itemId = { it.key.hashCode().toLong() }) { list -> Session(context, list, list.key in muted) }
-                    if (finished.isNotEmpty()) {
-                        item(itemId = INACTIVE_ROW_ID) { InactiveLine(context, finished.size) }
-                    }
                 }
             }
         }
@@ -138,20 +133,6 @@ class TasksWidget : GlanceAppWidget() {
                 }
             }
         }
-    }
-
-    /** "3 inactive sessions": opens the app, where they can be shown. */
-    @Composable
-    private fun InactiveLine(context: Context, count: Int) {
-        Text(
-            context.resources.getQuantityString(R.plurals.notification_inactive, count, count),
-            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
-            maxLines = 1,
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp)
-                .clickable(actionStartActivity<MainActivity>()),
-        )
     }
 
     @Composable
@@ -241,7 +222,6 @@ class TasksWidget : GlanceAppWidget() {
     }
 }
 
-private const val INACTIVE_ROW_ID = -1L
 
 class TasksWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TasksWidget()
