@@ -123,4 +123,20 @@
     <string name="action_change_alert">Modifier l’alerte</string>
     <string name="tasks_section_active">Actives</string>
     <string name="tasks_section_finished">Terminées récemment</string>
+    <string name="link_tester_title">Testeur de liens</string>
+    <string name="link_tester_summary">Essayez des façons d\'ouvrir l\'app Claude. Uniquement dans les versions de test.</string>
+    <string name="section_test_build">Version de test</string>
+    <string name="link_tester_custom">Votre lien</string>
+    <string name="link_tester_claude_only">Uniquement l\'app Claude</string>
+    <string name="action_try">Essayer</string>
+    <string name="link_tester_copy">Copier les résultats</string>
+    <string name="link_tester_app_version">App Claude %1$s</string>
+    <string name="link_tester_not_installed">L\'app Claude n\'est pas installée</string>
+    <string name="link_tester_opens">Ouvre %1$s</string>
+    <string name="link_tester_opens_closed">%1$s, fermé aux autres apps</string>
+    <string name="link_tester_no_match">Aucune app n\'ouvre ce lien</string>
+    <string name="link_tester_started">Ouvert</string>
+    <string name="link_tester_failed">Ouverture impossible : %1$s</string>
+    <string name="link_tester_activities">Écrans que d\'autres apps peuvent ouvrir</string>
+    <string name="action_back">Retour</string>
 </resources>
