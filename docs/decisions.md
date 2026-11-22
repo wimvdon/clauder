@@ -2,6 +2,18 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-22: Backend is a Cloudflare Worker fed by Claude Code HTTP hooks
+
+The live task list comes from Claude Code hooks (`hooks/settings.json`) that POST each task event
+to a Cloudflare Worker in `worker/` (TypeScript, Durable Objects for per-session state, deployed
+by the `Worker` workflow with Wrangler). Dev dependencies are only `wrangler`, `typescript` and
+`@cloudflare/workers-types`; tests use Node's built-in test runner, so no test framework is added.
+The milestone 1 spike (`docs/spike-hooks.md`) showed the hooks carry task text, ids and status but
+no list title. The Android app stays in `app/` at the repository root, where the template and its
+CI expect it, instead of moving to `android/` as the briefing sketched. Rejected: polling the
+Claude API (the app must never talk to Claude directly), and a third-party request bin for the
+spike (session data would leave our own accounts).
+
 ## 2026-11-01: Claude Code sessions don't build the APK before pushing
 
 Sessions ran `./gradlew testDebugUnitTest lintDebug assembleDebug` before every push, and CI then
