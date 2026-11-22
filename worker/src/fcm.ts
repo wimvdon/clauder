@@ -66,7 +66,9 @@ export class FcmClient {
   private readonly sa: ServiceAccount;
   private readonly fetcher: typeof fetch;
 
-  constructor(sa: ServiceAccount, fetcher: typeof fetch = fetch) {
+  // The default calls fetch as a plain function: Workers throw "Illegal invocation" when fetch
+  // runs with another `this`, as it would when called as this.fetcher(...).
+  constructor(sa: ServiceAccount, fetcher: typeof fetch = (input, init) => fetch(input, init)) {
     this.sa = sa;
     this.fetcher = fetcher;
   }

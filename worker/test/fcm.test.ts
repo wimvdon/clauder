@@ -78,3 +78,20 @@ test("a failed Google sign-in says why", async () => {
     new Response('{"error":"invalid_grant","error_description":"Invalid JWT Signature."}', { status: 400 })) as unknown as typeof fetch;
   await assert.rejects(new FcmClient(sa, fake).send("device-token", {}), /400 .*invalid_grant/);
 });
+
+test("the default fetcher calls fetch as a plain function, as Workers require", async () => {
+  const original = globalThis.fetch;
+  const thisValues: unknown[] = [];
+  globalThis.fetch = function (this: unknown, input: RequestInfo | URL) {
+    thisValues.push(this);
+    if (String(input).includes("oauth2")) return Promise.resolve(Response.json({ access_token: "at", expires_in: 3600 }));
+    return Promise.resolve(new Response("{}"));
+  } as typeof fetch;
+  try {
+    assert.equal(await new FcmClient(sa).send("t", {}), "sent");
+  } finally {
+    globalThis.fetch = original;
+  }
+  assert.equal(thisValues.length, 2);
+  assert.ok(thisValues.every((t) => t === undefined || t === globalThis));
+});
