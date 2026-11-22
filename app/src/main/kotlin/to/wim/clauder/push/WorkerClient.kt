@@ -29,6 +29,10 @@ class WorkerClient(private val baseUrl: String, private val token: String) {
 
     suspend fun sessions(): Result<List<TaskList>> = call("GET", "/sessions", null) { TaskList.listFromJson(it) }
 
+    /** Marks a session's thread resolved, as the person did in the Claude app. */
+    suspend fun resolve(key: String): Result<Boolean> =
+        call("POST", "/sessions/resolve", JSONObject().put("key", key).toString()) { JSONObject(it).optBoolean("resolved") }
+
     suspend fun sendTest(): Result<TestResult> = call("POST", "/test", "{}") {
         val o = JSONObject(it)
         TestResult(o.optInt("sent"), o.optInt("devices"), o.optBoolean("fcmConfigured"))

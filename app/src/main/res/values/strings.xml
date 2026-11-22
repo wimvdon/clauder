@@ -94,6 +94,7 @@
     <string name="widget_no_sessions">No sessions right now</string>
     <string name="session_muted">Muted</string>
     <string name="action_mute">Mute</string>
+    <string name="action_resolve">Mark resolved</string>
     <string name="action_unmute">Unmute</string>
     <string name="waiting_alert">Alert when Claude waits</string>
     <string name="waiting_alert_body">Choose the sound, vibration and pop-up for “Waiting for you”.</string>

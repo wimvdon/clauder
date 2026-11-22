@@ -6,6 +6,7 @@
 //   POST   /devices          {"token": "<FCM token>", "name": "Pixel"} registers a phone
 //   DELETE /devices          {"token": "<FCM token>"} unregisters it
 //   GET    /sessions         task lists of sessions changed in the last day, newest first
+//   POST   /sessions/resolve {"key": "cse_…"} the person marked the thread resolved on the phone
 //   POST   /test             sends a demo task list to every phone
 //   GET    /log, DELETE /log raw hook payloads, for debugging (last 500)
 
@@ -14,7 +15,7 @@ import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
 import { HOOKS_VERSION, installScript } from "./install";
 import { readTurn, type AskModel } from "./ask";
-import { applyAsk, applyHook, emptyList, sessionKey, toPushData, type SessionList } from "./tasklist";
+import { applyAsk, applyHook, emptyList, resolveByUser, sessionKey, toPushData, type SessionList } from "./tasklist";
 
 export interface Env {
   HOOK_TOKEN: string;
@@ -85,6 +86,18 @@ export class Session extends DurableObject<Env> {
     if (next.seq !== base.seq) await this.schedulePush(asking ? ASK_WAIT_MS : PUSH_DEBOUNCE_MS);
     if (asking) this.ctx.waitUntil(this.checkAsk(next.seq, next.askCheck!));
     return next;
+  }
+
+  /** Marks the thread resolved for the person (see [resolveByUser]). False when the session is
+   * unknown or already resolved. */
+  async resolve(): Promise<boolean> {
+    const list = await this.ctx.storage.get<SessionList>("list");
+    if (!list) return false;
+    const next = resolveByUser(list, new Date().toISOString());
+    if (!next) return false;
+    await this.ctx.storage.put("list", next);
+    await this.schedulePush(PUSH_DEBOUNCE_MS);
+    return true;
   }
 
   /** Has the model read the turn's last reply: its summary line, and whether it asks the user. */
@@ -316,6 +329,13 @@ export default {
 
     if (route === "GET /sessions") {
       return json(await hub(env).sessions());
+    }
+
+    if (route === "POST /sessions/resolve") {
+      const body = await readJson(request);
+      const key = body?.key;
+      if (typeof key !== "string" || sessionKey(null, { session_id: key }) !== key) return json({ error: "key missing" }, 400);
+      return json({ resolved: await env.SESSION.get(env.SESSION.idFromName(key)).resolve() });
     }
 
     if (route === "POST /test") {

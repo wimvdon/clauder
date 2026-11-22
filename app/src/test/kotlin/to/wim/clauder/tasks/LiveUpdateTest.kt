@@ -47,6 +47,8 @@ class LiveUpdateTest {
         assertFalse(update.ongoing)
         assertFalse(update.requestPromotion)
         assertFalse(update.silent)
+        // No progress bar or chip, so it doesn't look like a second Live Update.
+        assertTrue(update.plain)
         // Not tucked into the shade's bundle of inactive sessions.
         assertNull(update.bundle)
     }
@@ -54,8 +56,14 @@ class LiveUpdateTest {
     @Test
     fun `the summary setting leaves working sessions live`() {
         val update = LiveUpdate.from(list(SessionState.Running, TaskStatus.InProgress), summaryMode = true)!!
+        assertFalse(update.plain)
         assertTrue(update.ongoing)
         assertTrue(update.requestPromotion)
+    }
+
+    @Test
+    fun `without the summary, waiting for you keeps its progress bar`() {
+        assertFalse(LiveUpdate.from(list(SessionState.Waiting, TaskStatus.Pending))!!.plain)
     }
 
     @Test

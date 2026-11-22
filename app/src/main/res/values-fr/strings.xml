@@ -92,6 +92,7 @@
     <string name="widget_no_sessions">Aucune session pour l’instant</string>
     <string name="session_muted">Son coupé</string>
     <string name="action_mute">Couper le son</string>
+    <string name="action_resolve">Marquer résolu</string>
     <string name="action_unmute">Réactiver le son</string>
     <string name="waiting_alert">Alerte quand Claude attend</string>
     <string name="waiting_alert_body">Choisissez le son, la vibration et la fenêtre pour « Vous attend ».</string>

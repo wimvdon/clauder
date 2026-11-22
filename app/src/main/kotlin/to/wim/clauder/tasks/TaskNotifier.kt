@@ -282,24 +282,38 @@ object TaskNotifier {
             .setOngoing(update.ongoing)
             .setAutoCancel(!update.ongoing)
             .setShowWhen(false)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            .setShortCriticalText(
+            .setCategory(if (update.plain) NotificationCompat.CATEGORY_REMINDER else NotificationCompat.CATEGORY_PROGRESS)
+            .setRequestPromotedOngoing(update.requestPromotion)
+        if (!update.plain) {
+            builder.setShortCriticalText(
                 if (update.status == LiveUpdate.Status.Done) context.getString(R.string.state_done)
                 else context.getString(R.string.notification_short, update.done, update.total),
             )
-            .setRequestPromotedOngoing(update.requestPromotion)
+        }
         update.group?.let { builder.setSortKey(it) }
         update.bundle?.let { builder.setGroup(it) }
         update.timeoutMs?.let { builder.setTimeoutAfter(it) }
-        if (update.status != LiveUpdate.Status.Done) {
-            val mute = PendingIntent.getBroadcast(
+        val waiting = update.status == LiveUpdate.Status.Waiting
+        // A thread that waits for you can be marked resolved here: resolving it in the Claude app
+        // doesn't reach Clauder.
+        if (waiting) {
+            val resolve = PendingIntent.getBroadcast(
                 context,
-                id,
-                Intent(context, MuteReceiver::class.java).putExtra(MuteReceiver.EXTRA_KEY, key),
+                id * 31 + 3,
+                Intent(context, ResolveReceiver::class.java).putExtra(ResolveReceiver.EXTRA_KEY, key),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            builder.addAction(R.drawable.ic_notifications_off, context.getString(R.string.action_mute), mute)
+            builder.addAction(R.drawable.ic_check_circle, context.getString(R.string.action_resolve), resolve)
         }
+        val mute = PendingIntent.getBroadcast(
+            context,
+            id,
+            Intent(context, MuteReceiver::class.java).putExtra(MuteReceiver.EXTRA_KEY, key),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        // A plain alert is swiped away instead of muted.
+        val muteButton = update.status != LiveUpdate.Status.Done && !update.plain
+        if (muteButton && !waiting) builder.addAction(R.drawable.ic_notifications_off, context.getString(R.string.action_mute), mute)
         // Up to two more buttons: the page Claude attached, then its pull request.
         update.linkUrl?.let { url ->
             val title = update.linkTitle?.let { context.getString(R.string.action_open_named, it) } ?: context.getString(R.string.action_open_link)
@@ -308,8 +322,13 @@ object TaskNotifier {
         update.prUrl?.let { url ->
             builder.addAction(R.drawable.ic_open_in_new, context.getString(R.string.action_open_pr, update.prNumber ?: 0), linkIntent(context, id * 31 + 2, url))
         }
+        if (muteButton && waiting) builder.addAction(R.drawable.ic_notifications_off, context.getString(R.string.action_mute), mute)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+        if (update.plain) {
+            // Not a Live Update: no progress bar and no status bar chip, just what Claude needs.
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
+            update.group?.let { builder.setSubText(it) }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             val style = NotificationCompat.ProgressStyle()
                 .setStyledByProgress(true)
                 .setProgressSegments(List(update.segmentCount) { NotificationCompat.ProgressStyle.Segment(LiveUpdate.SEGMENT_LENGTH) })

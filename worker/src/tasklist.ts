@@ -523,6 +523,17 @@ export function applyAsk(list: SessionList, seq: number, read: TurnRead | null, 
   return shown ? { ...next, seq: list.seq + 1, updatedAt: now } : next;
 }
 
+/**
+ * The person marked the thread resolved on the phone. Resolving a thread by hand in the Claude app
+ * sends no hook event, so this is the only way the Worker learns of it. Like set_thread_resolved,
+ * the next message from the person reopens the thread. Returns null when nothing changes.
+ */
+export function resolveByUser(list: SessionList, now: string): SessionList | null {
+  if (list.resolved || list.state === "ended") return null;
+  const { need: _need, needKind: _needKind, askCheck: _askCheck, ...rest } = list;
+  return { ...rest, state: "done", resolved: true, seq: list.seq + 1, updatedAt: now };
+}
+
 export interface Progress {
   done: number;
   total: number;

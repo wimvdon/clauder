@@ -89,6 +89,7 @@
     <string name="widget_no_sessions">Op dit moment geen sessies</string>
     <string name="session_muted">Gedempt</string>
     <string name="action_mute">Dempen</string>
+    <string name="action_resolve">Markeer opgelost</string>
     <string name="action_unmute">Dempen opheffen</string>
     <string name="waiting_alert">Melding als Claude wacht</string>
     <string name="waiting_alert_body">Kies het geluid, de trilling en de pop-up voor ‘Wacht op jou’.</string>

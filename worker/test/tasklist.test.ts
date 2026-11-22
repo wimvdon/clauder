@@ -6,6 +6,7 @@ import {
   clip,
   emptyList,
   progress,
+  resolveByUser,
   sessionKey,
   titleFromCwd,
   toPushData,
@@ -494,6 +495,31 @@ test("resolving finishes the thread, a new message reopens it", () => {
   assert.equal(ci.state, "done");
   assert.equal(ci.resolved, true);
   assert.equal(run([prompt("other"), { hook_event_name: "Stop" }], list).state, "done");
+});
+
+test("a thread resolved on the phone is done until the person writes again", () => {
+  // Every step done and a reply, then nothing armed: the thread waits for the person.
+  const waiting = run([
+    { hook_event_name: "UserPromptSubmit", clauder: { project: "Content", thread: "Icon board", source: "wake:mention" } },
+    checklist("Plan\n\n✓ One\n✓ Two"),
+    reply("Ready for review"),
+    { hook_event_name: "Stop" },
+  ]);
+  assert.equal(waiting.state, "waiting");
+  const resolved = resolveByUser(waiting, NOW)!;
+  assert.equal(resolved.state, "done");
+  assert.equal(resolved.resolved, true);
+  assert.equal(resolved.need, undefined);
+  assert.equal(resolved.seq, waiting.seq + 1);
+  assert.equal(toPushData(resolved).state, "done");
+  // Resolving twice, or a closed session, changes nothing.
+  assert.equal(resolveByUser(resolved, NOW), null);
+  assert.equal(resolveByUser({ ...waiting, state: "ended" }, NOW), null);
+  // The pause between wakes and background events keep it done; the person's message reopens it.
+  const prompt = (source: string) => ({ hook_event_name: "UserPromptSubmit", clauder: { source } });
+  assert.equal(run([{ hook_event_name: "SessionEnd", reason: "other" }], resolved).state, "done");
+  assert.equal(run([prompt("notification"), { hook_event_name: "Stop" }], resolved).state, "done");
+  assert.equal(run([prompt("wake:mention")], resolved).resolved, undefined);
 });
 
 test("the last reply's link, the helpers and the usage reach the phone", () => {
