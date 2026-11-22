@@ -347,3 +347,12 @@ other shell commands out), one retry, and a level instead of the installer's has
 edit no longer makes every live session Idle. Threads on hooks from before the self-update show a
 message to paste into the thread; the Worker doesn't inject instructions into Claude's context
 itself.
+
+## 2026-11-22: The status bar chip says what is going on
+
+Wim's Pixel Watch showed the summary Live Update as "Clauder" with just "1". Wear OS 7 shows a
+bridged Live Update in its tray as the app name plus the status bar chip, and the phone and watch
+share that one text, so the chip now uses words: "1 waiting" when any session waits for you, else
+"2 working" (it was "3 · 1?"). A session's own chip stays "3/5" while working and says "Waiting"
+when it waits. With one active session, the summary's line says what that session is doing
+instead of only its project, which is also what the watch shows when the Live Update is opened.
