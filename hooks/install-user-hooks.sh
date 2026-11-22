@@ -17,7 +17,7 @@ except Exception:
 # from an older installer. The Worker says so when the version below is out of date, and the
 # prompt hook then runs the installer again; the new hooks apply from the next session start.
 prompt = os.path.expanduser("~/.claude/clauder-prompt.py")
-open(prompt, "w").write(r'''import json, os, re, subprocess, sys, urllib.request
+open(prompt, "w").write(r'''import json, os, re, subprocess, sys, urllib.error, urllib.request
 VERSION = "__HOOKS_VERSION__"
 try:
     body = json.load(sys.stdin)
@@ -92,26 +92,35 @@ req = urllib.request.Request("https://clauder.wim-d57.workers.dev/hook", data=js
     # The version of the hook settings this session loaded at its start (the command passes it).
     "X-Clauder-Hooks-Loaded": sys.argv[1] if len(sys.argv) > 1 else "",
     "Content-Type": "application/json", "User-Agent": "clauder-hook/1"})
-try:
-    with urllib.request.urlopen(req, timeout=5) as resp:
-        resp.read()
-        outdated = resp.headers.get("X-Clauder-Update") == "1"
-    if outdated and body.get("hook_event_name") == "UserPromptSubmit":
+# A second try when the Worker can't be reached: a lost Stop would leave the thread Working.
+outdated = False
+for attempt in range(2):
+    try:
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            resp.read()
+            outdated = resp.headers.get("X-Clauder-Update") == "1"
+        break
+    except urllib.error.HTTPError:
+        break
+    except Exception:
+        pass
+if outdated and body.get("hook_event_name") == "UserPromptSubmit":
+    try:
         subprocess.Popen("curl -fsS https://clauder.wim-d57.workers.dev/install.sh | bash", shell=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-except Exception:
-    pass
+    except Exception:
+        pass
 ''')
 h = {"type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "timeout": 5,
      "headers": {"Authorization": "Bearer $CLAUDER_HOOK_TOKEN",
                  "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID",
-                 "X-Clauder-Hooks-Loaded": "__HOOKS_VERSION__"},
+                 "X-Clauder-Hooks-Loaded": "__HOOKS_LEVEL__"},
      "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"]}
 tools = ("TaskCreate|TaskUpdate|TodoWrite|ReadNotifications|mcp__hearthbot__update_progress_checklist"
          "|mcp__hearthbot__request_decision|mcp__hearthbot__close_decision|mcp__hearthbot__post_message"
          "|mcp__hearthbot__set_thread_resolved|mcp__claude-code-remote__send_later"
          "|mcp__claude-code-remote__subscribe_pr_activity|mcp__claude-code-remote__unsubscribe_pr_activity|mcp__claude-code-remote__watch_url|mcp__claude-code-remote__unwatch_url|mcp__github__create_pull_request"
-         "|mcp__github__merge_pull_request|mcp__github__pull_request_read|mcp__github__update_pull_request")
+         "|mcp__github__merge_pull_request|mcp__github__pull_request_read|mcp__github__update_pull_request|mcp__github__push_files")
 events = {"TaskCreated": None, "TaskCompleted": None, "PostToolUse": tools,
           "Notification": None, "SessionEnd": None}
 hooks = d.setdefault("hooks", {})
@@ -122,9 +131,12 @@ for name, matcher in events.items():
     if matcher:
         entry["matcher"] = matcher
     hooks[name] = [x for x in hooks.get(name, []) if not ours(x)] + [entry]
-# Settings load once, at session start: the version in the command and in the headers above says
-# which hooks the session really runs, even after the script file was replaced.
-cmd = {"type": "command", "command": "python3 ~/.claude/clauder-prompt.py __HOOKS_VERSION__", "timeout": 10}
+# A git push to a pull request's branch starts its CI again. Only git push commands are sent.
+hooks["PostToolUse"].append({"matcher": "Bash", "hooks": [dict(h, **{"if": "Bash(git push*)"})]})
+# Settings load once, at session start: the level in the command and in the headers above says
+# which hooks the session really runs, even after the script file was replaced. The level goes up
+# only when the events the hooks send change, so other edits don't make live sessions look old.
+cmd = {"type": "command", "command": "python3 ~/.claude/clauder-prompt.py __HOOKS_LEVEL__", "timeout": 12}
 for name in ("UserPromptSubmit", "Stop"):
     hooks[name] = [x for x in hooks.get(name, []) if not ours(x)] + [{"hooks": [cmd]}]
 json.dump(d, open(p, "w"), indent=1)

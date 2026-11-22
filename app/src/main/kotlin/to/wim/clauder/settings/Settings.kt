@@ -53,4 +53,8 @@ object WorkerUrl {
 object HookSetup {
     fun script(workerHost: String): String =
         "curl -fsS https://$workerHost/install.sh | bash || echo \"WARN: Clauder hooks not installed\""
+
+    /** The command that updates the hooks in a container that already runs: a thread on old hooks
+     * can't update them itself, so the person asks Claude in it to run this once. */
+    fun update(workerHost: String): String = "curl -fsS https://$workerHost/install.sh | bash"
 }

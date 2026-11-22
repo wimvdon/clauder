@@ -44,6 +44,7 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 | `PostToolUse` on `post_message` | A project thread replies: the first link it attaches. Its text is not read |
 | `PostToolUse` on the GitHub PR tools, `subscribe_pr_activity`, `ReadNotifications` | The pull request Claude works on and its CI: waiting on CI counts as working |
 | `PostToolUse` on `send_later`, `watch_url`, `unwatch_url`, `unsubscribe_pr_activity`, `set_thread_resolved` | A reminder Claude set (working until then), and a resolved thread (done) |
+| `PostToolUse` on `Bash` with `"if": "Bash(git push*)"`, and `mcp__github__push_files` | Claude pushed to its pull request, so CI runs again: working, not waiting for you. Only `git push` commands are sent |
 | `TaskCompleted` | A task was marked done |
 | `UserPromptSubmit` (user-level install only) | Claude starts working again. This is a small script (`~/.claude/clauder-prompt.py`) that also reads the project's and the thread's name from the session transcript and sends them along |
 | `Stop` (user-level install: the same script as the prompt hook) | Claude finished its turn: "Running" while something it set up will wake it (a reminder, a cron, CI on a subscribed PR, a watched URL, helpers), else "Waiting for you". The script adds the tokens used per model, read from the transcript |
@@ -51,8 +52,9 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 | `SessionEnd` | The session closed (a project thread that stops between wakes only pauses) |
 
 Claude Code loads these settings once, at session start. The hook command and the HTTP hooks'
-headers carry the installer version (`X-Clauder-Hooks-Loaded`), so the Worker knows which hooks a
-session really runs. A session on older settings can't report every wake source, so after its turn
+headers carry the hooks' level (`X-Clauder-Hooks-Loaded`, such as `L2`), so the Worker knows which
+hooks a session really runs. The level goes up only when the events change
+(`worker/src/hooks-level.txt`). A session on older settings can't report every wake source, so after its turn
 it shows Idle instead of Waiting for you. `hooks/settings.json` doesn't carry the version, so
 sessions that use it also show Idle.
 

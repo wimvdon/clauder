@@ -177,4 +177,14 @@ class TaskListTest {
         assertFalse(session(SessionState.Ended, "x", TaskStatus.Completed).endedEarly)
         assertFalse(session(SessionState.Idle, "x", TaskStatus.Pending).endedEarly)
     }
+
+    @Test
+    fun `old hook settings come with the push and survive the cache`() {
+        val old = TaskList.fromPushData(push() + ("hooks" to "old"))!!
+        assertTrue(old.oldHooks)
+        assertFalse(TaskList.fromPushData(push() + ("hooks" to ""))!!.oldHooks)
+        assertTrue(TaskList.listFromJson(TaskList.listToJson(listOf(old))).single().oldHooks)
+        val current = TaskList.fromPushData(push())!!
+        assertFalse(TaskList.listFromJson(TaskList.listToJson(listOf(current))).single().oldHooks)
+    }
 }

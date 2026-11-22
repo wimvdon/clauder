@@ -30,19 +30,33 @@ Clauder shows the task list of every running Claude Code session on the phone.
   A project thread's session stops between wakes (`SessionEnd` reason "other") and pauses:
   watches, crons and helpers end with the session, while a reminder and a PR subscription live on
   the server, so without those the thread waits on the user. Every wake (a message, a CI event, a
-  reminder) is a new prompt and makes the session Running again. **Idle** means nothing known is
+  reminder) is a new prompt and makes the session Running again, except that an open decision card
+  or a question from the reply check stays Waiting for you through wakes the person didn't cause
+  (CI events, reminders): only a person's message, a decision tap, a coordinator message or
+  `close_decision` ends it. **Idle** means nothing known is
   armed but the Worker can't tell: Claude Code loads hook settings once, at session start, so a
-  session started before the installer last changed may set up a wake the Worker never hears of.
-  The hooks say which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's
-  argument and the HTTP hooks' headers); only a session on the current version can be Waiting for
-  you this way.
+  session started with older settings may set up a wake the Worker never hears of. The hooks say
+  which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's argument and the
+  HTTP hooks' headers): a level (`L2`, from `worker/src/hooks-level.txt`) that goes up only when the
+  events the hooks send change, so other installer edits don't make live sessions look old
+  (`worker/src/hooks.ts`; the hash `5ba5b56f378b` from before levels counts as level 1). Sessions
+  on settings without the header are pushed with `hooks: "old"`, and the phone shows them with a
+  message to paste into the thread that has Claude run the installer once.
+  A thread whose checklist was already complete when the person wrote again stays Running until
+  the checklist changes (`staleFinish`), instead of Done. The one-line summary stays through
+  background wakes (CI, reminders) and is cleared only by the person's message.
+  **CI after a push:** a PostToolUse hook with `"if": "Bash(git push*)"` (only `git push` commands
+  reach the Worker) and `mcp__github__push_files` set the followed open PR's CI back to running.
+  Any `check_suite.*`, `check_run.*` or `workflow_run.*` event with a failed conclusion marks it
+  failed.
   **Reply check:** a turn can end both waiting on CI (or a reminder, a watched URL, helpers) and
   asking the user something, such as "Pick one: T1, T2 or T3". When a turn ends Running or Idle,
   the Worker sends the end of the turn's last reply (the last `post_message` text, else Stop's
   `last_assistant_message`) to Cloudflare Workers AI (`worker/src/ask.ts`, binding `AI`). If the
   model answers that the reply waits on the user, the session becomes Waiting for you with the
-  question as `need`. The answer only counts for the turn it read (the list's `seq` must not have
-  moved on); if the model fails, nothing changes. The reply text is kept in the Durable Object only
+  question as `need`. The answer only counts for the turn it read (the reply it read must still be
+  the one waiting, until the next prompt; other events in between don't drop it); if the model
+  fails, nothing changes. The reply text is kept in the Durable Object only
   until the turn ends and never goes to the phone or `/sessions`.
   The phone also shows a Running session that has been silent for 12 hours as Idle
   (`TaskList.shown`).
@@ -118,7 +132,14 @@ Clauder shows the task list of every running Claude Code session on the phone.
   the button tells the Worker (`POST /sessions/resolve`, `resolveByUser` in `worker/src/tasklist.ts`):
   the thread is Done until the person writes in it again, exactly as after `set_thread_resolved`.
 - **Waiting alert:** "Waiting for you" uses its own channel (`waiting`, default importance), so it
-  can alert while progress stays quiet. Settings opens that channel's system settings.
+  can alert while progress stays quiet. Settings opens that channel's system settings. It sounds
+  once per wait (`NotificationPlan.alertsAgain`): later pushes while the thread keeps waiting with
+  the same question update it silently, and a plain alert the person swiped away stays away.
+- **Push delivery:** FCM messages keep for a day with a collapse key per session, so a phone that
+  was offline gets each session's newest state. `seq` is never lower than the time in
+  milliseconds (`nextSeq`), so a session the Worker forgot after a quiet day still counts as newer
+  on the phone. If a push fails, the alarm keeps it due, so Cloudflare's retry sends it instead of
+  forgetting the session.
 - **Session cache:** `push/Push.record` merges every push and fetch into the newest 20 sessions
   (`SessionBoard.keep`) and saves them, because a push can start the app from cold.
 - **Screens:** Tasks (the sessions from the Worker's `GET /sessions`, kept up to date by pushes,

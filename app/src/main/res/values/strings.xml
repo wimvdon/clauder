@@ -141,4 +141,7 @@
         <item quantity="one">%d helper working</item>
         <item quantity="other">%d helpers working</item>
     </plurals>
+    <string name="old_hooks_note">This thread runs old hooks, so Clauder can\'t always tell whether it waits for you. Paste the message below into the thread once to update them.</string>
+    <string name="old_hooks_copy">Copy the fix</string>
+    <string name="old_hooks_message">Please run this once to update the Clauder hooks in this container, then carry on: %1$s</string>
 </resources>

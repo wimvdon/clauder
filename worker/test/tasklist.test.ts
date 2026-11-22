@@ -58,7 +58,7 @@ test("the real event sequence from the spike builds the list", () => {
 test("duplicate events don't bump seq", () => {
   const once = run([created("1", "a")]);
   assert.equal(applyHook(once, createTool("1", "a"), NOW), null);
-  assert.equal(once.seq, 1);
+  assert.equal(once.seq, Date.parse(NOW));
 });
 
 test("all tasks completed means done", () => {
@@ -389,7 +389,7 @@ const read = (question: string, summary = "") => ({ question, summary });
 test("the model's question marks a working thread waiting, only for the turn it read", () => {
   const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
   const list = run([checklist(PLAN_DONE_BUT_ONE), reply("CI runs. Pick one: T1, T2 or T3."), later, { hook_event_name: "Stop" }]);
-  const waiting = applyAsk(list, list.seq, read("Pick T1, T2 or T3", "CI running, pick T1-T3"), NOW);
+  const waiting = applyAsk(list, list.askCheck!, read("Pick T1, T2 or T3", "CI running, pick T1-T3"), NOW);
   assert.equal(waiting?.state, "waiting");
   assert.equal(waiting?.need, "Pick T1, T2 or T3");
   assert.equal(waiting?.needKind, "question");
@@ -400,14 +400,14 @@ test("the model's question marks a working thread waiting, only for the turn it 
   assert.equal(toPushData(waiting!).summary, "CI running, pick T1-T3");
   // Asks nothing and no summary, or the model failed: the state stays, the check is done.
   for (const answer of [read(""), null]) {
-    const same = applyAsk(list, list.seq, answer, NOW);
+    const same = applyAsk(list, list.askCheck!, answer, NOW);
     assert.equal(same?.state, "running");
     assert.equal(same?.seq, list.seq);
     assert.equal(same?.askCheck, undefined);
   }
   // A late answer for an earlier turn is dropped.
   const next = run([{ hook_event_name: "UserPromptSubmit" }], list);
-  assert.equal(applyAsk(next, list.seq, read("Pick one"), NOW), null);
+  assert.equal(applyAsk(next, list.askCheck!, read("Pick one"), NOW), null);
   // The next prompt ends the wait and drops the summary.
   const prompted = run([{ hook_event_name: "UserPromptSubmit" }], waiting!);
   assert.equal(prompted.state, "running");
@@ -416,17 +416,17 @@ test("the model's question marks a working thread waiting, only for the turn it 
 
 test("a summary alone is pushed; a waiting thread gets the question, a resolved one doesn't wait", () => {
   const working = run([checklist(PLAN_DONE_BUT_ONE), reply("PR #5 is open, CI runs."), tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" }), { hook_event_name: "Stop" }]);
-  const summed = applyAsk(working, working.seq, read("", "PR #5 open, CI running"), NOW);
+  const summed = applyAsk(working, working.askCheck!, read("", "PR #5 open, CI running"), NOW);
   assert.equal(summed?.state, "running");
   assert.equal(summed?.summary, "PR #5 open, CI running");
   assert.equal(summed?.seq, working.seq + 1);
   const waits = run([checklist(PLAN_DONE_BUT_ONE), reply("Which font?"), { hook_event_name: "Stop" }]);
-  assert.equal(applyAsk(waits, waits.seq, read("Which font?"), NOW)?.need, "Which font?");
+  assert.equal(applyAsk(waits, waits.askCheck!, read("Which font?"), NOW)?.need, "Which font?");
   const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Which colour?" }, tool_response: {} };
   const card = run([checklist(PLAN_DONE_BUT_ONE), decision, reply("Card is up."), { hook_event_name: "Stop" }]);
-  assert.equal(applyAsk(card, card.seq, read("Pick a colour"), NOW)?.need, "Which colour?");
+  assert.equal(applyAsk(card, card.askCheck!, read("Pick a colour"), NOW)?.need, "Which colour?");
   const resolved = run([checklist(PLAN_DONE_BUT_ONE), reply("All done. Anything else?"), tool("mcp__hearthbot__set_thread_resolved", { resolved: true }), { hook_event_name: "Stop" }]);
-  const after = applyAsk(resolved, resolved.seq, read("Anything else?", "Merged and released"), NOW);
+  const after = applyAsk(resolved, resolved.askCheck!, read("Anything else?", "Merged and released"), NOW);
   assert.equal(after?.state, "done");
   assert.equal(after?.summary, "Merged and released");
 });
@@ -539,4 +539,101 @@ test("the last reply's link, the helpers and the usage reach the phone", () => {
   assert.equal(data.helpers, "2");
   assert.equal(data.tokens, "1000000");
   assert.equal(data.cost, "2");
+});
+
+test("a CI or reminder wake keeps an open decision card or question waiting", () => {
+  // From the Worker log (22 nov 2026): a card went up, and a GitHub event woke the thread 7
+  // seconds later, before the person had answered.
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Add a summary?" }, tool_response: {} };
+  const wake = (source: string) => ({ hook_event_name: "UserPromptSubmit", clauder: { source } });
+  const stop = { hook_event_name: "Stop" };
+  const card = run([checklist(PLAN_DONE_BUT_ONE), decision, stop, wake("notification"), tool("ReadNotifications", {}), stop]);
+  assert.equal(card.state, "waiting");
+  assert.equal(card.needKind, "decision");
+  assert.equal(card.need, "Add a summary?");
+  assert.equal(run([wake("wake:decision-chosen")], card).state, "running");
+  assert.equal(run([wake("wake:mention")], card).state, "running");
+  // Claude may still close the card itself.
+  assert.equal(run([wake("notification"), tool("mcp__hearthbot__close_decision", {}), stop], card).state, "waiting");
+  assert.equal(run([wake("notification"), tool("mcp__hearthbot__close_decision", {})], card).state, "running");
+
+  // A question the model read in the last reply is kept the same way.
+  const asked = run([checklist(PLAN_DONE_BUT_ONE), reply("Shall I release?"), stop]);
+  const question = applyAsk(asked, asked.askCheck!, { question: "Shall I release?", summary: "" }, NOW)!;
+  assert.equal(question.needKind, "question");
+  const later = run([wake("notification"), checklist("Plan\n\n✓ One\n✱ Two"), stop], question);
+  assert.equal(later.state, "waiting");
+  assert.equal(later.need, "Shall I release?");
+  assert.equal(run([wake("relay")], question).state, "running");
+  // A permission prompt is answered within its turn, so a new prompt ends it.
+  const permission = run([checklist(PLAN_DONE_BUT_ONE), { hook_event_name: "Notification", notification_type: "permission_prompt", message: "Allow Bash?" }]);
+  assert.equal(run([wake("notification")], permission).state, "running");
+});
+
+test("the summary stays through CI and reminder wakes; only the person's message clears it", () => {
+  const wake = (source: string) => ({ hook_event_name: "UserPromptSubmit", clauder: { source } });
+  const ended = run([checklist(PLAN_DONE_BUT_ONE), reply("PR open, CI runs."), { hook_event_name: "Stop" }]);
+  const summed = applyAsk(ended, ended.askCheck!, read("", "PR #5 open, CI running"), NOW)!;
+  // From the log: the PR subscription's own event wakes the thread a second later, and that turn
+  // ends without a reply.
+  const echo = run([wake("notification"), tool("ReadNotifications", {}), { hook_event_name: "Stop" }], summed);
+  assert.equal(echo.summary, "PR #5 open, CI running");
+  assert.equal(run([wake("wake:mention")], echo).summary, undefined);
+});
+
+test("the model's answer still counts after a pause or another event, until the next prompt", () => {
+  const ended = run([checklist(PLAN_DONE_BUT_ONE), reply("Shall I merge?"), { hook_event_name: "Stop" }]);
+  const paused = run([{ hook_event_name: "SessionEnd", reason: "other" }], { ...ended, project: "P" });
+  assert.equal(paused.askCheck, "Shall I merge?");
+  assert.equal(applyAsk(paused, "Shall I merge?", read("", "PR ready"), NOW)?.summary, "PR ready");
+  const next = run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "notification" } }], paused);
+  assert.equal(applyAsk(next, "Shall I merge?", read("Merge?"), NOW), null);
+});
+
+test("a finished checklist doesn't show Done while Claude works on the person's next message", () => {
+  const finished = run([checklist("Plan\n\n✓ One\n✓ Two")]);
+  assert.equal(finished.state, "done");
+  const asked = run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "wake:mention" } }], finished);
+  assert.equal(asked.state, "running");
+  assert.equal(toPushData(asked).state, "running");
+  // A new checklist counts again, also one that is finished at once.
+  assert.equal(run([checklist("Plan\n\n✓ One\n✓ Two\n✓ Three")], asked).state, "done");
+  assert.equal(run([checklist("Plan\n\n✓ One\n✓ Two\n✱ Three")], asked).state, "running");
+  // A background wake leaves a finished checklist as it was.
+  assert.equal(run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "notification" } }], finished).state, "done");
+});
+
+test("seq never goes back, so a session the Worker forgot still reaches the phone", () => {
+  const old = run([checklist(PLAN_DONE_BUT_ONE)]);
+  const fresh = emptyList("cse_abc", null, "2026-11-24T10:00:00.000Z");
+  const later = applyHook(fresh, checklist(PLAN_DONE_BUT_ONE), "2026-11-24T10:00:00.000Z", true)!;
+  assert.ok(later.seq > old.seq);
+});
+
+test("a git push or pushed files start a subscribed PR's CI again", () => {
+  const created = tool("mcp__github__create_pull_request", { owner: "o", repo: "r" }, [{ type: "text", text: '{"url":"https://github.com/o/r/pull/5"}' }]);
+  const subscribe = tool("mcp__claude-code-remote__subscribe_pr_activity", { owner: "o", repo: "r", pullNumber: 5 }, "Subscribed");
+  const passed = tool("mcp__github__pull_request_read", { owner: "o", repo: "r", pullNumber: 5, method: "get_check_runs" },
+    [{ type: "text", text: '{"check_runs":[{"status":"completed","conclusion":"success"}]}' }]);
+  const stop = { hook_event_name: "Stop" };
+  const green = run([checklist(PLAN_DONE_BUT_ONE), created, subscribe, passed, stop]);
+  assert.equal(green.state, "waiting");
+  const push = (command: string) => tool("Bash", { command }, { stdout: "", stderr: "" });
+  assert.equal(run([push("cd /home/user/clauder && git push -u origin fix"), stop], green).state, "running");
+  assert.equal(run([push("git push"), stop], green).pr?.ci, "running");
+  assert.equal(run([tool("mcp__github__push_files", { owner: "o", repo: "r", branch: "fix" }), stop], green).state, "running");
+  assert.equal(applyHook(green, push("git status"), NOW, true), null);
+  assert.equal(applyHook(green, push("echo git pushed"), NOW, true), null);
+});
+
+test("a reminder's time comes from the tool's answer when it gives one", () => {
+  const at = tool("mcp__claude-code-remote__send_later", { at: "2026-11-22T21:00:00[Europe/Brussels]", message: "x" },
+    [{ type: "text", text: '{"fire_at":"2026-11-22T20:00:00Z","trigger_id":"trig_1"}' }]);
+  assert.equal(run([checklist(PLAN_DONE_BUT_ONE), at]).wakeAt, "2026-11-22T20:00:00.000Z");
+});
+
+test("the phone hears when a session runs old hook settings", () => {
+  assert.equal(toPushData(run([checklist(PLAN_DONE_BUT_ONE)])).hooks, "");
+  const old = applyHook(emptyList("cse_abc", null, NOW), checklist(PLAN_DONE_BUT_ONE), NOW, undefined)!;
+  assert.equal(toPushData(old).hooks, "old");
 });

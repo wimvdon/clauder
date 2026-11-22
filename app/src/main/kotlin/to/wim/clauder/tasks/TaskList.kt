@@ -49,6 +49,9 @@ data class TaskList(
     /** Tokens used so far, and what they would cost on the Claude API in US dollars. */
     val tokens: Long = 0,
     val cost: Double = 0.0,
+    /** The session runs hook settings from before they reported every wake source, so the Worker
+     * can't always tell whether it waits for you. Those hooks can't update themselves. */
+    val oldHooks: Boolean = false,
 ) {
     /** What sessions are grouped by: the project's name, else the repository's. */
     val group: String? get() = project ?: repo
@@ -118,6 +121,7 @@ data class TaskList(
             wakeAt?.let { put("wakeAt", it) }
             if (helpers > 0) put("helpers", helpers)
             if (tokens > 0) put("usage", JSONObject().put("tokens", tokens).put("cost", cost))
+            put("hooksCurrent", !oldHooks)
         }
 
     private fun itemsToJson(items: List<TaskItem>) = JSONArray(
@@ -223,6 +227,7 @@ data class TaskList(
                 helpers = data["helpers"]?.toIntOrNull() ?: 0,
                 tokens = data["tokens"]?.toLongOrNull() ?: 0,
                 cost = data["cost"]?.toDoubleOrNull() ?: 0.0,
+                oldHooks = data["hooks"] == "old",
             )
         }
 
@@ -259,6 +264,7 @@ data class TaskList(
                 helpers = json.optInt("helpers"),
                 tokens = json.optJSONObject("usage")?.optLong("tokens") ?: 0,
                 cost = json.optJSONObject("usage")?.optDouble("cost")?.takeIf { !it.isNaN() } ?: 0.0,
+                oldHooks = !json.optBoolean("hooksCurrent"),
             )
         }
 

@@ -74,3 +74,11 @@ test("usage adds tokens and prices them per model", () => {
   assert.deepEqual(usage, { tokens: 11_200_005, cost: 8.8 });
   assert.equal(usageFrom([]), null);
 });
+
+test("any check event that says it failed marks CI failed", () => {
+  const pr = { number: 5, url: "https://github.com/o/r/pull/5", state: "open" as const, ci: "running" as const };
+  const text = `<event source="github" kind="check_run.completed" from="system">\n{"pr":"o/r#5","conclusion":"failure"}\n</event>`;
+  assert.equal(applyPrTool(pr, "ReadNotifications", {}, [{ type: "text", text }])?.ci, "failed");
+  const other = `<event source="github" kind="check_run.completed" from="system">\n{"pr":"o/r#5","conclusion":"success"}\n</event>`;
+  assert.equal(applyPrTool(pr, "ReadNotifications", {}, [{ type: "text", text: other }])?.ci, "running");
+});

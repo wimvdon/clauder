@@ -193,4 +193,15 @@ class ExtrasTest {
         )
         assertEquals(listOf("Snoozer", "Clauder ×2", "rss-reader", "Loose thread"), summary.names)
     }
+
+    @Test
+    fun `a waiting thread alerts once, and again only when it asks something else`() {
+        val asking = session(state = SessionState.Waiting).copy(need = "Which font?")
+        assertTrue(NotificationPlan.alertsAgain(null, asking, now))
+        assertTrue(NotificationPlan.alertsAgain(session(), asking, now))
+        // Claude goes on while the card is open, or the summary arrives: no second sound.
+        assertFalse(NotificationPlan.alertsAgain(asking, asking.copy(seq = 2, summary = "Fonts ready"), now))
+        assertTrue(NotificationPlan.alertsAgain(asking, asking.copy(need = "Which colour?"), now))
+        assertFalse(NotificationPlan.alertsAgain(asking, session(), now))
+    }
 }

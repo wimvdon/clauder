@@ -176,6 +176,9 @@ function prFromNotifications(current: PullRequest, text: string): PullRequest {
     const kind = e[1];
     if (kind === "check_suite.completed") {
       next = { ...next, ci: FAILED.includes(String(data.conclusion)) ? "failed" : "passed" };
+    } else if (/^(check_suite|check_run|workflow_run)\./.test(kind) && FAILED.includes(String(data.conclusion))) {
+      // The kind a failed run arrives as hasn't been seen yet; any check event that says it failed counts.
+      next = { ...next, ci: "failed" };
     } else if (kind === "pull_request.merged" || (kind === "pull_request.closed" && data.outcome === "merged")) {
       next = { ...next, state: "merged" };
     } else if (kind === "pull_request.closed" && next.state !== "merged") next = { ...next, state: "closed" };
@@ -206,7 +209,12 @@ export const REMINDER_TOOL = "mcp__claude-code-remote__send_later";
 /** When a reminder set with send_later fires, as an ISO time, or null. "at" may carry a zone
  * name in brackets ("2026-11-22T20:00:00[Europe/Brussels]"); without an offset that can't be
  * resolved here, so only RFC 3339 times and delays count. */
-export function wakeAtFrom(input: Json | null, now: string): string | null {
+export function wakeAtFrom(input: Json | null, now: string, response?: unknown): string | null {
+  // The tool answers with the time it will fire; that is exact, whatever form the input took.
+  const fireAt = responseJson(response)?.fire_at;
+  if (typeof fireAt === "string" && /(Z|[+-]\d\d:\d\d)$/.test(fireAt) && !Number.isNaN(Date.parse(fireAt))) {
+    return new Date(Date.parse(fireAt)).toISOString();
+  }
   const delay = input?.delay_minutes;
   if (typeof delay === "number" && delay >= 1) return new Date(Date.parse(now) + delay * 60_000).toISOString();
   const at = typeof input?.at === "string" ? input.at : "";
@@ -254,6 +262,15 @@ export function usageFrom(entries: unknown): Usage | null {
     cost += (input * inPrice + output * outPrice + read * readPrice + write5m * inPrice * 1.25 + write1h * inPrice * 2) / 1e6;
   }
   return tokens > 0 ? { tokens, cost: Math.round(cost * 100) / 100 } : null;
+}
+
+/** A git push from the shell (the hooks send only commands that start with "git push"), or files
+ * pushed with the GitHub tool: the followed PR's CI runs again. Returns [current] otherwise. */
+export function afterPush(current: PullRequest | undefined, tool: string, input: Json | null): PullRequest | undefined {
+  if (!current || current.state !== "open") return current;
+  const command = typeof input?.command === "string" ? input.command : "";
+  const pushed = tool === "Bash" ? /(^|[;&|(]\s*|\s)git\s+push\b/.test(command) : tool === "mcp__github__push_files";
+  return pushed && current.ci !== "running" ? { ...current, ci: "running" } : current;
 }
 
 /** True while a PR's events will wake the session: it is subscribed, the PR is open and its CI

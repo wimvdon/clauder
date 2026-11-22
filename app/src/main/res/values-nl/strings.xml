@@ -136,4 +136,7 @@
         <item quantity="one">%d helper bezig</item>
         <item quantity="other">%d helpers bezig</item>
     </plurals>
+    <string name="old_hooks_note">Deze thread draait oude hooks, dus Clauder ziet niet altijd of hij op je wacht. Plak het bericht hieronder één keer in de thread om ze bij te werken.</string>
+    <string name="old_hooks_copy">Kopieer de oplossing</string>
+    <string name="old_hooks_message">Voer dit één keer uit om de Clauder-hooks in deze container bij te werken en ga daarna verder: %1$s</string>
 </resources>
