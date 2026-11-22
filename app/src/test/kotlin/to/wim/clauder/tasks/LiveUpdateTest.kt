@@ -120,5 +120,15 @@ class LiveUpdateTest {
         assertNull(LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending).copy(need = "Merge?"))!!.need)
         assertNull(LiveUpdate.from(list(SessionState.Waiting, TaskStatus.Pending))!!.need)
     }
-}
 
+    @Test
+    fun `the turn summary leads, unless a waiting session asks something`() {
+        val running = list(SessionState.Running, TaskStatus.InProgress).copy(summary = "PR #5 open, CI running")
+        assertEquals("PR #5 open, CI running", LiveUpdate.from(running)!!.headline)
+        assertEquals("Merged", LiveUpdate.from(list(SessionState.Done, TaskStatus.Completed).copy(summary = "Merged"))!!.headline)
+        val waiting = list(SessionState.Waiting, TaskStatus.Pending).copy(summary = "Mockups ready")
+        assertEquals("Mockups ready", LiveUpdate.from(waiting)!!.headline)
+        assertNull(LiveUpdate.from(waiting.copy(need = "Pick T1, T2 or T3"))!!.headline)
+        assertNull(LiveUpdate.from(list(SessionState.Running, TaskStatus.InProgress))!!.headline)
+    }
+}

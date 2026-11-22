@@ -171,11 +171,12 @@ object TaskNotifier {
 
     /** What a session's notification says it is doing now. */
     private fun statusText(context: Context, update: LiveUpdate, counts: String): String = when (update.status) {
-        LiveUpdate.Status.Done -> context.getString(R.string.state_done)
-        LiveUpdate.Status.Waiting ->
-            update.need?.let { context.getString(R.string.state_waiting_need, it) } ?: context.getString(R.string.state_waiting)
-        LiveUpdate.Status.Idle -> context.getString(R.string.state_idle)
-        LiveUpdate.Status.Tasks -> update.currentTask?.let { context.getString(R.string.notification_now, it) }
+        LiveUpdate.Status.Done -> update.headline ?: context.getString(R.string.state_done)
+        LiveUpdate.Status.Waiting -> (update.need ?: update.headline)?.let { context.getString(R.string.state_waiting_need, it) }
+            ?: context.getString(R.string.state_waiting)
+        LiveUpdate.Status.Idle -> update.headline ?: context.getString(R.string.state_idle)
+        LiveUpdate.Status.Tasks -> update.headline
+            ?: update.currentTask?.let { context.getString(R.string.notification_now, it) }
             ?: update.holding?.let { holdingText(context, update) }
             ?: counts
     }

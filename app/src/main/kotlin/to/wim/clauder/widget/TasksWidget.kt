@@ -204,8 +204,9 @@ class TasksWidget : GlanceAppWidget() {
                     ),
                     maxLines = 1,
                 )
-                // While waiting, what Claude asks matters more than the step it's on.
-                val detail = list.need?.takeIf { waiting }
+                // While waiting, what Claude asks matters more than the step it's on; after a turn,
+                // its summary says more than the step.
+                val detail = list.need?.takeIf { waiting } ?: list.summary
                 (detail ?: list.current?.subject)?.let {
                     Text(
                         it,

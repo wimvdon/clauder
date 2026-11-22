@@ -419,6 +419,10 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
             list.need?.takeIf { list.state == SessionState.Waiting }?.let {
                 Text(it, style = MaterialTheme.typography.bodyLarge)
             }
+            // Where the work stands after Claude's last turn, in one line.
+            list.summary?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             SessionExtras(list)
             SegmentedProgress(list)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
