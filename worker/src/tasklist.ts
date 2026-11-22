@@ -32,7 +32,9 @@ export interface Task {
  * ahead, an in-session cron, a PR subscription whose CI still runs, a watched URL, or background
  * helpers and shells). done: the thread was resolved, or, during a turn, every step is completed.
  * waiting: nothing Claude set up will wake it, so only the user can (also an open decision card
- * or a permission prompt). idle: only the phone uses it, for a session silent for hours.
+ * or a permission prompt). idle: nothing known is armed, but the session runs older hook settings
+ * that don't report every wake source, so it can't be told apart; the phone also shows a session
+ * silent for hours as idle.
  * ended: the session closed. */
 export type SessionState = "running" | "idle" | "waiting" | "done" | "ended";
 
@@ -67,6 +69,10 @@ export interface SessionList {
   wakeAt?: string;
   /** Inbound webhooks the session watches (watch_url trigger ids). They end with the session. */
   watches?: string[];
+  /** True when the session runs the current hook settings, so every wake source reaches the
+   * Worker. Settings load at session start; a session started with older ones may set up a wake
+   * the Worker never hears of. */
+  hooksCurrent?: boolean;
   /** Background helpers (subagents, shells) still running when the turn ended. */
   helpers?: number;
   /** Tokens used so far and what they would cost on the API (from the Stop hook script). */
@@ -228,7 +234,7 @@ function stateFor(tasks: Task[], steps: Task[], state: SessionState, resolved: b
  * Applies one hook payload. Returns the new list, or null when the payload changes nothing that
  * the phone shows (then no push is sent).
  */
-export function applyHook(list: SessionList, body: unknown, now: string): SessionList | null {
+export function applyHook(list: SessionList, body: unknown, now: string, hooks?: boolean): SessionList | null {
   const input = obj(body);
   if (!input) return null;
   const event = str(input.hook_event_name);
@@ -241,6 +247,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
   let link = list.link;
   let wakeAt = list.wakeAt && list.wakeAt > now ? list.wakeAt : undefined;
   let watches = list.watches ?? [];
+  const hooksCurrent = hooks ?? list.hooksCurrent ?? false;
   let helpers = list.helpers;
   let usage = list.usage;
   let resolved = list.resolved ?? false;
@@ -347,7 +354,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
       if (deciding) break;
       const crons = Array.isArray(input.session_crons) && input.session_crons.length > 0;
       const armed = helpers !== undefined || crons || prWakes(pr) || wakeAt !== undefined || watches.length > 0;
-      state = armed ? "running" : "waiting";
+      state = armed ? "running" : hooksCurrent ? "waiting" : "idle";
       break;
     }
     case "Notification": {
@@ -376,7 +383,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
       // live on the server and still wake it. With neither, only the user can.
       watches = [];
       if (project && input?.reason === "other") {
-        if (state === "running" && wakeAt === undefined && !prWakes(pr)) state = "waiting";
+        if (state === "running" && wakeAt === undefined && !prWakes(pr)) state = hooksCurrent ? "waiting" : "idle";
       } else {
         state = "ended";
       }
@@ -402,6 +409,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     resolved !== (list.resolved ?? false) ||
     wakeAt !== list.wakeAt ||
     JSON.stringify(watches) !== JSON.stringify(list.watches ?? []) ||
+    hooksCurrent !== (list.hooksCurrent ?? false) ||
     helpers !== list.helpers ||
     JSON.stringify(pr) !== JSON.stringify(list.pr) ||
     JSON.stringify(link) !== JSON.stringify(list.link) ||
@@ -410,7 +418,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   if (!changed) return null;
   const {
-    need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches,
+    need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches, hooksCurrent: _hooksCurrent,
     helpers: _helpers, usage: _usage, resolved: _resolved, ...rest
   } = list;
   return {
@@ -430,6 +438,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     ...(link ? { link } : {}),
     ...(wakeAt ? { wakeAt } : {}),
     ...(watches.length ? { watches } : {}),
+    ...(hooksCurrent ? { hooksCurrent } : {}),
     ...(helpers ? { helpers } : {}),
     ...(usage ? { usage } : {}),
     ...(resolved ? { resolved } : {}),

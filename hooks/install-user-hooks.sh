@@ -74,6 +74,8 @@ req = urllib.request.Request("https://clauder.wim-d57.workers.dev/hook", data=js
     "Authorization": "Bearer " + os.environ.get("CLAUDER_HOOK_TOKEN", ""),
     "X-Claude-Remote-Session": os.environ.get("CLAUDE_CODE_REMOTE_SESSION_ID", ""),
     "X-Clauder-Hooks": VERSION,
+    # The version of the hook settings this session loaded at its start (the command passes it).
+    "X-Clauder-Hooks-Loaded": sys.argv[1] if len(sys.argv) > 1 else "",
     "Content-Type": "application/json", "User-Agent": "clauder-hook/1"})
 try:
     with urllib.request.urlopen(req, timeout=5) as resp:
@@ -87,7 +89,8 @@ except Exception:
 ''')
 h = {"type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "timeout": 5,
      "headers": {"Authorization": "Bearer $CLAUDER_HOOK_TOKEN",
-                 "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID"},
+                 "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID",
+                 "X-Clauder-Hooks-Loaded": "__HOOKS_VERSION__"},
      "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"]}
 tools = ("TaskCreate|TaskUpdate|TodoWrite|ReadNotifications|mcp__hearthbot__update_progress_checklist"
          "|mcp__hearthbot__request_decision|mcp__hearthbot__close_decision|mcp__hearthbot__post_message"
@@ -104,7 +107,9 @@ for name, matcher in events.items():
     if matcher:
         entry["matcher"] = matcher
     hooks[name] = [x for x in hooks.get(name, []) if not ours(x)] + [entry]
-cmd = {"type": "command", "command": "python3 ~/.claude/clauder-prompt.py", "timeout": 10}
+# Settings load once, at session start: the version in the command and in the headers above says
+# which hooks the session really runs, even after the script file was replaced.
+cmd = {"type": "command", "command": "python3 ~/.claude/clauder-prompt.py __HOOKS_VERSION__", "timeout": 10}
 for name in ("UserPromptSubmit", "Stop"):
     hooks[name] = [x for x in hooks.get(name, []) if not ours(x)] + [{"hooks": [cmd]}]
 json.dump(d, open(p, "w"), indent=1)

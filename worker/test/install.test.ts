@@ -19,3 +19,10 @@ test("the served script carries the installer's version, so old hooks can update
   assert.ok(INSTALL_SCRIPT.includes('VERSION = "__HOOKS_VERSION__"'));
   assert.ok(installScript("x.workers.dev").includes(`VERSION = "${HOOKS_VERSION}"`));
 });
+
+test("the loaded hook settings say their version, in the command and the HTTP hook headers", () => {
+  const script = installScript("x.workers.dev");
+  assert.ok(script.includes(`clauder-prompt.py ${HOOKS_VERSION}"`));
+  assert.ok(script.includes(`"X-Clauder-Hooks-Loaded": "${HOOKS_VERSION}"`));
+  assert.ok(script.includes('"X-Clauder-Hooks-Loaded": sys.argv[1]'));
+});
