@@ -45,7 +45,7 @@ jobs:
           H="$(mktemp -d)"
           HOME="$H" bash install-user-hooks.sh
           HOME="$H" bash install-user-hooks.sh
-          python3 -c "import json,sys; h=json.load(open(sys.argv[1]))['hooks']; assert all(len(v)==1 for v in h.values()) and len(h)==6, h" "$H/.claude/settings.json"
+          python3 -c "import json,sys; h=json.load(open(sys.argv[1]))['hooks']; assert all(len(v)==1 for v in h.values()) and len(h)==7, h" "$H/.claude/settings.json"
 
   deploy:
     name: Deploy to Cloudflare
