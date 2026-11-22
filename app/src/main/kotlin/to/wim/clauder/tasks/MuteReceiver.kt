@@ -17,7 +17,12 @@ class MuteReceiver : BroadcastReceiver() {
         val pending = goAsync()
         app.scope.launch {
             try {
-                app.store.setMuted(MuteList.mute(app.store.muted.first(), key))
+                val muted = MuteList.mute(app.store.muted.first(), key)
+                app.store.setMuted(muted)
+                // The summary leaves a muted session out.
+                if (app.store.current().summaryNotification) {
+                    TaskNotifier.applyAll(app, app.store.cachedSessions(), muted, summaryMode = true)
+                }
             } finally {
                 pending.finish()
             }

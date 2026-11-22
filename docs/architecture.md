@@ -21,7 +21,8 @@ Clauder shows the task list of every running Claude Code session on the phone.
   Running, and only a list with nothing in progress becomes Idle (`worker/src/tasklist.ts`). The
   phone applies the same rule to what it shows (`TaskList.shown`), and turns a session that has been
   silent for 12 hours into Idle, so an abandoned one moves out of the way. A session that ended
-  with open steps reads "Ended early".
+  with open steps reads "Ended early". A project thread's session that stops between wakes
+  (`SessionEnd` reason "other") pauses instead: a question stays open, anything else is Idle.
   While waiting, the list carries `need`: the decision card's question, or the permission
   prompt's message. The notification, the Tasks screen and the widget show it. A permission
   prompt is answered within the turn, so Stop turns it into Idle; an open decision card stays
@@ -35,6 +36,24 @@ Clauder shows the task list of every running Claude Code session on the phone.
   Stop's `last_assistant_message`. A pending step such as "After approval: build it" also means
   Waiting once nothing is in progress. Waiting wins over Done, so "All merged. Shall I cut a
   release?" still asks.
+- **What a session waits on, and what it made** (`worker/src/extras.ts`): the hooks also match
+  the GitHub tools (create, read, merge and update a pull request), `subscribe_pr_activity`,
+  `ReadNotifications` (CI events delivered to the thread), `send_later`, `set_thread_resolved`
+  and the reply's `attached_outputs`. The Worker keeps the session's pull request with its CI
+  state, the first https link or Artifact the last reply attached, when a reminder fires, and
+  marks a resolved thread Done. After Stop, a PR whose CI still runs, a reminder still ahead or
+  background helpers keep the session Running instead of Idle. The Stop hook is a command
+  (`~/.claude/clauder-prompt.py`, the same script as the prompt hook) that totals the tokens per
+  model from the transcript (and its subagents); the Worker prices them with the API price table
+  in `extras.ts` (an estimate: subscriptions don't bill per token).
+- **Notifications:** one per session by default. With "One notification for all sessions"
+  (`Settings.summaryNotification`, backed up) the phone posts one ongoing summary
+  (`Summary`, `TaskNotifier.showSummary`) and only the sessions that wait for you get their own,
+  alerting, notification (`NotificationPlan`). A notification offers buttons for the attached page
+  and the pull request (opened through `OpenLinkActivity`: claude.ai in the Claude app, other https
+  links in their own app). Done is always silent.
+- **Quick Settings tile** (`tile/ClauderTileService`): shows the same summary line when Quick
+  Settings opens, and opens Clauder when tapped. Settings offers to add it on Android 13 and later.
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
   prompt event (without the prompt's text). The Tasks screen groups sessions under the
@@ -52,7 +71,8 @@ Clauder shows the task list of every running Claude Code session on the phone.
   22 Nov 2026 (see `docs/decisions.md`). On start, `ClauderApp.retireShortcuts` greys out links an
   earlier version pinned (only the launcher can remove them) and forgets their saved list.
 - **Widget (Glance):** `widget/TasksWidget` shows the active sessions (or the last finished
-  one). It reads `SettingsStore` flows inside its content, so a widget on screen follows every
+  one) as tonal cards under a header with the same summary line as the tile; a session that waits
+  for you uses the primary container. It uses the system widget corner radii. It reads `SettingsStore` flows inside its content, so a widget on screen follows every
   change; `widget/Widgets` redraws it after a push, a fetch, or a change of theme, connection or
   mutes (`ClauderApp`). Taps on it and on notifications go through `links/OpenLinkActivity`
   (not exported), which opens only https claude.ai links (`ClaudeApp.safeUrl`).

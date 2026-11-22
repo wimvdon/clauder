@@ -26,6 +26,29 @@ object ClaudeApp {
         return "https://claude.ai${uri.rawPath.orEmpty().ifEmpty { "/" }}$query"
     }
 
+    /** Other https links Claude attached (a pull request, a page): opened in their own app or the
+     * browser. No other schemes, and no user names or passwords in the link. */
+    fun safeWebUrl(raw: String?): String? {
+        val uri = try {
+            URI(raw?.trim() ?: return null)
+        } catch (e: java.net.URISyntaxException) {
+            return null
+        }
+        if (uri.scheme != "https" || uri.host.isNullOrBlank() || uri.userInfo != null) return null
+        return uri.toString()
+    }
+
+    /** Opens a claude.ai link in the Claude app, any other safe link in its own app. */
+    fun openAny(context: Context, raw: String?) {
+        safeUrl(raw)?.let { return open(context, it) }
+        val url = safeWebUrl(raw) ?: return
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: ActivityNotFoundException) {
+            // Nothing to open it with.
+        }
+    }
+
     /** An intent that opens [url] through Clauder, for notifications and widgets. */
     fun openIntent(context: Context, url: String): Intent =
         Intent(ACTION_OPEN, url.toUri()).setClass(context, OpenLinkActivity::class.java)

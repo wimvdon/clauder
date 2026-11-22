@@ -23,7 +23,10 @@ const ASKS_FOR_APPROVAL = new RegExp(
     String.raw`\blet me know (which|what|whether|how)\b`,
     String.raw`\btell me (which|what|whether|how)\b`,
     String.raw`\bonce you (approve|confirm|decide|pick|choose|say|give)\b`,
+    // Also in the turn summary Claude writes about the user ("waiting for their answer").
+    String.raw`\bwaiting (for|on) (you|your|their|his|her|\w+'s) (answer|reply|approval|go-ahead|decision|feedback|choice|ok)\b`,
     String.raw`\bwaiting (for|on) (you|your)\b`,
+    String.raw`\bfor \w+ to (approve|confirm|decide|pick|choose|answer|reply)\b`,
     String.raw`\blaat (me |het |maar )*weten (welke|wat|of|hoe)\b`,
     String.raw`\bzodra (je|jij|u) (goedkeurt|kiest|akkoord|beslist|bevestigt)\b`,
     String.raw`\bwacht op (je|jouw|uw)\b`,

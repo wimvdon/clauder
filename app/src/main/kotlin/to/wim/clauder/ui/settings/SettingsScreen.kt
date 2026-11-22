@@ -100,7 +100,7 @@ fun SettingsScreen(app: ClauderApp, settings: Settings, resumes: Int, modifier: 
         ) {
             Column(Modifier.readableWidth().padding(bottom = 24.dp)) {
                 ConnectionSection(app, settings)
-                NotificationSection(settings, resumes)
+                NotificationSection(app, settings, resumes)
                 EnvironmentSection(settings)
                 AppearanceSection(app, settings)
                 Text(
@@ -209,7 +209,7 @@ private fun OutcomeText(outcome: ConnectOutcome) {
 }
 
 @Composable
-private fun NotificationSection(settings: Settings, resumes: Int) {
+private fun NotificationSection(app: ClauderApp, settings: Settings, resumes: Int) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var checks by remember { mutableIntStateOf(0) }
@@ -287,6 +287,24 @@ private fun NotificationSection(settings: Settings, resumes: Int) {
             }
         }
         if (granted) {
+            SwitchSetting(
+                title = stringResource(R.string.summary_setting),
+                summary = stringResource(R.string.summary_setting_summary),
+                checked = settings.summaryNotification,
+                onChange = { on -> scope.launch { app.store.setSummaryNotification(on) } },
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                SettingsBlock {
+                    Text(stringResource(R.string.tile_setting), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.tile_setting_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(onClick = { requestTile(context) }) { Text(stringResource(R.string.action_add_tile)) }
+                }
+            }
             SettingsBlock {
                 Text(stringResource(R.string.waiting_alert), style = MaterialTheme.typography.bodyLarge)
                 Text(
@@ -301,6 +319,17 @@ private fun NotificationSection(settings: Settings, resumes: Int) {
             }
         }
     }
+}
+
+/** Asks the system to add the Clauder tile to Quick Settings (Android 13 and later). */
+private fun requestTile(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    context.getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+        android.content.ComponentName(context, to.wim.clauder.tile.ClauderTileService::class.java),
+        context.getString(R.string.app_name),
+        android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_stat_clauder),
+        context.mainExecutor,
+    ) { }
 }
 
 private fun canPromote(context: Context): Boolean =

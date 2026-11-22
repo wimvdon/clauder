@@ -25,7 +25,21 @@ data class LiveUpdate(
     /** Dismiss after this many milliseconds, or null to stay. */
     val timeoutMs: Long?,
     val openUrl: String,
+    /** What a working session waits on between turns: CI, a reminder or its helpers. */
+    val holding: Holding? = null,
+    /** When the reminder fires, for [Holding.Reminder]. */
+    val wakeAtMillis: Long? = null,
+    val helpers: Int = 0,
+    /** Buttons: the pull request, and the page the last reply attached. */
+    val prUrl: String? = null,
+    val prNumber: Int? = null,
+    val linkUrl: String? = null,
+    val linkTitle: String? = null,
+    /** Finished sessions never make a sound. */
+    val silent: Boolean = false,
 ) {
+    enum class Holding { Ci, Reminder, Helpers }
+
     enum class Status { Tasks, Idle, Waiting, Done }
 
     val max: Int get() = segmentCount * SEGMENT_LENGTH
@@ -44,6 +58,7 @@ data class LiveUpdate(
          * tasks (then the notification goes away). */
         fun from(session: TaskList, nowMillis: Long = System.currentTimeMillis()): LiveUpdate? {
             val list = session.shown(nowMillis)
+            val wakeAt = list.wakeAtMillis(nowMillis)
             val items = list.items
             if (items.isEmpty()) return null
             if (list.endedEarly) return null
@@ -76,7 +91,23 @@ data class LiveUpdate(
                 requestPromotion = live,
                 timeoutMs = if (finished) DONE_TIMEOUT_MS else null,
                 openUrl = list.url?.takeIf { isClaudeUrl(it) } ?: CODE_URL,
+                holding = holding(list, wakeAt).takeIf { status == Status.Tasks },
+                wakeAtMillis = wakeAt,
+                helpers = list.helpers,
+                prUrl = list.pr?.url,
+                prNumber = list.pr?.number,
+                linkUrl = list.link,
+                linkTitle = list.linkTitle,
+                silent = finished,
             )
+        }
+
+        /** What keeps a session working while no turn runs, most telling first. */
+        fun holding(list: TaskList, wakeAtMillis: Long?): Holding? = when {
+            list.pr?.state == PrState.Open && list.pr.ci == CiState.Running -> Holding.Ci
+            wakeAtMillis != null -> Holding.Reminder
+            list.helpers > 0 -> Holding.Helpers
+            else -> null
         }
 
         private fun isClaudeUrl(url: String): Boolean = url.startsWith("https://claude.ai/")

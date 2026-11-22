@@ -156,6 +156,15 @@ test("SessionEnd ends the list", () => {
   assert.equal(run([created("1", "a"), { hook_event_name: "SessionEnd", reason: "other" }]).state, "ended");
 });
 
+test("a project thread pauses between wakes instead of ending, and keeps its question", () => {
+  const prompt = { hook_event_name: "UserPromptSubmit", clauder: { project: "Code", thread: "Icons" } };
+  const end = { hook_event_name: "SessionEnd", reason: "other" };
+  assert.equal(run([prompt, created("1", "a"), end]).state, "idle");
+  const asked = { hook_event_name: "Stop", last_assistant_message: "Which finish do you prefer?" };
+  assert.equal(run([prompt, created("1", "a"), asked, end]).state, "waiting");
+  assert.equal(run([prompt, created("1", "a"), { hook_event_name: "SessionEnd", reason: "logout" }]).state, "ended");
+});
+
 test("renames and deletes", () => {
   const renamed = run([
     created("1", "a"), created("2", "b"),
@@ -382,4 +391,59 @@ test("a decision card stays waiting while the checklist moves on", () => {
   const list = run([checklist("Plan\n\n✱ One"), decision, checklist("Plan\n\n✓ One\n✱ Two"), { hook_event_name: "Stop" }]);
   assert.equal(list.state, "waiting");
   assert.equal(list.need, "Which font?");
+});
+
+const tool = (name: string, input: unknown, response: unknown = [{ type: "text", text: "{}" }]) => ({
+  hook_event_name: "PostToolUse", cwd: "/home/user", tool_name: name, tool_input: input, tool_response: response,
+});
+const PLAN_DONE_BUT_ONE = "Plan\n\n✓ One\n○ Two";
+
+test("waiting on CI counts as working, and a passed CI makes the thread idle", () => {
+  const created = tool("mcp__github__create_pull_request", { owner: "o", repo: "r" }, [{ type: "text", text: '{"url":"https://github.com/o/r/pull/5"}' }]);
+  const list = run([checklist(PLAN_DONE_BUT_ONE), created, { hook_event_name: "Stop", cwd: "/home/user" }]);
+  assert.equal(list.state, "running");
+  assert.equal(list.pr?.ci, "running");
+  const data = toPushData(list);
+  assert.deepEqual(JSON.parse(data.pr), { n: 5, u: "https://github.com/o/r/pull/5", s: "open", c: "running" });
+  const passed = run([
+    { hook_event_name: "UserPromptSubmit" },
+    tool("mcp__github__pull_request_read", { owner: "o", repo: "r", pullNumber: 5, method: "get_check_runs" }, [{ type: "text", text: '{"check_runs":[{"status":"completed","conclusion":"success"}]}' }]),
+    { hook_event_name: "Stop", cwd: "/home/user" },
+  ], list);
+  assert.equal(passed.state, "idle");
+  assert.equal(passed.pr?.ci, "passed");
+});
+
+test("a reminder counts as working until it is due", () => {
+  const list = run([checklist(PLAN_DONE_BUT_ONE), tool("mcp__claude-code-remote__send_later", { delay_minutes: 60, message: "x" }), { hook_event_name: "Stop" }]);
+  assert.equal(list.state, "running");
+  assert.equal(list.wakeAt, "2026-11-22T11:00:00.000Z");
+  assert.equal(toPushData(list).wakeAt, "2026-11-22T11:00:00.000Z");
+});
+
+test("resolving finishes the thread, a new message reopens it", () => {
+  const list = run([checklist(PLAN_DONE_BUT_ONE), tool("mcp__hearthbot__set_thread_resolved", { resolved: true }), { hook_event_name: "Stop" }]);
+  assert.equal(list.state, "done");
+  const reopened = run([{ hook_event_name: "UserPromptSubmit" }], list);
+  assert.equal(reopened.state, "running");
+  assert.equal(reopened.resolved, undefined);
+});
+
+test("the last reply's link, the helpers and the usage reach the phone", () => {
+  const list = run([
+    checklist(PLAN_DONE_BUT_ONE),
+    { ...reply("The mockup is up."), tool_input: { text: "The mockup is up.", attached_outputs: [{ kind: "frame", ref: "https://claude.ai/artifact/abc", title: "Mockup" }] } },
+    {
+      hook_event_name: "Stop",
+      background_tasks: [{ id: "a", type: "subagent", status: "running" }, { id: "b", type: "shell", status: "running" }],
+      clauder: { usage: [{ model: "claude-sonnet-5-5", input: 1_000_000, output: 0 }] },
+    },
+  ]);
+  assert.equal(list.state, "running");
+  const data = toPushData(list);
+  assert.equal(data.link, "https://claude.ai/artifact/abc");
+  assert.equal(data.linkTitle, "Mockup");
+  assert.equal(data.helpers, "2");
+  assert.equal(data.tokens, "1000000");
+  assert.equal(data.cost, "2");
 });

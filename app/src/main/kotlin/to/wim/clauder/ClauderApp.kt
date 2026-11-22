@@ -8,6 +8,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import to.wim.clauder.push.Push
@@ -37,6 +38,15 @@ class ClauderApp : Application() {
                 .collect { Widgets.updateTasks(this@ClauderApp) }
         }
         scope.launch { retireShortcuts() }
+        // Switching between one notification per session and the summary redraws them all.
+        scope.launch {
+            store.settings.map { it.summaryNotification }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { summary ->
+                    TaskNotifier.applyAll(this@ClauderApp, store.cachedSessions(), store.muted.first(), summary)
+                }
+        }
     }
 
     /** Clauder no longer makes shortcuts. Shortcuts pinned by an earlier version are greyed out

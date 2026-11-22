@@ -36,3 +36,10 @@ test("steps that wait on the user", () => {
   assert.equal(waitsOnUser("Build it in the app"), false);
   assert.equal(waitsOnUser("After the build, open a pull request"), false);
 });
+
+test("the turn summary says Claude waits on the user", () => {
+  const summary = "I've posted round 4 of the icon mockup to Wim. I'm waiting for their answer before drawing the rest.";
+  assert.equal(findAsk(summary), "I'm waiting for their answer before drawing the rest.");
+  assert.equal(findAsk("I've posted the mockup in the thread for Wim to approve."), "I've posted the mockup in the thread for Wim to approve.");
+  assert.equal(findAsk("I'm waiting for CI to finish."), null);
+});

@@ -105,4 +105,35 @@
     </plurals>
     <string name="state_waiting_need">Waiting for you: %1$s</string>
     <string name="shortcuts_removed">Clauder no longer has shortcuts. Remove this one from your home screen.</string>
+    <string name="summary_nothing">Nothing running</string>
+    <string name="summary_line">%1$s: %2$s</string>
+    <string name="holding_ci">Waiting on CI for PR #%d</string>
+    <string name="holding_reminder">Back at %s</string>
+    <string name="action_open_named">Open %s</string>
+    <string name="action_open_link">Open link</string>
+    <string name="action_open_pr">Open PR #%d</string>
+    <string name="summary_setting">One notification for all sessions</string>
+    <string name="summary_setting_summary">Sessions that need you still get their own notification</string>
+    <string name="tile_setting">Quick Settings tile</string>
+    <string name="tile_setting_body">Shows what Claude is doing when you swipe down from the top of the screen.</string>
+    <string name="action_add_tile">Add tile</string>
+    <string name="pr_ci_running">PR #%d · CI running</string>
+    <string name="pr_ci_passed">PR #%d · CI passed</string>
+    <string name="pr_ci_failed">PR #%d · CI failed</string>
+    <string name="pr_open">PR #%d open</string>
+    <string name="pr_merged">PR #%d merged</string>
+    <string name="pr_closed">PR #%d closed</string>
+    <string name="usage_line">%1$s tokens · ≈ %2$s</string>
+    <plurals name="summary_working">
+        <item quantity="one">%d working</item>
+        <item quantity="other">%d working</item>
+    </plurals>
+    <plurals name="summary_waiting">
+        <item quantity="one">%d waiting for you</item>
+        <item quantity="other">%d waiting for you</item>
+    </plurals>
+    <plurals name="holding_helpers">
+        <item quantity="one">%d helper working</item>
+        <item quantity="other">%d helpers working</item>
+    </plurals>
 </resources>

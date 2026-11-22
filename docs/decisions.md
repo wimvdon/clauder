@@ -178,3 +178,26 @@ A pending step that starts with "After approval" (or "Na goedkeuring") also coun
 in progress. Rejected: treating every turn that ends with pending steps as waiting, because
 threads often stop between steps without needing anything.
 
+## 2026-11-22: Pull requests, reminders and cost; a summary notification and a tile
+Wim asked to close the gaps where a thread read as idle while it waited on CI or a reminder, and
+to show more of what Claude does. The hooks now also match the GitHub pull request tools,
+`ReadNotifications`, `send_later`, `subscribe_pr_activity`, `set_thread_resolved` and the reply's
+attachments. Stop moved from an HTTP hook to the existing command script, so it can total the
+session's tokens from the transcript; the Worker turns them into an API-price estimate.
+On the phone: buttons for the PR and the attached page, a silent Done, an optional single summary
+notification (a session that waits for you still alerts on its own) and a Quick Settings tile.
+Earlier Wim said no to a tile; he asked for it now, to show the summary. No new permissions or
+dependencies: `BIND_QUICK_SETTINGS_TILE` only guards the tile service.
+
+
+## 2026-11-22: Project threads pause instead of ending, and hooks update themselves
+A project thread's session gets `SessionEnd` (reason "other") between wakes and resumes on the
+next message. Clauder read that as Ended, so a thread that had just asked Wim something lost its
+"Waiting for you" and dropped into the inactive group. For a project thread, reason "other" now
+pauses: a question stays open, anything else becomes Idle. The Worker also reads Claude's own
+turn summary ("waiting for their answer", "for Wim to approve").
+Cloud environments keep the result of their setup script, so sessions kept starting with the
+hooks from before the reply tool was matched. The prompt hook now sends its installer version,
+and when the Worker answers that it is out of date, the hook runs `/install.sh` again; the new
+hooks apply from the next session start. Sessions with the old hook script can't update this way
+and only catch up when the environment rebuilds.

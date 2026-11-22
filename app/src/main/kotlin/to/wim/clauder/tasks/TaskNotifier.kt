@@ -60,7 +60,110 @@ object TaskNotifier {
             .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
             .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, CHANNEL_WAITING)
 
-    fun show(context: Context, list: TaskList) {
+    private const val SUMMARY_ID = 0x5c1a0de
+
+    /**
+     * Shows what [list] changed, and keeps the summary up to date in summary mode. [board] is every
+     * session the phone knows, [list] included.
+     */
+    fun apply(context: Context, list: TaskList, board: List<TaskList>, muted: Set<String>, summaryMode: Boolean) {
+        val now = System.currentTimeMillis()
+        if (NotificationPlan.individual(list, muted, summaryMode, now)) show(context, list) else cancel(context, list.key)
+        showSummary(context, board, muted, summaryMode, now)
+    }
+
+    /** Redraws every notification after the summary setting changed, without alerting again. */
+    fun applyAll(context: Context, board: List<TaskList>, muted: Set<String>, summaryMode: Boolean) {
+        val now = System.currentTimeMillis()
+        board.forEach {
+            if (NotificationPlan.individual(it, muted, summaryMode, now)) show(context, it, alert = false) else cancel(context, it.key)
+        }
+        showSummary(context, board, muted, summaryMode, now)
+    }
+
+    /** One ongoing notification for everything that is working or waiting. It never alerts: the
+     * sessions that wait for you are posted on their own, on the "Waiting for you" channel. */
+    private fun showSummary(context: Context, board: List<TaskList>, muted: Set<String>, summaryMode: Boolean, now: Long) {
+        val manager = NotificationManagerCompat.from(context)
+        val summary = Summary.from(board, muted, now)
+        if (!summaryMode || summary.isEmpty || !canNotify(context)) {
+            manager.cancel(SUMMARY_ID)
+            return
+        }
+        val title = summaryText(context, summary)
+        val lines = summary.active.map { sessionLine(context, it, now) }
+        val open = PendingIntent.getActivity(
+            context,
+            SUMMARY_ID,
+            Intent(context, to.wim.clauder.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
+            .setSmallIcon(R.drawable.ic_stat_clauder)
+            .setContentTitle(title)
+            .setContentText(lines.first())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
+            .setContentIntent(open)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setShortCriticalText(context.getString(R.string.notification_short, summary.done, summary.total))
+            .setRequestPromotedOngoing(true)
+            .build()
+        try {
+            manager.notify(SUMMARY_ID, notification)
+        } catch (e: SecurityException) {
+            // The permission was taken away between the check and the call.
+        }
+    }
+
+    /** "2 working · 1 waiting for you". */
+    fun summaryText(context: Context, summary: Summary): String {
+        val res = context.resources
+        val parts = listOfNotNull(
+            summary.working.takeIf { it > 0 }?.let { res.getQuantityString(R.plurals.summary_working, it, it) },
+            summary.waiting.takeIf { it > 0 }?.let { res.getQuantityString(R.plurals.summary_waiting, it, it) },
+        )
+        return parts.ifEmpty { listOf(context.getString(R.string.summary_nothing)) }.joinToString(" · ")
+    }
+
+    /** "Title: Now: step" or "Title: Waiting for you". */
+    private fun sessionLine(context: Context, list: TaskList, now: Long): String {
+        val update = LiveUpdate.from(list, now) ?: return list.title
+        return context.getString(R.string.summary_line, update.title, statusText(context, update, counts(context, update)))
+    }
+
+    private fun counts(context: Context, update: LiveUpdate): String = context.resources.getQuantityString(
+        if (update.steps) R.plurals.step_counts else R.plurals.notification_counts,
+        update.total,
+        update.done,
+        update.total,
+    )
+
+    /** What a session's notification says it is doing now. */
+    private fun statusText(context: Context, update: LiveUpdate, counts: String): String = when (update.status) {
+        LiveUpdate.Status.Done -> context.getString(R.string.state_done)
+        LiveUpdate.Status.Waiting ->
+            update.need?.let { context.getString(R.string.state_waiting_need, it) } ?: context.getString(R.string.state_waiting)
+        LiveUpdate.Status.Idle -> context.getString(R.string.state_idle)
+        LiveUpdate.Status.Tasks -> update.currentTask?.let { context.getString(R.string.notification_now, it) }
+            ?: update.holding?.let { holdingText(context, update) }
+            ?: counts
+    }
+
+    /** "Waiting on CI for PR #22", "Back at 20:00", "3 helpers working". */
+    fun holdingText(context: Context, update: LiveUpdate): String? = when (update.holding) {
+        LiveUpdate.Holding.Ci -> context.getString(R.string.holding_ci, update.prNumber ?: 0)
+        LiveUpdate.Holding.Reminder -> update.wakeAtMillis?.let {
+            context.getString(R.string.holding_reminder, android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(it)))
+        }
+        LiveUpdate.Holding.Helpers -> context.resources.getQuantityString(R.plurals.holding_helpers, update.helpers, update.helpers)
+        null -> null
+    }
+
+    fun show(context: Context, list: TaskList, alert: Boolean = true) {
         val manager = NotificationManagerCompat.from(context)
         val update = LiveUpdate.from(list)
         if (update == null) {
@@ -70,12 +173,19 @@ object TaskNotifier {
         }
         if (!canNotify(context)) return
         try {
-            manager.notify(idFor(list.key), build(context, update, list.key))
+            manager.notify(idFor(list.key), build(context, update, list.key, alert))
             refreshBundles(context)
         } catch (e: SecurityException) {
             // The permission was taken away between the check and the call.
         }
     }
+
+    private fun linkIntent(context: Context, requestCode: Int, url: String): PendingIntent = PendingIntent.getActivity(
+        context,
+        requestCode,
+        ClaudeApp.openIntent(context, url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 
     private fun summaryId(bundle: String): Int = "summary:$bundle".hashCode()
 
@@ -116,26 +226,17 @@ object TaskNotifier {
         }
     }
 
-    private fun build(context: Context, update: LiveUpdate, key: String): android.app.Notification {
+    private fun build(context: Context, update: LiveUpdate, key: String, alert: Boolean): android.app.Notification {
         val id = idFor(key)
-        val counts = context.resources.getQuantityString(
-            if (update.steps) R.plurals.step_counts else R.plurals.notification_counts,
-            update.total,
-            update.done,
-            update.total,
-        )
-        val text = when (update.status) {
-            LiveUpdate.Status.Done -> context.getString(R.string.state_done)
-            LiveUpdate.Status.Waiting ->
-                update.need?.let { context.getString(R.string.state_waiting_need, it) } ?: context.getString(R.string.state_waiting)
-            LiveUpdate.Status.Idle -> context.getString(R.string.state_idle)
-            LiveUpdate.Status.Tasks -> update.currentTask?.let { context.getString(R.string.notification_now, it) } ?: counts
-        }
+        val counts = counts(context, update)
+        val text = statusText(context, update, counts)
+        // While Claude is on a step, what it also waits on (CI, a reminder) goes on its own line.
+        val holding = holdingText(context, update)?.takeIf { it != text }
         val next = update.nextTask
             ?.takeIf { update.status != LiveUpdate.Status.Done }
             ?.let { context.getString(R.string.notification_next, it) }
-        // Expanded: what Claude is on, the task after it and the count.
-        val expanded = listOfNotNull(text, next, counts.takeIf { it != text }).joinToString("\n")
+        // Expanded: what Claude is on, what it waits on, the task after it and the count.
+        val expanded = listOfNotNull(text, holding, next, counts.takeIf { it != text }).joinToString("\n")
         val open = PendingIntent.getActivity(
             context,
             id,
@@ -148,7 +249,8 @@ object TaskNotifier {
             .setContentTitle(update.title)
             .setContentText(text)
             .setContentIntent(open)
-            .setOnlyAlertOnce(update.status != LiveUpdate.Status.Waiting)
+            .setOnlyAlertOnce(!alert || update.status != LiveUpdate.Status.Waiting)
+            .setSilent(update.silent)
             .setOngoing(update.ongoing)
             .setAutoCancel(!update.ongoing)
             .setShowWhen(false)
@@ -170,6 +272,14 @@ object TaskNotifier {
             )
             builder.addAction(R.drawable.ic_notifications_off, context.getString(R.string.action_mute), mute)
         }
+        // Up to two more buttons: the page Claude attached, then its pull request.
+        update.linkUrl?.let { url ->
+            val title = update.linkTitle?.let { context.getString(R.string.action_open_named, it) } ?: context.getString(R.string.action_open_link)
+            builder.addAction(R.drawable.ic_open_in_new, title, linkIntent(context, id * 31 + 1, url))
+        }
+        update.prUrl?.let { url ->
+            builder.addAction(R.drawable.ic_open_in_new, context.getString(R.string.action_open_pr, update.prNumber ?: 0), linkIntent(context, id * 31 + 2, url))
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             val style = NotificationCompat.ProgressStyle()
@@ -178,7 +288,8 @@ object TaskNotifier {
                 .setProgress(update.progress)
             update.pointPosition?.let { style.addProgressPoint(NotificationCompat.ProgressStyle.Point(it)) }
             builder.setStyle(style).setSubText(update.group?.let { "$it · $counts" } ?: counts)
-            if (next != null) builder.setContentText("$text\n$next")
+            val more = listOfNotNull(holding, next)
+            if (more.isNotEmpty()) builder.setContentText((listOf(text) + more).joinToString("\n"))
         } else {
             update.group?.let { builder.setSubText(it) }
             builder.setProgress(update.max, update.progress, false)
