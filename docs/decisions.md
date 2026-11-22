@@ -282,3 +282,11 @@ sessions by project; every idle and finished session sits in one "Inactive" list
 folded by default, with the project or repository as a small label above each title. A project
 with only inactive sessions no longer gets a header. The widget no longer shows inactive sessions
 at all (Wim: "they don't need to be shown at all").
+
+## 2026-11-22: Settings as a page behind a gear icon
+Wim asked for settings on their own page, opened from an icon at the top right. With only two
+destinations, a bottom navigation bar took space on every screen for a page that is rarely
+opened. The bottom bar is gone: the main screen's top app bar shows a gear icon that opens
+Settings as a child page with a back arrow (the system back gesture also returns), as
+`DESIGN.md` describes for child pages. The main screen's title is now "Claude sessions", the
+same as the widget. The app's name and launcher label stay "Clauder".

@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">Clauder</string>
-    <string name="nav_tasks">Tasks</string>
-    <string name="nav_settings">Settings</string>
-    <string name="tasks_title">Tasks</string>
+    <string name="tasks_title">Claude sessions</string>
+    <string name="action_back">Back</string>
     <string name="state_running">Working</string>
     <string name="state_waiting">Waiting for you</string>
     <string name="state_done">Done</string>
