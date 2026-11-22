@@ -141,3 +141,10 @@ environment's variable), and the setup script needs one `curl … | bash` line t
 The trade-off: whoever controls the Worker controls what the environments run, which was already
 true of where the hooks send their data.
 
+## 2026-11-22: No shortcuts, no link tester
+The Claude app opens its Projects and Artifacts tabs only from its own widget (through an activity
+other apps can't start), so Clauder's shortcuts for them could only open the app's home screen.
+Wim chose to drop shortcuts altogether: the app shortcuts, pinned links, the share target, the
+Shortcuts tab and widget, and the test build's link tester that was used to look into this.
+Clauder is now the Tasks screen, the Tasks widget and the notifications.
+

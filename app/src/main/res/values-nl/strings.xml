@@ -78,29 +78,6 @@
         <item quantity="one">%1$d/%2$d taak</item>
         <item quantity="other">%1$d/%2$d taken</item>
     </plurals>
-    <string name="nav_shortcuts">Snelkoppelingen</string>
-    <string name="shortcuts_title">Snelkoppelingen</string>
-    <string name="action_add">Toevoegen</string>
-    <string name="action_cancel">Annuleren</string>
-    <string name="action_save">Opslaan</string>
-    <string name="action_remove">Verwijderen</string>
-    <string name="shortcuts_empty_title">Nog geen snelkoppelingen</string>
-    <string name="shortcuts_empty_body">Tik op Toevoegen of deel een claude.ai-link met Clauder om een chat, project of artifact op je startscherm te zetten.</string>
-    <string name="shortcuts_static_hint">Houd het Clauder-icoon ingedrukt voor Nieuwe chat, Code, Projecten en Artifacts.</string>
-    <string name="shortcut_add_title">Op startscherm zetten</string>
-    <string name="shortcut_edit_title">Snelkoppeling bewerken</string>
-    <string name="shortcut_link">claude.ai-link</string>
-    <string name="shortcut_name">Naam</string>
-    <string name="shortcut_bad_link">Alleen claude.ai-links werken.</string>
-    <string name="shortcut_missing_name">Vul een naam in.</string>
-    <string name="shortcut_pin_unsupported">Je startscherm-app kan geen snelkoppelingen toevoegen.</string>
-    <string name="shortcut_removed">Verwijderd in Clauder</string>
-    <string name="shortcut_removed_hint">Verwijderd. Sleep het grijze icoon van je startscherm.</string>
-    <string name="shortcut_new_chat">Nieuwe chat</string>
-    <string name="shortcut_code">Code</string>
-    <string name="shortcut_code_long">Claude Code</string>
-    <string name="shortcut_projects">Projecten</string>
-    <string name="shortcut_artifacts">Artifacts</string>
     <plurals name="step_counts">
         <item quantity="one">%1$d/%2$d stap</item>
         <item quantity="other">%1$d/%2$d stappen</item>
@@ -108,8 +85,6 @@
     <string name="tasks_toggle">Taken (%1$d/%2$d)</string>
     <string name="widget_tasks_title">Claude-sessies</string>
     <string name="widget_tasks_description">Je actieve sessies en hun voortgang</string>
-    <string name="widget_shortcuts_title">Claude-snelkoppelingen</string>
-    <string name="widget_shortcuts_description">Nieuwe chat, Code, Projecten en je vastgezette links</string>
     <string name="widget_connect">Open Clauder om te verbinden</string>
     <string name="widget_no_sessions">Op dit moment geen sessies</string>
     <string name="session_muted">Gedempt</string>
@@ -118,26 +93,6 @@
     <string name="waiting_alert">Melding als Claude wacht</string>
     <string name="waiting_alert_body">Kies het geluid, de trilling en de pop-up voor ‘Wacht op jou’.</string>
     <string name="action_change_alert">Melding aanpassen</string>
-    <string name="link_tester_title">Linktester</string>
-    <string name="link_tester_summary">Probeer manieren om de Claude-app te openen. Alleen in testversies.</string>
-    <string name="section_test_build">Testversie</string>
-    <string name="link_tester_custom">Eigen link</string>
-    <string name="link_tester_claude_only">Alleen de Claude-app</string>
-    <string name="action_try">Proberen</string>
-    <string name="link_tester_copy">Resultaten kopiëren</string>
-    <string name="link_tester_app_version">Claude-app %1$s</string>
-    <string name="link_tester_not_installed">De Claude-app is niet geïnstalleerd</string>
-    <string name="link_tester_opens">Opent %1$s</string>
-    <string name="link_tester_opens_closed">%1$s, afgesloten voor andere apps</string>
-    <string name="link_tester_no_match">Geen app opent dit</string>
-    <string name="link_tester_started">Geopend</string>
-    <string name="link_tester_failed">Kon niet openen: %1$s</string>
-    <string name="link_tester_activities">Schermen die andere apps kunnen openen</string>
-    <string name="action_back">Terug</string>
-    <string name="link_tester_save_app">Claude-app bewaren</string>
-    <string name="link_tester_save_app_summary">Bewaart het bestand van de app, zodat de links van de widgets op te zoeken zijn.</string>
-    <string name="link_tester_saved">Bewaard</string>
-    <string name="link_tester_save_failed">Kon het bestand niet bewaren</string>
     <string name="state_idle">Inactief</string>
     <string name="tasks_section_other">Andere sessies</string>
     <plurals name="notification_inactive">
@@ -145,4 +100,5 @@
         <item quantity="other">%d inactieve sessies</item>
     </plurals>
     <string name="state_waiting_need">Wacht op jou: %1$s</string>
+    <string name="shortcuts_removed">Clauder heeft geen snelkoppelingen meer. Verwijder deze van je startscherm.</string>
 </resources>

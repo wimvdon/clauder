@@ -12,15 +12,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import to.wim.clauder.shortcuts.PinnedCodec
-import to.wim.clauder.shortcuts.PinnedShortcut
 import to.wim.clauder.tasks.TaskList
 
 /** Backed up by Android (see res/xml/data_extraction_rules.xml): theme and Worker address. */
 private val Context.backedUp: DataStore<Preferences> by preferencesDataStore(name = "backed_up_settings")
 
-/** Never backed up: the Worker token, FCM registration and pinned shortcuts (home screen
- * shortcuts belong to this phone). */
+/** Never backed up: the Worker token, FCM registration and the cached sessions. */
 private val Context.deviceOnly: DataStore<Preferences> by preferencesDataStore(name = "device_state")
 
 class SettingsStore(context: Context) {
@@ -33,6 +30,7 @@ class SettingsStore(context: Context) {
         val workerUrl = stringPreferencesKey("worker_url")
         val token = stringPreferencesKey("token")
         val registeredFcmToken = stringPreferencesKey("registered_fcm_token")
+        // Earlier versions kept pinned shortcuts here; only removed now.
         val pinned = stringPreferencesKey("pinned_shortcuts")
         val sessions = stringPreferencesKey("sessions_cache")
         val muted = stringSetPreferencesKey("muted_sessions")
@@ -72,9 +70,8 @@ class SettingsStore(context: Context) {
 
     suspend fun setRegisteredFcmToken(token: String) = deviceOnly.edit { it[Keys.registeredFcmToken] = token }
 
-    val pinned: Flow<List<PinnedShortcut>> = deviceOnly.data.map { PinnedCodec.decode(it[Keys.pinned]) }
-
-    suspend fun savePinned(list: List<PinnedShortcut>) = deviceOnly.edit { it[Keys.pinned] = PinnedCodec.encode(list) }
+    /** Removes the list of pinned shortcuts that earlier versions kept. */
+    suspend fun forgetPinned() = deviceOnly.edit { it.remove(Keys.pinned) }
 
     /** The last task lists, so the widget and the Tasks screen have something after a restart. */
     val sessions: Flow<List<TaskList>> = deviceOnly.data.map { prefs ->

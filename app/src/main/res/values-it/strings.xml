@@ -80,29 +80,6 @@
         <item quantity="many">%1$d/%2$d attività</item>
         <item quantity="other">%1$d/%2$d attività</item>
     </plurals>
-    <string name="nav_shortcuts">Scorciatoie</string>
-    <string name="shortcuts_title">Scorciatoie</string>
-    <string name="action_add">Aggiungi</string>
-    <string name="action_cancel">Annulla</string>
-    <string name="action_save">Salva</string>
-    <string name="action_remove">Rimuovi</string>
-    <string name="shortcuts_empty_title">Ancora nessuna scorciatoia</string>
-    <string name="shortcuts_empty_body">Tocca Aggiungi o condividi un link claude.ai con Clauder per mettere una chat, un progetto o un artifact nella schermata Home.</string>
-    <string name="shortcuts_static_hint">Tieni premuta l’icona di Clauder per Nuova chat, Code, Progetti e Artifacts.</string>
-    <string name="shortcut_add_title">Aggiungi alla schermata Home</string>
-    <string name="shortcut_edit_title">Modifica scorciatoia</string>
-    <string name="shortcut_link">Link claude.ai</string>
-    <string name="shortcut_name">Nome</string>
-    <string name="shortcut_bad_link">Funzionano solo i link claude.ai.</string>
-    <string name="shortcut_missing_name">Inserisci un nome.</string>
-    <string name="shortcut_pin_unsupported">La tua app della schermata Home non può aggiungere scorciatoie.</string>
-    <string name="shortcut_removed">Rimosso in Clauder</string>
-    <string name="shortcut_removed_hint">Rimosso. Trascina l’icona grigia fuori dalla schermata Home.</string>
-    <string name="shortcut_new_chat">Nuova chat</string>
-    <string name="shortcut_code">Code</string>
-    <string name="shortcut_code_long">Claude Code</string>
-    <string name="shortcut_projects">Progetti</string>
-    <string name="shortcut_artifacts">Artifacts</string>
     <plurals name="step_counts">
         <item quantity="one">%1$d/%2$d passaggio</item>
         <item quantity="many">%1$d/%2$d passaggi</item>
@@ -111,8 +88,6 @@
     <string name="tasks_toggle">Attività (%1$d/%2$d)</string>
     <string name="widget_tasks_title">Sessioni di Claude</string>
     <string name="widget_tasks_description">Le tue sessioni attive e il loro avanzamento</string>
-    <string name="widget_shortcuts_title">Scorciatoie di Claude</string>
-    <string name="widget_shortcuts_description">Nuova chat, Code, Progetti e i tuoi link fissati</string>
     <string name="widget_connect">Apri Clauder per collegarti</string>
     <string name="widget_no_sessions">Nessuna sessione al momento</string>
     <string name="session_muted">Silenziata</string>
@@ -121,26 +96,6 @@
     <string name="waiting_alert">Avviso quando Claude aspetta</string>
     <string name="waiting_alert_body">Scegli suono, vibrazione e pop-up per «Ti sta aspettando».</string>
     <string name="action_change_alert">Modifica avviso</string>
-    <string name="link_tester_title">Tester dei link</string>
-    <string name="link_tester_summary">Prova modi per aprire l\'app Claude. Solo nelle versioni di prova.</string>
-    <string name="section_test_build">Versione di prova</string>
-    <string name="link_tester_custom">Il tuo link</string>
-    <string name="link_tester_claude_only">Solo l\'app Claude</string>
-    <string name="action_try">Prova</string>
-    <string name="link_tester_copy">Copia risultati</string>
-    <string name="link_tester_app_version">App Claude %1$s</string>
-    <string name="link_tester_not_installed">L\'app Claude non è installata</string>
-    <string name="link_tester_opens">Apre %1$s</string>
-    <string name="link_tester_opens_closed">%1$s, chiuso alle altre app</string>
-    <string name="link_tester_no_match">Nessuna app lo apre</string>
-    <string name="link_tester_started">Aperto</string>
-    <string name="link_tester_failed">Impossibile aprire: %1$s</string>
-    <string name="link_tester_activities">Schermate che altre app possono aprire</string>
-    <string name="action_back">Indietro</string>
-    <string name="link_tester_save_app">Salva l\'app Claude</string>
-    <string name="link_tester_save_app_summary">Salva il file dell\'app, per poter ricostruire i link dei suoi widget.</string>
-    <string name="link_tester_saved">Salvato</string>
-    <string name="link_tester_save_failed">Impossibile salvare il file</string>
     <string name="state_idle">Inattivo</string>
     <string name="tasks_section_other">Altre sessioni</string>
     <plurals name="notification_inactive">
@@ -149,4 +104,5 @@
         <item quantity="many">%d sessioni inattive</item>
     </plurals>
     <string name="state_waiting_need">Ti sta aspettando: %1$s</string>
+    <string name="shortcuts_removed">Clauder non ha più scorciatoie. Rimuovi questa dalla schermata Home.</string>
 </resources>

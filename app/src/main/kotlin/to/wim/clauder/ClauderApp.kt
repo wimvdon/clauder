@@ -1,6 +1,7 @@
 package to.wim.clauder
 
 import android.app.Application
+import androidx.core.content.pm.ShortcutManagerCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,11 +36,15 @@ class ClauderApp : Application() {
                 .drop(1)
                 .collect { Widgets.updateTasks(this@ClauderApp) }
         }
-        scope.launch {
-            combine(store.settings.map { it.dynamicColor }, store.pinned) { a, b -> a to b }
-                .distinctUntilChanged()
-                .drop(1)
-                .collect { Widgets.updateShortcuts(this@ClauderApp) }
-        }
+        scope.launch { retireShortcuts() }
+    }
+
+    /** Clauder no longer makes shortcuts. Shortcuts pinned by an earlier version are greyed out
+     * with a note, since only the launcher can remove them. */
+    private suspend fun retireShortcuts() {
+        store.forgetPinned()
+        val pinned = ShortcutManagerCompat.getShortcuts(this, ShortcutManagerCompat.FLAG_MATCH_PINNED).map { it.id }
+        if (pinned.isNotEmpty()) ShortcutManagerCompat.disableShortcuts(this, pinned, getString(R.string.shortcuts_removed))
+        ShortcutManagerCompat.removeAllDynamicShortcuts(this)
     }
 }

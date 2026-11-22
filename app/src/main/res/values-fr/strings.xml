@@ -80,29 +80,6 @@
         <item quantity="many">%1$d/%2$d tâches</item>
         <item quantity="other">%1$d/%2$d tâches</item>
     </plurals>
-    <string name="nav_shortcuts">Raccourcis</string>
-    <string name="shortcuts_title">Raccourcis</string>
-    <string name="action_add">Ajouter</string>
-    <string name="action_cancel">Annuler</string>
-    <string name="action_save">Enregistrer</string>
-    <string name="action_remove">Supprimer</string>
-    <string name="shortcuts_empty_title">Aucun raccourci</string>
-    <string name="shortcuts_empty_body">Appuyez sur Ajouter ou partagez un lien claude.ai avec Clauder pour mettre une conversation, un projet ou un artifact sur votre écran d’accueil.</string>
-    <string name="shortcuts_static_hint">Appuyez longuement sur l’icône Clauder pour Nouvelle conversation, Code, Projets et Artifacts.</string>
-    <string name="shortcut_add_title">Ajouter à l’écran d’accueil</string>
-    <string name="shortcut_edit_title">Modifier le raccourci</string>
-    <string name="shortcut_link">Lien claude.ai</string>
-    <string name="shortcut_name">Nom</string>
-    <string name="shortcut_bad_link">Seuls les liens claude.ai fonctionnent.</string>
-    <string name="shortcut_missing_name">Saisissez un nom.</string>
-    <string name="shortcut_pin_unsupported">Votre écran d’accueil ne permet pas d’ajouter des raccourcis.</string>
-    <string name="shortcut_removed">Supprimé dans Clauder</string>
-    <string name="shortcut_removed_hint">Supprimé. Faites glisser l’icône grisée hors de l’écran d’accueil.</string>
-    <string name="shortcut_new_chat">Nouvelle conversation</string>
-    <string name="shortcut_code">Code</string>
-    <string name="shortcut_code_long">Claude Code</string>
-    <string name="shortcut_projects">Projets</string>
-    <string name="shortcut_artifacts">Artifacts</string>
     <plurals name="step_counts">
         <item quantity="one">%1$d/%2$d étape</item>
         <item quantity="many">%1$d/%2$d étapes</item>
@@ -111,8 +88,6 @@
     <string name="tasks_toggle">Tâches (%1$d/%2$d)</string>
     <string name="widget_tasks_title">Sessions Claude</string>
     <string name="widget_tasks_description">Vos sessions actives et leur avancement</string>
-    <string name="widget_shortcuts_title">Raccourcis Claude</string>
-    <string name="widget_shortcuts_description">Nouvelle conversation, Code, Projets et vos liens épinglés</string>
     <string name="widget_connect">Ouvrez Clauder pour vous connecter</string>
     <string name="widget_no_sessions">Aucune session pour l’instant</string>
     <string name="session_muted">Son coupé</string>
@@ -121,26 +96,6 @@
     <string name="waiting_alert">Alerte quand Claude attend</string>
     <string name="waiting_alert_body">Choisissez le son, la vibration et la fenêtre pour « Vous attend ».</string>
     <string name="action_change_alert">Modifier l’alerte</string>
-    <string name="link_tester_title">Testeur de liens</string>
-    <string name="link_tester_summary">Essayez des façons d\'ouvrir l\'app Claude. Uniquement dans les versions de test.</string>
-    <string name="section_test_build">Version de test</string>
-    <string name="link_tester_custom">Votre lien</string>
-    <string name="link_tester_claude_only">Uniquement l\'app Claude</string>
-    <string name="action_try">Essayer</string>
-    <string name="link_tester_copy">Copier les résultats</string>
-    <string name="link_tester_app_version">App Claude %1$s</string>
-    <string name="link_tester_not_installed">L\'app Claude n\'est pas installée</string>
-    <string name="link_tester_opens">Ouvre %1$s</string>
-    <string name="link_tester_opens_closed">%1$s, fermé aux autres apps</string>
-    <string name="link_tester_no_match">Aucune app n\'ouvre ce lien</string>
-    <string name="link_tester_started">Ouvert</string>
-    <string name="link_tester_failed">Ouverture impossible : %1$s</string>
-    <string name="link_tester_activities">Écrans que d\'autres apps peuvent ouvrir</string>
-    <string name="action_back">Retour</string>
-    <string name="link_tester_save_app">Enregistrer l\'app Claude</string>
-    <string name="link_tester_save_app_summary">Enregistre le fichier de l\'app, pour retrouver les liens de ses widgets.</string>
-    <string name="link_tester_saved">Enregistré</string>
-    <string name="link_tester_save_failed">Impossible d\'enregistrer le fichier</string>
     <string name="state_idle">Inactif</string>
     <string name="tasks_section_other">Autres sessions</string>
     <plurals name="notification_inactive">
@@ -149,4 +104,5 @@
         <item quantity="many">%d sessions inactives</item>
     </plurals>
     <string name="state_waiting_need">Vous attend : %1$s</string>
+    <string name="shortcuts_removed">Clauder n’a plus de raccourcis. Retirez celui-ci de votre écran d’accueil.</string>
 </resources>

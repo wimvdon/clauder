@@ -33,7 +33,7 @@ own Cloudflare account; nobody else has access.
 
 Your theme choice and the Worker address are included in Android's own backup (to your Google
 account, if you turned that on) and in a transfer to a new phone. The Worker token, the Firebase
-token, pinned shortcuts, the last 20 sessions (so the widget and the Tasks screen have
+token, the last 20 sessions (so the widget and the Tasks screen have
 something to show after a restart) and the sessions you muted stay on this phone only.
 
 ## Deleting your data

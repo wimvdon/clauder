@@ -76,7 +76,6 @@ import to.wim.clauder.settings.Settings
 import to.wim.clauder.settings.ThemeMode
 import to.wim.clauder.settings.WorkerUrl
 import to.wim.clauder.tasks.TaskNotifier
-import to.wim.clauder.ui.linktester.LinkTesterActivity
 import to.wim.clauder.ui.theme.readableWidth
 
 /** The Worker Wim runs. Filled in so connecting only needs the token. */
@@ -104,7 +103,6 @@ fun SettingsScreen(app: ClauderApp, settings: Settings, resumes: Int, modifier: 
                 NotificationSection(settings, resumes)
                 EnvironmentSection(settings)
                 AppearanceSection(app, settings)
-                if (BuildConfig.DEBUG) TestBuildSection()
                 Text(
                     stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
                     style = MaterialTheme.typography.bodySmall,
@@ -382,18 +380,6 @@ private fun CopyBlock(text: String) {
                 Text(stringResource(R.string.action_copy))
             }
         }
-    }
-}
-
-@Composable
-private fun TestBuildSection() {
-    val context = LocalContext.current
-    SettingsSection(stringResource(R.string.section_test_build)) {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.link_tester_title)) },
-            supportingContent = { Text(stringResource(R.string.link_tester_summary)) },
-            modifier = Modifier.clickable { context.startActivity(Intent(context, LinkTesterActivity::class.java)) },
-        )
     }
 }
 
