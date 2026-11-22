@@ -13,23 +13,25 @@ Clauder shows the task list of every running Claude Code session on the phone.
   older TodoWrite) are its **tasks**. The Worker keeps both apart; progress, the notification and
   the widget count the steps when there are any, else the tasks (`TaskList.items`). The Tasks
   screen shows the steps and folds the tasks away under them.
-- **States:** Running (Claude works), Idle (nothing is in progress and nothing runs in the
-  background), Waiting for you (a project thread showed a decision card, or Claude Code sent a
-  `permission_prompt` or `elicitation_dialog` notification), Done, Ended. Every state comes from
-  raw hook data: event names, `notification_type`, tool inputs and tool results. Text is never
-  read to guess a state, so a question written in a plain reply doesn't make a session Waiting:
-  no hook field says a reply waits on the user. The checklist decides the rest: Stop ends every
-  turn, also while Claude waits on CI or a reminder, so after Stop a step (or task) still marked
-  in progress keeps the session Running, and only a list with nothing in progress becomes Idle
-  (`worker/src/tasklist.ts`). The phone applies the same rule to what it shows
-  (`TaskList.shown`), and turns a session that has been silent for 12 hours into Idle, so an
-  abandoned one moves out of the way. A session that ended with open steps reads "Ended early".
-  A project thread's session that stops between wakes (`SessionEnd` reason "other") pauses
-  instead: an open decision card stays Waiting, anything else is Idle.
-  While waiting, the list carries `need`: the decision card's question, or the notification's
-  message. The notification, the Tasks screen and the widget show it. A permission prompt is
-  answered within the turn, so Stop turns it into Idle; an open decision card stays waiting until
-  it is closed or Wim writes.
+- **States:** Every state comes from raw hook data (event names, `notification_type`, tool
+  inputs and results); text is never read. A turn that ends can only go on when something wakes
+  the session: something Claude set up itself, or the user. So after Stop
+  (`worker/src/tasklist.ts`):
+  - **Running** while a wake source is armed: a `send_later` reminder still ahead, an in-session
+    cron (Stop's `session_crons`), a PR Claude subscribed to (`subscribe_pr_activity`, until
+    `unsubscribe_pr_activity`) whose CI still runs, a `watch_url` webhook (until `unwatch_url`), or
+    helpers and shells still running (Stop's `background_tasks`).
+  - **Done** when the thread was resolved (`set_thread_resolved`); during a turn also when every
+    step is completed.
+  - **Waiting for you** in every other case, because only the user can wake it. That includes an
+    open decision card or a `permission_prompt` / `elicitation_dialog` notification, which carry
+    `need` (the card's question or the notification's message).
+  A project thread's session stops between wakes (`SessionEnd` reason "other") and pauses:
+  watches, crons and helpers end with the session, while a reminder and a PR subscription live on
+  the server, so without those the thread waits on the user. Every wake (a message, a CI event, a
+  reminder) is a new prompt and makes the session Running again. **Idle** is only used by the
+  phone: it shows a Running session that has been silent for 12 hours as Idle (`TaskList.shown`).
+  A session that ended with open steps reads "Ended early".
 - **What a session waits on, and what it made** (`worker/src/extras.ts`): the hooks also match
   the GitHub tools (create, read, merge and update a pull request), `subscribe_pr_activity`,
   `ReadNotifications` (CI events delivered to the thread: only an event's kind and its data count:
@@ -37,8 +39,7 @@ Clauder shows the task list of every running Claude Code session on the phone.
   its `outcome`), `send_later`, `set_thread_resolved`
   and the reply's `attached_outputs`. The Worker keeps the session's pull request with its CI
   state, the first https link or Artifact the last reply attached, when a reminder fires, and
-  marks a resolved thread Done. After Stop, a PR whose CI still runs, a reminder still ahead or
-  background helpers keep the session Running instead of Idle. The Stop hook is a command
+  marks a resolved thread Done. These are the wake sources the States above count. The Stop hook is a command
   (`~/.claude/clauder-prompt.py`, the same script as the prompt hook) that totals the tokens per
   model from the transcript (and its subagents); the Worker prices them with the API price table
   in `extras.ts` (an estimate: subscriptions don't bill per token).

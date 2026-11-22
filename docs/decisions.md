@@ -219,3 +219,12 @@ hook signal (the thread's "blocked" state lives on claude.ai and hooks can't rea
 shows as Idle. A `pull_request.closed` event with `outcome` "merged" now counts as merged
 (it read as closed before). Replaces the
 entry "A question in Claude's last reply means Waiting for you" above.
+
+## 2026-11-22: Waiting for you means nothing Claude set up will wake the thread
+Wim wanted a reliable way to tell "waiting for CI" from "waiting on the user", without asking
+threads to use decision cards. A thread that ends its turn is only woken by something it set up
+(a reminder, an in-session cron, a PR subscription while CI runs, a watched URL, running helpers)
+or by the user. The Worker now tracks those wake sources from hook data, and a turn that ends
+with none armed means Waiting for you. A step marked in progress no longer keeps a thread
+Running on its own, because nothing wakes it. Rejected: reading the reply's text (see the entry
+above) and requiring decision cards for every question.

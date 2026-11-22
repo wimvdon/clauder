@@ -92,7 +92,7 @@ h = {"type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "timeout
 tools = ("TaskCreate|TaskUpdate|TodoWrite|ReadNotifications|mcp__hearthbot__update_progress_checklist"
          "|mcp__hearthbot__request_decision|mcp__hearthbot__close_decision|mcp__hearthbot__post_message"
          "|mcp__hearthbot__set_thread_resolved|mcp__claude-code-remote__send_later"
-         "|mcp__claude-code-remote__subscribe_pr_activity|mcp__github__create_pull_request"
+         "|mcp__claude-code-remote__subscribe_pr_activity|mcp__claude-code-remote__unsubscribe_pr_activity|mcp__claude-code-remote__watch_url|mcp__claude-code-remote__unwatch_url|mcp__github__create_pull_request"
          "|mcp__github__merge_pull_request|mcp__github__pull_request_read|mcp__github__update_pull_request")
 events = {"TaskCreated": None, "TaskCompleted": None, "PostToolUse": tools,
           "Notification": None, "SessionEnd": None}

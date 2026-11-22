@@ -73,31 +73,34 @@ test("a new task after done goes back to running", () => {
   assert.equal(list.state, "running");
 });
 
-test("Stop with open tasks means idle, a new prompt resumes", () => {
-  const idle = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD }]);
-  assert.equal(idle.state, "idle");
-  assert.equal(run([{ hook_event_name: "UserPromptSubmit" }], idle).state, "running");
-  assert.equal(run([update("1", "pending", "in_progress")], idle).state, "running");
+test("a turn that ends with nothing set up to wake it waits on the user", () => {
+  const waiting = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD }]);
+  assert.equal(waiting.state, "waiting");
+  assert.equal(waiting.need, undefined);
+  assert.equal(run([{ hook_event_name: "UserPromptSubmit" }], waiting).state, "running");
+  // A step marked in progress doesn't wake anyone, so it still waits on the user.
+  const marked = run([created("1", "a"), update("1", "pending", "in_progress"), { hook_event_name: "Stop", cwd: CWD }]);
+  assert.equal(marked.state, "waiting");
+  const steps = run([checklist("Fix crash\n\n✓ Find it\n✱ Merge when CI is green"), { hook_event_name: "Stop", cwd: "/home/user" }]);
+  assert.equal(steps.state, "waiting");
 });
 
-test("Stop while a task is in progress keeps the session running", () => {
-  const list = run([created("1", "a"), update("1", "pending", "in_progress"), { hook_event_name: "Stop", cwd: CWD }]);
+test("an in-session cron keeps the session running", () => {
+  const list = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD, session_crons: [{ id: "c1" }] }]);
   assert.equal(list.state, "running");
 });
 
-test("Stop while a checklist step is in progress keeps a project thread running", () => {
-  const list = run([
-    checklist("Fix crash\n\n✓ Find it\n✓ Open a pull request\n✱ Merge when CI is green\n○ Release"),
-    { hook_event_name: "Stop", cwd: "/home/user" },
-  ]);
+test("a watched URL keeps the session running until it is unwatched or the session ends", () => {
+  const watch = tool("mcp__claude-code-remote__watch_url", {}, [{ type: "text", text: '{"trigger_id":"trig_1","url":"https://x"}' }]);
+  const list = run([checklist("Plan\n\n○ One"), watch, { hook_event_name: "Stop" }]);
   assert.equal(list.state, "running");
-  // The steps decide, not Claude Code's own tasks.
-  const noStep = run([
-    created("1", "a"), update("1", "pending", "in_progress"),
-    checklist("Plan\n\n✓ One\n○ Two"),
-    { hook_event_name: "Stop", cwd: "/home/user" },
-  ]);
-  assert.equal(noStep.state, "idle");
+  assert.deepEqual(list.watches, ["trig_1"]);
+  const unwatched = run([tool("mcp__claude-code-remote__unwatch_url", { trigger_id: "trig_1" }), { hook_event_name: "Stop" }], list);
+  assert.equal(unwatched.state, "waiting");
+  const prompt = { hook_event_name: "UserPromptSubmit", clauder: { project: "Code", thread: "T" } };
+  const paused = run([prompt, watch, { hook_event_name: "Stop" }, { hook_event_name: "SessionEnd", reason: "other" }], list);
+  assert.equal(paused.state, "waiting");
+  assert.equal(paused.watches, undefined);
 });
 
 test("Stop while background work runs keeps the session running", () => {
@@ -147,21 +150,29 @@ test("Stop without a task list is ignored", () => {
   assert.equal(applyHook(emptyList("k", null, NOW), { hook_event_name: "Stop" }, NOW), null);
 });
 
-test("Stop after every task is done stays done", () => {
-  const list = run([created("1", "a"), completed("1", "a"), { hook_event_name: "Stop" }]);
+test("a finished but unresolved list waits on the user; resolving makes it done", () => {
+  const list = run([created("1", "a"), completed("1", "a")]);
   assert.equal(list.state, "done");
+  assert.equal(run([{ hook_event_name: "Stop" }], list).state, "waiting");
 });
 
 test("SessionEnd ends the list", () => {
   assert.equal(run([created("1", "a"), { hook_event_name: "SessionEnd", reason: "other" }]).state, "ended");
 });
 
-test("a project thread pauses between wakes instead of ending, and keeps an open decision card", () => {
+test("a project thread pauses between wakes instead of ending", () => {
   const prompt = { hook_event_name: "UserPromptSubmit", clauder: { project: "Code", thread: "Icons" } };
   const end = { hook_event_name: "SessionEnd", reason: "other" };
-  assert.equal(run([prompt, created("1", "a"), end]).state, "idle");
+  const stop = { hook_event_name: "Stop" };
+  assert.equal(run([prompt, created("1", "a"), stop, end]).state, "waiting");
   const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Which finish?" }, tool_response: {} };
-  assert.equal(run([prompt, created("1", "a"), decision, { hook_event_name: "Stop" }, end]).state, "waiting");
+  assert.equal(run([prompt, created("1", "a"), decision, stop, end]).state, "waiting");
+  // A reminder lives on the server, so it still wakes the thread after the pause.
+  const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 60, message: "x" });
+  assert.equal(run([prompt, created("1", "a"), later, stop, end]).state, "running");
+  // Helpers end with the session.
+  const helper = { hook_event_name: "Stop", background_tasks: [{ id: "x", type: "subagent", status: "running" }] };
+  assert.equal(run([prompt, created("1", "a"), helper, end]).state, "waiting");
   assert.equal(run([prompt, created("1", "a"), { hook_event_name: "SessionEnd", reason: "logout" }]).state, "ended");
 });
 
@@ -307,9 +318,9 @@ test("waiting says what Claude asks, and forgets it once answered", () => {
   const permission = { hook_event_name: "Notification", notification_type: "permission_prompt", message: "Claude needs your permission to use Bash" };
   const prompted = run([created("1", "a"), permission]);
   assert.equal(prompted.need, "Claude needs your permission to use Bash");
-  // The prompt is answered within the turn, so the turn's end means idle.
-  const after = run([{ hook_event_name: "Stop" }], prompted);
-  assert.equal(after.state, "idle");
+  // The prompt is answered within the turn; the need goes once the turn has gone on.
+  const after = run([tool("mcp__claude-code-remote__send_later", { delay_minutes: 5, message: "x" }), { hook_event_name: "Stop" }], prompted);
+  assert.equal(after.state, "running");
   assert.equal(after.need, undefined);
 });
 
@@ -319,18 +330,12 @@ const reply = (text: string) => ({
 });
 const MOCKUP_PLAN = "Playful Material 3 mockup\n\n✓ Read the screens\n✓ Design a mockup\n✓ Share the mockup for approval\n✓ Add wordmark options\n○ After approval: build it in the app and open a pull request";
 
-test("a reply's text never makes a session wait: no hook field says it waits on the user", () => {
-  const asked = run([
-    checklist("Plan\n\n✓ One\n○ Two"),
-    reply("Which do you like? I'd go with A."),
-    { hook_event_name: "Stop", cwd: "/home/user" },
-  ]);
-  assert.equal(asked.state, "idle");
+test("a reply's text is never read: the wake sources decide", () => {
+  const asked = run([checklist("Plan\n\n✓ One\n○ Two"), reply("Which do you like? I'd go with A."), { hook_event_name: "Stop", cwd: "/home/user" }]);
+  assert.equal(asked.state, "waiting");
   assert.equal(asked.need, undefined);
-  assert.equal(run([checklist(MOCKUP_PLAN), { hook_event_name: "Stop", cwd: "/home/user" }]).state, "idle");
-  const plain = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD, last_assistant_message: "Want me to add tests too?" }]);
-  assert.equal(plain.state, "idle");
-  const busy = run([checklist("Plan\n\n✓ One\n✱ Two"), reply("Waiting on CI."), { hook_event_name: "Stop", cwd: "/home/user" }]);
+  const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
+  const busy = run([checklist("Plan\n\n✓ One\n○ Two"), reply("Which do you like?"), later, { hook_event_name: "Stop", cwd: "/home/user" }]);
   assert.equal(busy.state, "running");
 });
 
@@ -354,11 +359,15 @@ const tool = (name: string, input: unknown, response: unknown = [{ type: "text",
 });
 const PLAN_DONE_BUT_ONE = "Plan\n\n✓ One\n○ Two";
 
-test("waiting on CI counts as working, and a passed CI makes the thread idle", () => {
+test("CI on a subscribed PR counts as working; once it finishes the thread waits on the user", () => {
   const created = tool("mcp__github__create_pull_request", { owner: "o", repo: "r" }, [{ type: "text", text: '{"url":"https://github.com/o/r/pull/5"}' }]);
-  const list = run([checklist(PLAN_DONE_BUT_ONE), created, { hook_event_name: "Stop", cwd: "/home/user" }]);
+  const subscribe = tool("mcp__claude-code-remote__subscribe_pr_activity", { owner: "o", repo: "r", pullNumber: 5 }, "Subscribed");
+  // Without a subscription, CI events don't wake the thread.
+  assert.equal(run([checklist(PLAN_DONE_BUT_ONE), created, { hook_event_name: "Stop", cwd: "/home/user" }]).state, "waiting");
+  const list = run([checklist(PLAN_DONE_BUT_ONE), created, subscribe, { hook_event_name: "Stop", cwd: "/home/user" }]);
   assert.equal(list.state, "running");
   assert.equal(list.pr?.ci, "running");
+  assert.equal(list.pr?.subscribed, true);
   const data = toPushData(list);
   assert.deepEqual(JSON.parse(data.pr), { n: 5, u: "https://github.com/o/r/pull/5", s: "open", c: "running" });
   const passed = run([
@@ -366,8 +375,10 @@ test("waiting on CI counts as working, and a passed CI makes the thread idle", (
     tool("mcp__github__pull_request_read", { owner: "o", repo: "r", pullNumber: 5, method: "get_check_runs" }, [{ type: "text", text: '{"check_runs":[{"status":"completed","conclusion":"success"}]}' }]),
     { hook_event_name: "Stop", cwd: "/home/user" },
   ], list);
-  assert.equal(passed.state, "idle");
+  assert.equal(passed.state, "waiting");
   assert.equal(passed.pr?.ci, "passed");
+  const unsubscribed = run([tool("mcp__claude-code-remote__unsubscribe_pr_activity", { owner: "o", repo: "r", pullNumber: 5 }, "ok"), { hook_event_name: "Stop" }], list);
+  assert.equal(unsubscribed.state, "waiting");
 });
 
 test("a reminder counts as working until it is due", () => {
