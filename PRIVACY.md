@@ -25,7 +25,8 @@ opens, reads or merges and their CI results, the reminders Claude sets, and, at 
 turn, how many tokens the session used per model (counted on the session's machine from its
 transcript; no text from the transcript is sent for this). When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,
-read from the session's own transcript; the prompt's text is left out. It keeps each session's task
+read from the session's own transcript, and what kind of event woke the session (a message, a
+coordinator note or a background event such as CI); the prompt's text is left out. It keeps each session's task
 list for a day after its last change, and the last 500 raw events for debugging. It runs in your
 own Cloudflare account; nobody else has access.
 

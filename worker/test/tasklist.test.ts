@@ -412,6 +412,15 @@ test("resolving finishes the thread, a new message reopens it", () => {
   const reopened = run([{ hook_event_name: "UserPromptSubmit" }], list);
   assert.equal(reopened.state, "running");
   assert.equal(reopened.resolved, undefined);
+  // A person's message or a coordinator message reopens it; CI events and other background
+  // wakes don't, so the resolved thread stays done after them.
+  const prompt = (source: string) => ({ hook_event_name: "UserPromptSubmit", clauder: { source } });
+  assert.equal(run([prompt("wake:mention")], list).resolved, undefined);
+  assert.equal(run([prompt("relay")], list).resolved, undefined);
+  const ci = run([prompt("notification"), { hook_event_name: "Stop" }], list);
+  assert.equal(ci.state, "done");
+  assert.equal(ci.resolved, true);
+  assert.equal(run([prompt("other"), { hook_event_name: "Stop" }], list).state, "done");
 });
 
 test("the last reply's link, the helpers and the usage reach the phone", () => {

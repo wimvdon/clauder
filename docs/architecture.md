@@ -36,6 +36,10 @@ Clauder shows the task list of every running Claude Code session on the phone.
   argument and the HTTP hooks' headers); only a session on the current version can be Waiting for
   you this way. The phone also shows a Running session that has been silent for 12 hours as Idle
   (`TaskList.shown`).
+  A resolved thread stays Done until a person's message, a decision tap or a coordinator message
+  wakes it: the prompt hook sends which kind of envelope the platform wrapped around the prompt
+  (`clauder.source`: `wake:mention`, `wake:decision-chosen`, `relay`, `notification`, `other`),
+  never the prompt's text, and CI events and other background wakes don't reopen it.
   A session that ended with open steps reads "Ended early".
 - **What a session waits on, and what it made** (`worker/src/extras.ts`): the hooks also match
   the GitHub tools (create, read, merge and update a pull request), `subscribe_pr_activity`,

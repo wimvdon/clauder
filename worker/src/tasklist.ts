@@ -145,6 +145,12 @@ function runningWork(input: Json): number {
   return Array.isArray(tasks) ? tasks.filter((t) => obj(t)?.status === "running").length : 0;
 }
 
+/** Whether a prompt from this source reopens a resolved thread (see the prompt hook script). */
+export function reopens(source: unknown): boolean {
+  if (typeof source !== "string") return true;
+  return source === "relay" || source === "wake:mention" || source === "wake:decision-chosen";
+}
+
 /** Project details the UserPromptSubmit hook script reads from the session's transcript. */
 function projectInfo(input: Json): { project?: string; projectId?: string; thread?: string } {
   const info = obj(input.clauder);
@@ -368,8 +374,10 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     }
     case "UserPromptSubmit": {
       state = "running";
-      // A new message reopens a resolved thread, and a reminder that brought Claude back is spent.
-      resolved = false;
+      // A person's message, a decision tap or a coordinator message reopens a resolved thread;
+      // background events such as CI results don't. Older hook scripts don't say, so any prompt
+      // reopens.
+      if (reopens(obj(input.clauder)?.source)) resolved = false;
       const info = projectInfo(input);
       project = info.project ?? project;
       projectId = info.projectId ?? projectId;

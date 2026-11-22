@@ -68,6 +68,21 @@ try:
         info["thread"] = m.group(1)
 except OSError:
     pass
+# What woke the session, from the envelope the platform wraps around each prompt: a person's
+# message or a decision tap ("wake:mention"), a message from the coordinator ("relay"), or
+# background events such as CI results ("notification"). Only the envelope's tag is sent.
+prompt = body.get("prompt")
+if isinstance(prompt, str):
+    head = re.sub(r'^(\s*@"[^"]*")+', "", prompt).lstrip()
+    m = re.match(r'<wake reason="([a-z-]{1,40})"', head)
+    if m:
+        info["source"] = "wake:" + m.group(1)
+    elif head.startswith("<task-notification>"):
+        info["source"] = "notification"
+    elif "<coordinator-relay>" in head[:3000]:
+        info["source"] = "relay"
+    else:
+        info["source"] = "other"
 body.pop("prompt", None)  # the prompt text stays in the session
 body["clauder"] = info
 req = urllib.request.Request("https://clauder.wim-d57.workers.dev/hook", data=json.dumps(body).encode(), method="POST", headers={
