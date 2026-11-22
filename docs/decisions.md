@@ -261,3 +261,10 @@ script's own version looked current. The hooks now say which settings the sessio
 version is part of the hook command and the HTTP hooks' headers), and a session on older
 settings with nothing known armed shows Idle: the Worker can't tell whether it waits on CI or on
 the user.
+
+## 2026-11-22: Only a person or the coordinator reopens a resolved thread
+A resolved thread went back to "Waiting for you" after a PR-merged event woke it: every prompt
+cleared the resolved flag. On claude.ai only a member's message or tap, or a coordinator message,
+reopens a thread. The prompt hook now sends the kind of envelope the platform put around the
+prompt (its tag and wake reason, not the text), and the Worker reopens only for those. Hook
+scripts that don't send it yet keep the old behaviour.
