@@ -135,6 +135,14 @@ class TaskListTest {
         assertNull(TaskList.fromPushData(push() + ("need" to ""))!!.need)
     }
 
+    @Test
+    fun `the turn summary comes with pushes and survives the saved copy`() {
+        val list = TaskList.fromPushData(push() + ("summary" to "PR #5 open, CI running"))!!
+        assertEquals("PR #5 open, CI running", list.summary)
+        assertEquals(list, TaskList.listFromJson(TaskList.listToJson(listOf(list))).single())
+        assertNull(TaskList.fromPushData(push() + ("summary" to ""))!!.summary)
+    }
+
     private val now = java.time.Instant.parse("2026-11-22T14:00:00Z").toEpochMilli()
 
     private fun session(state: SessionState, updatedAt: String, vararg steps: TaskStatus) = TaskList(

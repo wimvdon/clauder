@@ -1,16 +1,25 @@
-// Reads what a turn's last reply asks the user, with a small language model (Cloudflare Workers
-// AI). Only used when the hook data can't decide: the turn ended while something Claude set up
-// (CI on a pull request, a reminder, a watched URL, helpers) will still wake the thread, so the
-// thread may be waiting on that or on the user. Plain logic around an injected model, so it runs
-// under plain Node tests.
+// Reads a turn's last reply with a small language model (Cloudflare Workers AI), once per turn:
+// a one-line summary of where the work stands, for the phone's notifications, and what the reply
+// asks the user. The question only decides the state when the hook data can't: the turn ended
+// while something Claude set up (CI on a pull request, a reminder, a watched URL, helpers) will
+// still wake the thread, so the thread may be waiting on that or on the user. Plain logic around
+// an injected model, so it runs under plain Node tests.
 
 /** Big enough to read Dutch and English replies well, and fast. */
 export const ASK_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 /** The end of a long reply is where it asks; the start is mostly the report. */
-export const MAX_REPLY_CHARS = 4000;
+export const MAX_REPLY_CHARS = 3000;
 
 export const MAX_QUESTION_CHARS = 200;
+export const MAX_SUMMARY_CHARS = 120;
+
+/** What the model read in a reply: the question it asks the user ("" for none) and a one-line
+ * summary ("" when it gave none). */
+export interface TurnRead {
+  question: string;
+  summary: string;
+}
 
 /** The part of the Workers AI binding this uses. */
 export interface AskModel {
@@ -26,8 +35,11 @@ const SYSTEM = [
   "Don't count: a report of finished or ongoing work, a note that it waits for CI, a reminder",
   "or another process, an optional offer such as \"let me know if you want more\", a question it",
   "answers itself, a question quoted from someone else.",
+  "Also write a summary: one line of at most 12 words, in the language of the message, saying",
+  "where the work stands for the user, such as \"Snoozer CI running; mockups ready, pick T1-T3\".",
+  "No greeting, no \"Claude\", no full stop at the end.",
   'Reply with JSON only: {"waiting": true or false, "question": "what the user must answer,',
-  'at most 15 words, in the language of the message, or empty"}.',
+  'at most 15 words, in the language of the message, or empty", "summary": "the line"}.',
 ].join(" ");
 
 /** The tail of a reply, cut at a line break when it is long. */
@@ -44,14 +56,18 @@ export function askInput(reply: string): Record<string, unknown> {
       { role: "system", content: SYSTEM },
       { role: "user", content: `<message>\n${replyTail(reply)}\n</message>` },
     ],
-    max_tokens: 120,
+    max_tokens: 160,
     temperature: 0,
   };
 }
 
-/** The model's answer: the question when the reply waits on the user, "" when it doesn't, and
- * null when the answer can't be read (then nothing changes). */
-export function parseAsk(output: unknown): string | null {
+function oneLine(value: unknown, max: number): string {
+  const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim().replace(/[.。]$/, "") : "";
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** The model's answer, or null when it can't be read (then nothing changes). */
+export function parseTurn(output: unknown): TurnRead | null {
   const response = typeof output === "object" && output !== null ? (output as { response?: unknown }).response : output;
   let value: unknown = response;
   if (typeof response === "string") {
@@ -64,19 +80,17 @@ export function parseAsk(output: unknown): string | null {
     }
   }
   if (typeof value !== "object" || value === null) return null;
-  const { waiting, question } = value as { waiting?: unknown; question?: unknown };
+  const { waiting, question, summary } = value as { waiting?: unknown; question?: unknown; summary?: unknown };
   if (typeof waiting !== "boolean") return null;
-  if (!waiting) return "";
-  const text = typeof question === "string" ? question.replace(/\s+/g, " ").trim() : "";
-  const asked = text || "Claude asks you something";
-  return asked.length <= MAX_QUESTION_CHARS ? asked : `${asked.slice(0, MAX_QUESTION_CHARS - 1).trimEnd()}…`;
+  const asked = waiting ? oneLine(question, MAX_QUESTION_CHARS) || "Claude asks you something" : "";
+  return { question: asked, summary: oneLine(summary, MAX_SUMMARY_CHARS) };
 }
 
-/** What the reply asks ("" for nothing), or null when the model fails or answers unreadably. */
-export async function findAsk(model: AskModel, reply: string): Promise<string | null> {
-  if (!reply.trim()) return "";
+/** Reads the reply, or null when the model fails or answers unreadably. */
+export async function readTurn(model: AskModel, reply: string): Promise<TurnRead | null> {
+  if (!reply.trim()) return { question: "", summary: "" };
   try {
-    return parseAsk(await model.run(ASK_MODEL, askInput(reply)));
+    return parseTurn(await model.run(ASK_MODEL, askInput(reply)));
   } catch {
     return null;
   }

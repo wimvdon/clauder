@@ -13,7 +13,7 @@ import { DurableObject } from "cloudflare:workers";
 import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
 import { HOOKS_VERSION, installScript } from "./install";
-import { findAsk, type AskModel } from "./ask";
+import { readTurn, type AskModel } from "./ask";
 import { applyAsk, applyHook, emptyList, sessionKey, toPushData, type SessionList } from "./tasklist";
 
 export interface Env {
@@ -29,6 +29,8 @@ export interface Env {
 const MAX_LOG_ENTRIES = 500;
 const MAX_BODY_BYTES = 256 * 1024;
 const PUSH_DEBOUNCE_MS = 400;
+/** At a turn's end the push waits this long for the model's summary, so the phone gets one update. */
+const ASK_WAIT_MS = 5000;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface LogEntry {
@@ -79,28 +81,31 @@ export class Session extends DurableObject<Env> {
     }
     await this.ctx.storage.put("list", next);
     // A change only to what the phone doesn't see (the reply, a pending check) isn't pushed.
-    if (next.seq !== base.seq) await this.schedulePush();
-    if (next.askCheck !== undefined && this.env.AI) this.ctx.waitUntil(this.checkAsk(next.seq, next.askCheck));
+    const asking = next.askCheck !== undefined && this.env.AI !== undefined;
+    if (next.seq !== base.seq) await this.schedulePush(asking ? ASK_WAIT_MS : PUSH_DEBOUNCE_MS);
+    if (asking) this.ctx.waitUntil(this.checkAsk(next.seq, next.askCheck!));
     return next;
   }
 
-  /** Has the model read the turn's last reply, then marks the thread waiting if it asks the user. */
+  /** Has the model read the turn's last reply: its summary line, and whether it asks the user. */
   private async checkAsk(seq: number, reply: string): Promise<void> {
     if (!this.env.AI) return;
-    const question = await findAsk(this.env.AI as unknown as AskModel, reply);
+    const read = await readTurn(this.env.AI as unknown as AskModel, reply);
     const list = await this.ctx.storage.get<SessionList>("list");
     if (!list) return;
-    const next = applyAsk(list, seq, question, new Date().toISOString());
+    const next = applyAsk(list, seq, read, new Date().toISOString());
     if (!next) return;
     await this.ctx.storage.put("list", next);
-    if (next.seq !== list.seq) await this.schedulePush();
+    // Push now: the update held back for this read, if any, goes out with it.
+    if (next.seq !== list.seq || (await this.ctx.storage.get<boolean>("pushPending"))) await this.schedulePush(PUSH_DEBOUNCE_MS);
   }
 
-  private async schedulePush(): Promise<void> {
+  /** Pushes after [delay], or sooner if a push is already due. */
+  private async schedulePush(delay: number): Promise<void> {
     await this.ctx.storage.put("pushPending", true);
     const alarm = await this.ctx.storage.getAlarm();
-    if (alarm === null || alarm > Date.now() + PUSH_DEBOUNCE_MS) {
-      await this.ctx.storage.setAlarm(Date.now() + PUSH_DEBOUNCE_MS);
+    if (alarm === null || alarm > Date.now() + delay) {
+      await this.ctx.storage.setAlarm(Date.now() + delay);
     }
   }
 

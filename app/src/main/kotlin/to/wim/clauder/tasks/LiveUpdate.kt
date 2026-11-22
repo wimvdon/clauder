@@ -8,6 +8,8 @@ data class LiveUpdate(
     val status: Status,
     /** While waiting: what Claude asks, shown in place of "Waiting for you" when known. */
     val need: String?,
+    /** A one-line summary of Claude's last turn, when the Worker's model wrote one. */
+    val summary: String? = null,
     /** True when [done] and [total] count a project thread's steps rather than tasks. */
     val steps: Boolean,
     val done: Int,
@@ -43,6 +45,11 @@ data class LiveUpdate(
     enum class Status { Tasks, Idle, Waiting, Done }
 
     val max: Int get() = segmentCount * SEGMENT_LENGTH
+
+    /** The line that says the most about where the work stands, before the step or the state: the
+     * last turn's summary. A question Claude asks comes first, so a waiting session with a
+     * [need] shows that instead. */
+    val headline: String? get() = summary?.takeIf { status != Status.Waiting || need == null }
 
     /** Idle and finished sessions are bundled per project in the shade, so the bundle can be
      * folded away; live ones stay on their own to keep their progress bar. Null: not bundled. */
@@ -81,6 +88,7 @@ data class LiveUpdate(
                 group = list.group,
                 status = status,
                 need = list.need?.takeIf { status == Status.Waiting },
+                summary = list.summary,
                 steps = list.hasSteps,
                 done = done,
                 total = total,

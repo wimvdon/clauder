@@ -36,6 +36,8 @@ data class TaskList(
     val repo: String? = null,
     /** While waiting: what Claude asks, such as a decision's question or the permission it needs. */
     val need: String? = null,
+    /** A one-line summary of Claude's last turn (read by a model on the Worker), until the next prompt. */
+    val summary: String? = null,
     val pr: PullRequest? = null,
     /** A page Claude's last reply attached that the phone can open, such as a mockup. */
     val link: String? = null,
@@ -103,6 +105,7 @@ data class TaskList(
         .put("projectId", projectId ?: "")
         .put("repo", repo ?: "")
         .put("need", need ?: "")
+        .put("summary", summary ?: "")
         .apply {
             pr?.let {
                 put(
@@ -205,6 +208,7 @@ data class TaskList(
                 projectId = data["projectId"]?.takeIf { it.isNotBlank() },
                 repo = data["repo"]?.takeIf { it.isNotBlank() },
                 need = data["need"]?.takeIf { it.isNotBlank() },
+                summary = data["summary"]?.takeIf { it.isNotBlank() },
                 pr = data["pr"]?.takeIf { it.isNotBlank() }?.let { text ->
                     try {
                         val o = JSONObject(text)
@@ -245,6 +249,7 @@ data class TaskList(
                 projectId = json.optString("projectId").takeIf { it.isNotBlank() },
                 repo = json.optString("repo").takeIf { it.isNotBlank() },
                 need = json.optString("need").takeIf { it.isNotBlank() },
+                summary = json.optString("summary").takeIf { it.isNotBlank() },
                 pr = json.optJSONObject("pr")?.let {
                     pullRequest(it.optInt("number"), it.optString("url"), it.optString("state"), it.optString("ci"))
                 },

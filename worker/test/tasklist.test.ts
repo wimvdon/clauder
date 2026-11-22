@@ -349,17 +349,18 @@ const reply = (text: string) => ({
 });
 const MOCKUP_PLAN = "Playful Material 3 mockup\n\n✓ Read the screens\n✓ Design a mockup\n✓ Share the mockup for approval\n✓ Add wordmark options\n○ After approval: build it in the app and open a pull request";
 
-test("the wake sources decide first; the reply is checked only when something will still wake the thread", () => {
+test("the wake sources decide first; every reply is read for a summary", () => {
   const asked = run([checklist("Plan\n\n✓ One\n○ Two"), reply("Which do you like? I'd go with A."), { hook_event_name: "Stop", cwd: "/home/user" }]);
   assert.equal(asked.state, "waiting");
   assert.equal(asked.need, undefined);
-  assert.equal(asked.askCheck, undefined);
+  assert.equal(asked.askCheck, "Which do you like? I'd go with A.");
   assert.equal(asked.reply, undefined);
   const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
   const busy = run([checklist("Plan\n\n✓ One\n○ Two"), reply("Which do you like?"), later, { hook_event_name: "Stop", cwd: "/home/user" }]);
   assert.equal(busy.state, "running");
   assert.equal(busy.askCheck, "Which do you like?");
-  assert.equal(busy.reply, undefined);
+  // A turn without a reply has nothing to read.
+  assert.equal(run([checklist("Plan\n\n✱ One"), { hook_event_name: "Stop" }]).askCheck, undefined);
 });
 
 test("a reply is kept without a push, and only the turn's last one counts", () => {
@@ -376,26 +377,28 @@ test("a reply is kept without a push, and only the turn's last one counts", () =
   assert.equal(toPushData(list).reply, undefined);
 });
 
-test("older hooks: the reply (or the session's last message) is checked instead of showing waiting", () => {
+test("older hooks: the session's last message is read too", () => {
   const old = run([checklist(PLAN_DONE_BUT_ONE), { hook_event_name: "Stop", last_assistant_message: "Shall I merge it?" }], undefined, false);
   assert.equal(old.state, "idle");
   assert.equal(old.askCheck, "Shall I merge it?");
-  const resolved = run([checklist(PLAN_DONE_BUT_ONE), reply("Done."), tool("mcp__hearthbot__set_thread_resolved", { resolved: true }), { hook_event_name: "Stop" }]);
-  assert.equal(resolved.askCheck, undefined);
 });
 
-test("the model's answer marks the thread waiting, only for the turn it read", () => {
+const read = (question: string, summary = "") => ({ question, summary });
+
+test("the model's question marks a working thread waiting, only for the turn it read", () => {
   const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
   const list = run([checklist(PLAN_DONE_BUT_ONE), reply("CI runs. Pick one: T1, T2 or T3."), later, { hook_event_name: "Stop" }]);
-  const waiting = applyAsk(list, list.seq, "Pick T1, T2 or T3", NOW);
+  const waiting = applyAsk(list, list.seq, read("Pick T1, T2 or T3", "CI running, pick T1-T3"), NOW);
   assert.equal(waiting?.state, "waiting");
   assert.equal(waiting?.need, "Pick T1, T2 or T3");
   assert.equal(waiting?.needKind, "question");
+  assert.equal(waiting?.summary, "CI running, pick T1-T3");
   assert.equal(waiting?.seq, list.seq + 1);
   assert.equal(waiting?.askCheck, undefined);
   assert.equal(toPushData(waiting!).need, "Pick T1, T2 or T3");
-  // Asks nothing, or the model failed: the state stays, the check is done.
-  for (const answer of ["", null]) {
+  assert.equal(toPushData(waiting!).summary, "CI running, pick T1-T3");
+  // Asks nothing and no summary, or the model failed: the state stays, the check is done.
+  for (const answer of [read(""), null]) {
     const same = applyAsk(list, list.seq, answer, NOW);
     assert.equal(same?.state, "running");
     assert.equal(same?.seq, list.seq);
@@ -403,9 +406,28 @@ test("the model's answer marks the thread waiting, only for the turn it read", (
   }
   // A late answer for an earlier turn is dropped.
   const next = run([{ hook_event_name: "UserPromptSubmit" }], list);
-  assert.equal(applyAsk(next, list.seq, "Pick one", NOW), null);
-  // The next prompt ends the wait like any other.
-  assert.equal(run([{ hook_event_name: "UserPromptSubmit" }], waiting!).state, "running");
+  assert.equal(applyAsk(next, list.seq, read("Pick one"), NOW), null);
+  // The next prompt ends the wait and drops the summary.
+  const prompted = run([{ hook_event_name: "UserPromptSubmit" }], waiting!);
+  assert.equal(prompted.state, "running");
+  assert.equal(prompted.summary, undefined);
+});
+
+test("a summary alone is pushed; a waiting thread gets the question, a resolved one doesn't wait", () => {
+  const working = run([checklist(PLAN_DONE_BUT_ONE), reply("PR #5 is open, CI runs."), tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" }), { hook_event_name: "Stop" }]);
+  const summed = applyAsk(working, working.seq, read("", "PR #5 open, CI running"), NOW);
+  assert.equal(summed?.state, "running");
+  assert.equal(summed?.summary, "PR #5 open, CI running");
+  assert.equal(summed?.seq, working.seq + 1);
+  const waits = run([checklist(PLAN_DONE_BUT_ONE), reply("Which font?"), { hook_event_name: "Stop" }]);
+  assert.equal(applyAsk(waits, waits.seq, read("Which font?"), NOW)?.need, "Which font?");
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Which colour?" }, tool_response: {} };
+  const card = run([checklist(PLAN_DONE_BUT_ONE), decision, reply("Card is up."), { hook_event_name: "Stop" }]);
+  assert.equal(applyAsk(card, card.seq, read("Pick a colour"), NOW)?.need, "Which colour?");
+  const resolved = run([checklist(PLAN_DONE_BUT_ONE), reply("All done. Anything else?"), tool("mcp__hearthbot__set_thread_resolved", { resolved: true }), { hook_event_name: "Stop" }]);
+  const after = applyAsk(resolved, resolved.seq, read("Anything else?", "Merged and released"), NOW);
+  assert.equal(after?.state, "done");
+  assert.equal(after?.summary, "Merged and released");
 });
 
 test("only a permission prompt or a question form notification means waiting", () => {

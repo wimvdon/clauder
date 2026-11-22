@@ -1,7 +1,7 @@
 // Pure task-list logic: turns raw Claude Code hook payloads into one session's task list.
 // No Worker types, so it runs under plain Node tests.
 
-import { MAX_REPLY_CHARS } from "./ask.ts";
+import { MAX_REPLY_CHARS, type TurnRead } from "./ask.ts";
 import {
   applyPrTool,
   linkFromOutputs,
@@ -84,9 +84,11 @@ export interface SessionList {
   /** The turn's last reply to the user (a project thread's post_message), kept only until the turn
    * ends. Not sent to the phone. */
   reply?: string;
-  /** Set when a turn ended while something Claude set up will still wake the thread: the reply
-   * to check for a question to the user (see ask.ts and [applyAsk]). Not sent to the phone. */
+  /** Set when a turn ended with a reply: the text the model reads next (see ask.ts and
+   * [applyAsk]). Not sent to the phone. */
   askCheck?: string;
+  /** The model's one-line summary of the last turn, until the next prompt. */
+  summary?: string;
   /** Bumped on every change, so the phone can drop out-of-order pushes. */
   seq: number;
   updatedAt: string;
@@ -266,6 +268,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   let usage = list.usage;
   let resolved = list.resolved ?? false;
   let reply = list.reply;
+  let summary = list.summary;
   let askCheck: string | undefined;
   // An open decision card keeps the session waiting while Claude goes on with the work.
   const deciding = state === "waiting" && needKind === "decision";
@@ -366,6 +369,11 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       if (list.tasks.length === 0 && steps.length === 0) return null;
       usage = usageFrom(obj(input.clauder)?.usage) ?? usage;
       helpers = runningWork(input) || undefined;
+      // A model reads the turn's last reply next: a summary line for the phone, and whether it
+      // asks the user something (which decides the state only when the hook data can't).
+      const said = reply ?? str(input.last_assistant_message)?.slice(-MAX_REPLY_CHARS);
+      if (said) askCheck = said;
+      reply = undefined;
       // Stop ends every turn. An open decision card keeps the session waiting. Otherwise it is
       // running while something Claude set up will wake it, and waiting on the user when
       // nothing will.
@@ -373,11 +381,6 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       const crons = Array.isArray(input.session_crons) && input.session_crons.length > 0;
       const armed = helpers !== undefined || crons || prWakes(pr) || wakeAt !== undefined || watches.length > 0;
       state = armed ? "running" : hooksCurrent ? "waiting" : "idle";
-      // When something will still wake the thread, or older hooks can't tell, the hook data
-      // doesn't say whether the reply also asks the user something: a model reads it next.
-      const said = reply ?? str(input.last_assistant_message)?.slice(-MAX_REPLY_CHARS);
-      if (state !== "waiting" && !resolved && said) askCheck = said;
-      reply = undefined;
       break;
     }
     case "Notification": {
@@ -392,6 +395,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     case "UserPromptSubmit": {
       state = "running";
       reply = undefined;
+      summary = undefined;
       // A person's message, a decision tap or a coordinator message reopens a resolved thread;
       // background events such as CI results don't. Older hook scripts don't say, so any prompt
       // reopens.
@@ -432,6 +436,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     thread !== list.thread ||
     repo !== list.repo ||
     need !== list.need ||
+    summary !== list.summary ||
     resolved !== (list.resolved ?? false) ||
     wakeAt !== list.wakeAt ||
     JSON.stringify(watches) !== JSON.stringify(list.watches ?? []) ||
@@ -444,12 +449,12 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   const {
     need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches, hooksCurrent: _hooksCurrent,
-    helpers: _helpers, usage: _usage, resolved: _resolved, reply: _reply, askCheck: _askCheck, ...rest
+    helpers: _helpers, usage: _usage, resolved: _resolved, reply: _reply, askCheck: _askCheck, summary: _summary, ...rest
   } = list;
   if (!changed) {
     // Nothing the phone shows changed; keep the reply or the check without a push (same seq).
     if (reply === list.reply && askCheck === list.askCheck) return null;
-    return { ...rest, ...pick(list), ...(reply ? { reply } : {}), ...(askCheck ? { askCheck } : {}) };
+    return { ...rest, ...pick(list), ...(reply ? { reply } : {}), ...(askCheck ? { askCheck } : {}), ...(summary ? { summary } : {}) };
   }
   return {
     ...rest,
@@ -474,6 +479,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     ...(resolved ? { resolved } : {}),
     ...(reply ? { reply } : {}),
     ...(askCheck ? { askCheck } : {}),
+    ...(summary ? { summary } : {}),
     seq: list.seq + 1,
     updatedAt: now,
   };
@@ -489,16 +495,32 @@ function pick(list: SessionList): Partial<SessionList> {
 }
 
 /**
- * Applies what the model read in the reply of the turn that ended at [seq]: a question makes the
- * thread wait on the user; "" (asks nothing) keeps the state. Ignored when anything happened since
- * that turn ended (seq moved on) or the check was already done. Returns null when nothing changes.
+ * Applies what the model read in the reply of the turn that ended at [seq]. The summary line is
+ * always kept. A question makes a working or idle thread wait on the user, and names what a
+ * thread that already waits (with nothing else to show) asks. Ignored when anything happened
+ * since that turn ended (seq moved on) or the check was already done. Returns null when nothing
+ * changes.
  */
-export function applyAsk(list: SessionList, seq: number, question: string | null, now: string): SessionList | null {
+export function applyAsk(list: SessionList, seq: number, read: TurnRead | null, now: string): SessionList | null {
   if (list.seq !== seq || list.askCheck === undefined) return null;
   const { askCheck: _askCheck, ...rest } = list;
-  // A finished checklist doesn't end an unresolved thread that asks something; a resolved one does.
-  if (!question || list.resolved || list.state === "ended" || list.state === "waiting") return rest;
-  return { ...rest, state: "waiting", need: clip(question, MAX_NEED), needKind: "question", seq: list.seq + 1, updatedAt: now };
+  if (!read) return rest;
+  const next: SessionList = { ...rest };
+  if (read.summary) next.summary = clip(read.summary, MAX_NEED);
+  // A resolved or closed thread doesn't wait, whatever its last reply says. A finished checklist
+  // doesn't end an unresolved thread that asks something.
+  if (read.question && !list.resolved && list.state !== "ended") {
+    if (list.state !== "waiting") {
+      next.state = "waiting";
+      next.need = clip(read.question, MAX_NEED);
+      next.needKind = "question";
+    } else if (!list.need) {
+      next.need = clip(read.question, MAX_NEED);
+      next.needKind = "question";
+    }
+  }
+  const shown = next.state !== list.state || next.need !== list.need || next.summary !== list.summary;
+  return shown ? { ...next, seq: list.seq + 1, updatedAt: now } : next;
 }
 
 export interface Progress {
@@ -532,6 +554,7 @@ export function toPushData(list: SessionList): Record<string, string> {
     projectId: list.projectId ?? "",
     repo: list.repo ?? "",
     need: list.need ?? "",
+    summary: list.summary ?? "",
     state: list.state,
     seq: String(list.seq),
     updatedAt: list.updatedAt,
