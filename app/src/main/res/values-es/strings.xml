@@ -80,4 +80,27 @@
         <item quantity="many">%1$d/%2$d tareas</item>
         <item quantity="other">%1$d/%2$d tareas</item>
     </plurals>
+    <string name="nav_shortcuts">Accesos directos</string>
+    <string name="shortcuts_title">Accesos directos</string>
+    <string name="action_add">Añadir</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_remove">Quitar</string>
+    <string name="shortcuts_empty_title">Aún no hay accesos directos</string>
+    <string name="shortcuts_empty_body">Toca Añadir o comparte un enlace de claude.ai con Clauder para poner un chat, un proyecto o un artifact en tu pantalla de inicio.</string>
+    <string name="shortcuts_static_hint">Mantén pulsado el icono de Clauder para Nuevo chat, Code, Proyectos y Artifacts.</string>
+    <string name="shortcut_add_title">Añadir a la pantalla de inicio</string>
+    <string name="shortcut_edit_title">Editar acceso directo</string>
+    <string name="shortcut_link">Enlace de claude.ai</string>
+    <string name="shortcut_name">Nombre</string>
+    <string name="shortcut_bad_link">Solo funcionan los enlaces de claude.ai.</string>
+    <string name="shortcut_missing_name">Introduce un nombre.</string>
+    <string name="shortcut_pin_unsupported">Tu app de pantalla de inicio no puede añadir accesos directos.</string>
+    <string name="shortcut_removed">Quitado en Clauder</string>
+    <string name="shortcut_removed_hint">Quitado. Arrastra el icono gris fuera de la pantalla de inicio.</string>
+    <string name="shortcut_new_chat">Nuevo chat</string>
+    <string name="shortcut_code">Code</string>
+    <string name="shortcut_code_long">Claude Code</string>
+    <string name="shortcut_projects">Proyectos</string>
+    <string name="shortcut_artifacts">Artifacts</string>
 </resources>

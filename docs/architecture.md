@@ -12,8 +12,14 @@ Clauder shows the task list of every running Claude Code session on the phone.
   current and next task, "Waiting for you" when Claude stopped, and "Done" that dismisses itself
   after 3 minutes. Android 16 shows it as a Live Update (`ProgressStyle`, promoted ongoing);
   older versions get a standard progress notification. A tap opens the session on claude.ai.
+- **Shortcuts:** long-pressing the app icon shows New chat, Code, Projects and Artifacts
+  (`res/xml/shortcuts.xml`, URLs checked against `StaticShortcuts` by a test). The Shortcuts tab
+  pins any claude.ai link to the home screen with a name (`shortcuts/PinnedShortcuts` for the
+  edits, `ShortcutPinner` for the launcher). Sharing text with a claude.ai link to Clauder opens
+  the same Add dialog. Only https links on claude.ai are accepted (`ClaudeLink`). Android can't
+  take a pinned shortcut off the home screen, so Remove disables it and says so.
 - **Screens:** Tasks (the sessions from the Worker's `GET /sessions`, kept up to date by pushes,
-  `tasks/SessionBoard`) and Settings (connection, notifications, the setup block for cloud
+  `tasks/SessionBoard`), Shortcuts and Settings (connection, notifications, the setup block for cloud
   environments, appearance).
 - **Stored data:** theme, Dynamic color and the Worker address in `backed_up_settings`; the
   Worker token, the registered FCM token and pinned shortcuts in `device_state` (not backed up).

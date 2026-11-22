@@ -81,4 +81,27 @@
         <item quantity="one">%1$d/%2$d task</item>
         <item quantity="other">%1$d/%2$d tasks</item>
     </plurals>
+    <string name="nav_shortcuts">Shortcuts</string>
+    <string name="shortcuts_title">Shortcuts</string>
+    <string name="action_add">Add</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_remove">Remove</string>
+    <string name="shortcuts_empty_title">No shortcuts yet</string>
+    <string name="shortcuts_empty_body">Tap Add, or share a claude.ai link to Clauder, to put a chat, project or artifact on your home screen.</string>
+    <string name="shortcuts_static_hint">Long-press the Clauder icon for New chat, Code, Projects and Artifacts.</string>
+    <string name="shortcut_add_title">Add to home screen</string>
+    <string name="shortcut_edit_title">Edit shortcut</string>
+    <string name="shortcut_link">claude.ai link</string>
+    <string name="shortcut_name">Name</string>
+    <string name="shortcut_bad_link">Only claude.ai links work.</string>
+    <string name="shortcut_missing_name">Enter a name.</string>
+    <string name="shortcut_pin_unsupported">Your home screen app can’t add shortcuts.</string>
+    <string name="shortcut_removed">Removed in Clauder</string>
+    <string name="shortcut_removed_hint">Removed. Drag the grey icon off your home screen.</string>
+    <string name="shortcut_new_chat">New chat</string>
+    <string name="shortcut_code">Code</string>
+    <string name="shortcut_code_long">Claude Code</string>
+    <string name="shortcut_projects">Projects</string>
+    <string name="shortcut_artifacts">Artifacts</string>
 </resources>

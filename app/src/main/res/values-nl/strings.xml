@@ -78,4 +78,27 @@
         <item quantity="one">%1$d/%2$d taak</item>
         <item quantity="other">%1$d/%2$d taken</item>
     </plurals>
+    <string name="nav_shortcuts">Snelkoppelingen</string>
+    <string name="shortcuts_title">Snelkoppelingen</string>
+    <string name="action_add">Toevoegen</string>
+    <string name="action_cancel">Annuleren</string>
+    <string name="action_save">Opslaan</string>
+    <string name="action_remove">Verwijderen</string>
+    <string name="shortcuts_empty_title">Nog geen snelkoppelingen</string>
+    <string name="shortcuts_empty_body">Tik op Toevoegen of deel een claude.ai-link met Clauder om een chat, project of artifact op je startscherm te zetten.</string>
+    <string name="shortcuts_static_hint">Houd het Clauder-icoon ingedrukt voor Nieuwe chat, Code, Projecten en Artifacts.</string>
+    <string name="shortcut_add_title">Op startscherm zetten</string>
+    <string name="shortcut_edit_title">Snelkoppeling bewerken</string>
+    <string name="shortcut_link">claude.ai-link</string>
+    <string name="shortcut_name">Naam</string>
+    <string name="shortcut_bad_link">Alleen claude.ai-links werken.</string>
+    <string name="shortcut_missing_name">Vul een naam in.</string>
+    <string name="shortcut_pin_unsupported">Je startscherm-app kan geen snelkoppelingen toevoegen.</string>
+    <string name="shortcut_removed">Verwijderd in Clauder</string>
+    <string name="shortcut_removed_hint">Verwijderd. Sleep het grijze icoon van je startscherm.</string>
+    <string name="shortcut_new_chat">Nieuwe chat</string>
+    <string name="shortcut_code">Code</string>
+    <string name="shortcut_code_long">Claude Code</string>
+    <string name="shortcut_projects">Projecten</string>
+    <string name="shortcut_artifacts">Artifacts</string>
 </resources>
