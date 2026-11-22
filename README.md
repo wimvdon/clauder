@@ -206,7 +206,7 @@ JSON
 ## Live task list: Worker and hooks
 
 Claude Code sessions report their task list to a small Cloudflare Worker (`worker/`) through
-hooks (`hooks/`). Setup steps for the hooks are in [`hooks/README.md`](hooks/README.md); what the
+hooks (`hooks/`). Setup steps for the hooks, including the step for each cloud environment, are in [`hooks/README.md`](hooks/README.md); what the
 hooks send is in [`docs/spike-hooks.md`](docs/spike-hooks.md).
 
 The `Worker` workflow deploys `worker/` on every push to `main` once these repository secrets

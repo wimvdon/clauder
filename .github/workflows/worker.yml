@@ -3,7 +3,7 @@ name: Worker
 
 on:
   pull_request:
-    paths: ["worker/**", "hooks/**", ".github/workflows/worker.yml"]
+    paths: ["worker/**", "hooks/**", ".claude/**", ".github/workflows/worker.yml"]
   push:
     branches: [main]
     paths: ["worker/**", ".github/workflows/worker.yml"]
@@ -39,7 +39,13 @@ jobs:
       - run: npm test
       - name: Validate the hook snippet
         working-directory: hooks
-        run: python3 -m json.tool settings.json > /dev/null
+        run: |
+          python3 -m json.tool settings.json > /dev/null
+          python3 -m json.tool ../.claude/settings.json > /dev/null
+          H="$(mktemp -d)"
+          HOME="$H" bash install-user-hooks.sh
+          HOME="$H" bash install-user-hooks.sh
+          python3 -c "import json,sys; h=json.load(open(sys.argv[1]))['hooks']; assert all(len(v)==1 for v in h.values()) and len(h)==6, h" "$H/.claude/settings.json"
 
   deploy:
     name: Deploy to Cloudflare
