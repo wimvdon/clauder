@@ -1,6 +1,9 @@
 package to.wim.clauder.ui.tasks
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,7 +21,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +50,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,6 +69,7 @@ import to.wim.clauder.tasks.LiveUpdate
 import to.wim.clauder.tasks.MuteList
 import to.wim.clauder.tasks.PrState
 import to.wim.clauder.tasks.PullRequest
+import to.wim.clauder.tasks.SegmentBar
 import to.wim.clauder.tasks.SessionBoard
 import to.wim.clauder.tasks.SessionState
 import to.wim.clauder.tasks.TaskItem
@@ -131,7 +136,7 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
                         scope.launch {
                             val after = MuteList.unmute(muted, list.key)
                             app.store.setMuted(after)
-                            TaskNotifier.apply(app, list, sessions, after, app.store.current().summaryNotification)
+                            TaskNotifier.apply(app, list, sessions, after, app.store.current().notify)
                         }
                     }
                     load == Load.Failed -> EmptyState(
@@ -164,33 +169,71 @@ private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: 
         }
     }
     val sections = SessionBoard.sections(sessions, now)
-    // Projects the user folded. Every project starts open.
+    // Projects the user folded (every project starts open), and projects whose idle and finished
+    // sessions the user opened (they start folded under one "N inactive" row).
     val folded = remember { mutableStateMapOf<String, Boolean>() }
+    val openInactive = remember { mutableStateMapOf<String, Boolean>() }
+    val rows = SessionBoard.rows(
+        sections,
+        foldedGroups = folded.filterValues { it }.keys,
+        openInactive = openInactive.filterValues { it }.keys,
+    )
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        sections.forEach { section ->
-            val id = section.group.orEmpty()
-            val open = folded[id] != true
-            // A lone list of sessions without a project needs no header to fold it.
-            if (section.group != null || sections.size > 1) {
-                item(key = "group:$id") {
-                    GroupHeader(
-                        section.group ?: stringResource(R.string.tasks_section_other),
-                        count = section.active.size + section.inactive.size,
-                        open = open,
-                        onToggle = { folded[id] = open },
-                    )
-                }
+        items(rows, key = { row ->
+            when (row) {
+                is SessionBoard.Row.Header -> "group:${row.group.orEmpty()}"
+                is SessionBoard.Row.Active -> row.list.key
+                is SessionBoard.Row.InactiveToggle -> "inactive:${row.group.orEmpty()}"
+                is SessionBoard.Row.Inactive -> row.list.key
             }
-            if (!open) return@forEach
-            items(section.active, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute) }
-            // Inactive sessions stay in view as one-line rows: nothing to watch, still one tap away.
-            items(section.inactive, key = { it.key }) { InactiveRow(it, it.key in muted) }
+        }) { row ->
+            when (row) {
+                is SessionBoard.Row.Header -> GroupHeader(
+                    row.group ?: stringResource(R.string.tasks_section_other),
+                    count = row.count,
+                    open = row.open,
+                    onToggle = { folded[row.group.orEmpty()] = row.open },
+                )
+                is SessionBoard.Row.Active -> SessionCard(row.list, row.list.key in muted, onUnmute)
+                is SessionBoard.Row.InactiveToggle -> InactiveToggle(row.count, row.open) {
+                    openInactive[row.group.orEmpty()] = !row.open
+                }
+                is SessionBoard.Row.Inactive -> InactiveRow(row.list, row.list.key in muted)
+            }
         }
+    }
+}
+
+/** "2 inactive sessions" with a chevron: shows or hides a project's idle and finished sessions. */
+@Composable
+private fun InactiveToggle(count: Int, open: Boolean, onToggle: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .readableWidth()
+            .heightIn(min = 48.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(role = Role.Button, onClick = onToggle)
+            .padding(horizontal = 16.dp)
+            .semantics(mergeDescendants = true) {},
+    ) {
+        Text(
+            pluralStringResource(R.plurals.notification_inactive, count, count),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            painterResource(R.drawable.ic_expand_more),
+            contentDescription = stringResource(if (open) R.string.section_expanded else R.string.section_collapsed),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp).rotate(if (open) 180f else 0f),
+        )
     }
 }
 
@@ -361,10 +404,7 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
                 Text(it, style = MaterialTheme.typography.bodyLarge)
             }
             SessionExtras(list)
-            LinearProgressIndicator(
-                progress = { if (list.items.isEmpty()) 0f else list.doneCount.toFloat() / list.items.size },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            SegmentedProgress(list)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 list.items.forEach { TaskRow(it) }
             }
@@ -387,6 +427,32 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
                     TextButton(onClick = { onUnmute(list) }) { Text(stringResource(R.string.action_unmute)) }
                 }
             }
+        }
+    }
+}
+
+/** One segment per step, like the notification. The empty segments use outlineVariant, which
+ * stays visible on the card in dark mode, and the filled ones primary (at least 3:1 against both). */
+@Composable
+private fun SegmentedProgress(list: TaskList) {
+    val bar = SegmentBar.of(list)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(6.dp)
+            .semantics(mergeDescendants = true) {
+                progressBarRangeInfo = ProgressBarRangeInfo(list.doneCount.toFloat(), 0f..maxOf(list.items.size, 1).toFloat(), maxOf(list.items.size, 1))
+            },
+    ) {
+        repeat(bar.segments) { index ->
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .clip(MaterialTheme.shapes.extraSmall)
+                    .background(if (index < bar.filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+            )
         }
     }
 }

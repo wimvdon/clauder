@@ -38,13 +38,13 @@ class ClauderApp : Application() {
                 .collect { Widgets.updateTasks(this@ClauderApp) }
         }
         scope.launch { retireShortcuts() }
-        // Switching between one notification per session and the summary redraws them all.
+        // Switching to or from the summary, or turning the waiting alerts on or off, redraws them all.
         scope.launch {
-            store.settings.map { it.summaryNotification }
+            store.settings.map { it.notify }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { summary ->
-                    TaskNotifier.applyAll(this@ClauderApp, store.cachedSessions(), store.muted.first(), summary)
+                .collect { prefs ->
+                    TaskNotifier.applyAll(this@ClauderApp, store.cachedSessions(), store.muted.first(), prefs)
                 }
         }
     }

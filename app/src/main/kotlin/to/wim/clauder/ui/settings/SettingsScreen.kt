@@ -289,7 +289,7 @@ private fun NotificationSection(app: ClauderApp, settings: Settings, resumes: In
         if (granted) {
             SwitchSetting(
                 title = stringResource(R.string.summary_setting),
-                summary = stringResource(R.string.summary_setting_summary),
+                summary = stringResource(R.string.summary_setting_summary).takeIf { settings.waitingAlerts },
                 checked = settings.summaryNotification,
                 onChange = { on -> scope.launch { app.store.setSummaryNotification(on) } },
             )
@@ -305,8 +305,13 @@ private fun NotificationSection(app: ClauderApp, settings: Settings, resumes: In
                     OutlinedButton(onClick = { requestTile(context) }) { Text(stringResource(R.string.action_add_tile)) }
                 }
             }
-            SettingsBlock {
-                Text(stringResource(R.string.waiting_alert), style = MaterialTheme.typography.bodyLarge)
+            SwitchSetting(
+                title = stringResource(R.string.waiting_alert),
+                summary = stringResource(R.string.waiting_alert_setting_summary),
+                checked = settings.waitingAlerts,
+                onChange = { on -> scope.launch { app.store.setWaitingAlerts(on) } },
+            )
+            if (settings.waitingAlerts) SettingsBlock {
                 Text(
                     stringResource(R.string.waiting_alert_body),
                     style = MaterialTheme.typography.bodyMedium,

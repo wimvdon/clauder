@@ -238,3 +238,17 @@ or by the user. The Worker now tracks those wake sources from hook data, and a t
 with none armed means Waiting for you. A step marked in progress no longer keeps a thread
 Running on its own, because nothing wakes it. Rejected: reading the reply's text (see the entry
 above) and requiring decision cards for every question.
+
+## 2026-11-22: Fold inactive sessions; plain alerts beside the summary; segmented bars
+Wim asked to collapse inactive sessions. Earlier he disliked folding everything by default, so
+only idle and finished sessions fold, under one "N inactive sessions" row per project; projects
+and working or waiting sessions stay open. The widget shows the same count as one line.
+With the summary notification on, the summary is the only Live Update: a session that waits for
+you gets a plain notification that alerts and can be swiped away, not a second promoted one.
+The progress bars in the app and the widget now have one segment per step, like the
+notification. In dark mode the old track almost matched the card (1.02:1). The app now uses
+outlineVariant for empty segments (1.67:1 against the card, filled primary 4.49:1 against them),
+the widget a surface-coloured groove (1.76:1 against the card, primary 8.22:1 against it).
+Also added "Alert when Claude waits" (on by default). The Claude app already notifies Wim when a
+project thread needs him, so with it off Clauder keeps showing progress and the waiting state but
+no longer makes its own sound or pop-up.

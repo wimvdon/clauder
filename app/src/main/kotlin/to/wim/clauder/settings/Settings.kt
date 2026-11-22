@@ -12,11 +12,16 @@ data class Settings(
     /** One notification for all sessions instead of one each; a session that waits for you is
      * still posted on its own. */
     val summaryNotification: Boolean = false,
+    /** "Alert when Claude waits". Off when the Claude app's own notifications already say so:
+     * sessions that wait for you are then shown quietly, in their Live Update or the summary. */
+    val waitingAlerts: Boolean = true,
     val workerUrl: String = "",
     val token: String = "",
     val registeredFcmToken: String = "",
 ) {
     val isConnected: Boolean get() = workerUrl.isNotBlank() && token.isNotBlank()
+
+    val notify: to.wim.clauder.tasks.NotifyPrefs get() = to.wim.clauder.tasks.NotifyPrefs(summaryNotification, waitingAlerts)
 }
 
 object WorkerUrl {

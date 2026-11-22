@@ -93,6 +93,7 @@
     <string name="action_unmute">Stummschaltung aufheben</string>
     <string name="waiting_alert">Hinweis, wenn Claude wartet</string>
     <string name="waiting_alert_body">Wähle Ton, Vibration und Pop-up für „Wartet auf dich“.</string>
+    <string name="waiting_alert_setting_summary">Schalte das aus, wenn dich die Claude-App schon benachrichtigt. Der Fortschritt bleibt sichtbar.</string>
     <string name="action_change_alert">Hinweis ändern</string>
     <string name="state_idle">Inaktiv</string>
     <string name="tasks_section_other">Andere Sitzungen</string>
