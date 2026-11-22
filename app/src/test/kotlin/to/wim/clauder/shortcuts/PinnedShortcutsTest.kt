@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
+import to.wim.clauder.links.ClaudeApp
 import javax.xml.parsers.DocumentBuilderFactory
 
 class PinnedShortcutsTest {
@@ -53,5 +54,8 @@ class PinnedShortcutsTest {
             listOf(StaticShortcuts.NEW_CHAT, StaticShortcuts.CODE, StaticShortcuts.PROJECTS, StaticShortcuts.ARTIFACTS),
             urls,
         )
+        // They go through Clauder's link opener, which picks the Claude app over the browser.
+        val actions = (0 until intents.length).map { (intents.item(it) as org.w3c.dom.Element).getAttribute("android:action") }
+        assertEquals(List(4) { ClaudeApp.ACTION_OPEN }, actions)
     }
 }

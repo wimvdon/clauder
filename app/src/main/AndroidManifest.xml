@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
+    <!-- Lets Clauder hand links to the Claude app. Android 11 and later hide other apps unless
+         they are named here. -->
+    <queries>
+        <package android:name="com.anthropic.claude" />
+    </queries>
+
     <application
         android:name=".ClauderApp"
         android:allowBackup="true"
@@ -34,6 +40,22 @@
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!-- Opens a claude.ai link in the Claude app, or the browser. Exported for the app icon
+             shortcuts, which the launcher starts; it opens https claude.ai links only. -->
+        <activity
+            android:name=".links.OpenLinkActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="to.wim.clauder.action.OPEN_LINK" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="https" android:host="claude.ai" />
+            </intent-filter>
         </activity>
 
         <service
