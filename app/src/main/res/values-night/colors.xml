@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="summary_waiting">#C7CA96</color>
+    <color name="summary_working">#F0A487</color>
+    <color name="summary_holding">#988F87</color>
+    <color name="summary_point">#ECE7E2</color>
+</resources>

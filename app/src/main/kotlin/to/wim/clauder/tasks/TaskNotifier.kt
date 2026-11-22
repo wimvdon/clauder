@@ -109,15 +109,38 @@ object TaskNotifier {
             .setSilent(true)
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            .setShortCriticalText(context.getString(R.string.notification_short, summary.done, summary.total))
+            .setShortCriticalText(summaryChip(context, summary))
             .setRequestPromotedOngoing(true)
-            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            // One block per session, coloured by state, with a dot at how far each one is. The
+            // bar is full, so every block keeps its colour.
+            val bar = SummaryBar.from(summary, now)
+            val style = NotificationCompat.ProgressStyle()
+                .setStyledByProgress(false)
+                .setProgressSegments(bar.blocks.map { NotificationCompat.ProgressStyle.Segment(SummaryBar.BLOCK).setColor(blockColor(context, it)) })
+                .setProgressPoints(bar.points.map { NotificationCompat.ProgressStyle.Point(it).setColor(context.getColor(R.color.summary_point)) })
+                .setProgress(bar.max)
+            notification.setStyle(style).setContentText(lines.joinToString("\n"))
+        }
         try {
-            manager.notify(SUMMARY_ID, notification)
+            manager.notify(SUMMARY_ID, notification.build())
         } catch (e: SecurityException) {
             // The permission was taken away between the check and the call.
         }
     }
+
+    /** The status bar chip: how many sessions are active, and how many wait for you ("3 · 1?"). */
+    fun summaryChip(context: Context, summary: Summary): String =
+        if (summary.waiting > 0) context.getString(R.string.summary_chip_waiting, summary.active.size, summary.waiting)
+        else summary.active.size.toString()
+
+    private fun blockColor(context: Context, kind: SummaryBar.Kind): Int = context.getColor(
+        when (kind) {
+            SummaryBar.Kind.Waiting -> R.color.summary_waiting
+            SummaryBar.Kind.Working -> R.color.summary_working
+            SummaryBar.Kind.Holding -> R.color.summary_holding
+        },
+    )
 
     /** "2 working · 1 waiting for you". */
     fun summaryText(context: Context, summary: Summary): String {

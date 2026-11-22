@@ -13,6 +13,8 @@
     <string name="task_in_progress">In progress</string>
     <string name="task_pending">To do</string>
     <string name="notification_short" translatable="false">%1$d/%2$d</string>
+    <!-- Status bar chip of the summary notification: active sessions · sessions waiting for you. -->
+    <string name="summary_chip_waiting" translatable="false">%1$d · %2$d?</string>
     <string name="notification_now">Now: %s</string>
     <string name="notification_next">Next: %s</string>
     <string name="channel_progress">Task progress</string>
