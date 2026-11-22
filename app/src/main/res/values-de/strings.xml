@@ -97,6 +97,7 @@
     <string name="action_change_alert">Hinweis ändern</string>
     <string name="state_idle">Inaktiv</string>
     <string name="tasks_section_other">Andere Sitzungen</string>
+    <string name="tasks_section_inactive">Inaktiv</string>
     <plurals name="notification_inactive">
         <item quantity="one">%d inaktive Sitzung</item>
         <item quantity="other">%d inaktive Sitzungen</item>

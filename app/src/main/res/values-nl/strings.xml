@@ -97,6 +97,7 @@
     <string name="action_change_alert">Melding aanpassen</string>
     <string name="state_idle">Inactief</string>
     <string name="tasks_section_other">Andere sessies</string>
+    <string name="tasks_section_inactive">Inactief</string>
     <plurals name="notification_inactive">
         <item quantity="one">%d inactieve sessie</item>
         <item quantity="other">%d inactieve sessies</item>

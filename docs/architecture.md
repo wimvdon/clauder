@@ -75,11 +75,12 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
   prompt event (without the prompt's text). The Tasks screen groups sessions under the
-  project's name, else the repository's (`SessionBoard.sections`). Every group starts open and
-  folds shut by tapping its header. Working and waiting sessions are full cards with their steps
-  and a segmented progress bar (`SegmentBar`, one segment per step); idle and finished ones fold
-  under one "N inactive sessions" row per project that opens them as one-line rows (title, state,
-  count) (`SessionBoard.rows`). In the shade, idle and finished sessions are bundled per project with a summary
+  project's name, else the repository's (`SessionBoard.board`). Only working and waiting sessions
+  are grouped: every group starts open and folds shut by tapping its header, and they show as full
+  cards with their steps and a segmented progress bar (`SegmentBar`, one segment per step). All
+  idle and finished sessions, from every project, go into one "Inactive" list at the bottom that
+  starts folded and opens them as one-line rows (project or repository, title, state, count)
+  (`SessionBoard.rows`). In the shade, idle and finished sessions are bundled per project with a summary
   notification (`LiveUpdate.bundle`, `TaskNotifier.refreshBundles`); working and waiting sessions
   stay on their own so they keep their Live Update. The widget shows the name too. claude.ai doesn't give the project's icon or colour to the session.
 - **Notification:** one per session (id from the session key). `tasks/LiveUpdate` works out what it
@@ -91,8 +92,8 @@ Clauder shows the task list of every running Claude Code session on the phone.
   22 Nov 2026 (see `docs/decisions.md`). On start, `ClauderApp.retireShortcuts` greys out links an
   earlier version pinned (only the launcher can remove them) and forgets their saved list.
 - **Widget (Glance):** `widget/TasksWidget` shows the working and waiting sessions as tonal cards
-  under a header with the same summary line as the tile, then one "N inactive sessions" line that
-  opens the app; a session that waits for you uses the primary container. Its progress bar has one
+  under a header with the same summary line as the tile; idle and finished sessions are left out
+  (only "No sessions right now" when nothing is active); a session that waits for you uses the primary container. Its progress bar has one
   segment per step (at most ten, a widget limit; `SegmentBar.WIDGET_MAX`), with the empty ones in
   the surface colour so they stay visible in dark mode. It uses the system widget corner radii. It reads `SettingsStore` flows inside its content, so a widget on screen follows every
   change; `widget/Widgets` redraws it after a push, a fetch, or a change of theme, connection or

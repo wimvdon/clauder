@@ -102,6 +102,7 @@
     <string name="action_change_alert">Change alert</string>
     <string name="state_idle">Idle</string>
     <string name="tasks_section_other">Other sessions</string>
+    <string name="tasks_section_inactive">Inactive</string>
     <plurals name="notification_inactive">
         <item quantity="one">%d inactive session</item>
         <item quantity="other">%d inactive sessions</item>

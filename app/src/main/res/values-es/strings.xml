@@ -100,6 +100,7 @@
     <string name="action_change_alert">Cambiar aviso</string>
     <string name="state_idle">Inactivo</string>
     <string name="tasks_section_other">Otras sesiones</string>
+    <string name="tasks_section_inactive">Inactivas</string>
     <plurals name="notification_inactive">
         <item quantity="one">%d sesión inactiva</item>
         <item quantity="other">%d sesiones inactivas</item>

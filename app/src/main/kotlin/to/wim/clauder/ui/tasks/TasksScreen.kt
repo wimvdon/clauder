@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -168,16 +169,12 @@ private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: 
             value = System.currentTimeMillis()
         }
     }
-    val sections = SessionBoard.sections(sessions, now)
-    // Projects the user folded (every project starts open), and projects whose idle and finished
-    // sessions the user opened (they start folded under one "N inactive" row).
+    val board = SessionBoard.board(sessions, now)
+    // Projects the user folded (every project starts open), and whether the user opened the list of
+    // idle and finished sessions (it starts folded).
     val folded = remember { mutableStateMapOf<String, Boolean>() }
-    val openInactive = remember { mutableStateMapOf<String, Boolean>() }
-    val rows = SessionBoard.rows(
-        sections,
-        foldedGroups = folded.filterValues { it }.keys,
-        openInactive = openInactive.filterValues { it }.keys,
-    )
+    var inactiveOpen by rememberSaveable { mutableStateOf(false) }
+    val rows = SessionBoard.rows(board, foldedGroups = folded.filterValues { it }.keys, inactiveOpen = inactiveOpen)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -188,7 +185,7 @@ private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: 
             when (row) {
                 is SessionBoard.Row.Header -> "group:${row.group.orEmpty()}"
                 is SessionBoard.Row.Active -> row.list.key
-                is SessionBoard.Row.InactiveToggle -> "inactive:${row.group.orEmpty()}"
+                is SessionBoard.Row.InactiveHeader -> "inactive"
                 is SessionBoard.Row.Inactive -> row.list.key
             }
         }) { row ->
@@ -200,40 +197,46 @@ private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: 
                     onToggle = { folded[row.group.orEmpty()] = row.open },
                 )
                 is SessionBoard.Row.Active -> SessionCard(row.list, row.list.key in muted, onUnmute)
-                is SessionBoard.Row.InactiveToggle -> InactiveToggle(row.count, row.open) {
-                    openInactive[row.group.orEmpty()] = !row.open
-                }
+                is SessionBoard.Row.InactiveHeader -> InactiveHeader(row.count, row.open) { inactiveOpen = !row.open }
                 is SessionBoard.Row.Inactive -> InactiveRow(row.list, row.list.key in muted)
             }
         }
     }
 }
 
-/** "2 inactive sessions" with a chevron: shows or hides a project's idle and finished sessions. */
+/** "Inactive" with a count and a chevron, below every project, set off by a line: shows or hides
+ * every idle and finished session. */
 @Composable
-private fun InactiveToggle(count: Int, open: Boolean, onToggle: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .readableWidth()
-            .heightIn(min = 48.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(role = Role.Button, onClick = onToggle)
-            .padding(horizontal = 16.dp)
-            .semantics(mergeDescendants = true) {},
-    ) {
-        Text(
-            pluralStringResource(R.plurals.notification_inactive, count, count),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        Icon(
-            painterResource(R.drawable.ic_expand_more),
-            contentDescription = stringResource(if (open) R.string.section_expanded else R.string.section_collapsed),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp).rotate(if (open) 180f else 0f),
-        )
+private fun InactiveHeader(count: Int, open: Boolean, onToggle: () -> Unit) {
+    Column(Modifier.readableWidth()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clickable(role = Role.Button, onClick = onToggle)
+                .padding(horizontal = 4.dp)
+                .semantics(mergeDescendants = true) { heading() },
+        ) {
+            Text(
+                stringResource(R.string.tasks_section_inactive),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "$count",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                painterResource(R.drawable.ic_expand_more),
+                contentDescription = stringResource(if (open) R.string.section_expanded else R.string.section_collapsed),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp).rotate(if (open) 180f else 0f),
+            )
+        }
     }
 }
 
@@ -273,7 +276,7 @@ private fun GroupHeader(text: String, count: Int, open: Boolean, onToggle: () ->
     }
 }
 
-/** An idle or finished session: its title and state on two lines, without the steps. */
+/** An idle or finished session: its project or repository, title and state, without the steps. */
 @Composable
 private fun InactiveRow(list: TaskList, muted: Boolean) {
     val context = LocalContext.current
@@ -285,6 +288,9 @@ private fun InactiveRow(list: TaskList, muted: Boolean) {
         stringResource(R.string.session_muted).takeIf { muted },
     ).joinToString(" · ")
     ListItem(
+        overlineContent = list.group?.let { group ->
+            { Text(group, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        },
         headlineContent = { Text(list.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(line) },
         trailingContent = {

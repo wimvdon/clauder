@@ -268,3 +268,11 @@ cleared the resolved flag. On claude.ai only a member's message or tap, or a coo
 reopens a thread. The prompt hook now sends the kind of envelope the platform put around the
 prompt (its tag and wake reason, not the text), and the Worker reopens only for those. Hook
 scripts that don't send it yet keep the old behaviour.
+
+## 2026-11-22: One "Inactive" list instead of one per project
+Wim asked to put all inactive sessions under one group that names each session's project or
+repository instead of grouping them by it. The Tasks screen now groups only working and waiting
+sessions by project; every idle and finished session sits in one "Inactive" list at the bottom,
+folded by default, with the project or repository as a small label above each title. A project
+with only inactive sessions no longer gets a header. The widget no longer shows inactive sessions
+at all (Wim: "they don't need to be shown at all").
