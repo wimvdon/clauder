@@ -63,3 +63,18 @@ test("FcmClient reports unregistered tokens", async () => {
   }) as unknown as typeof fetch;
   assert.equal(await new FcmClient(sa, fake).send("t", {}), "unregistered");
 });
+
+test("signedJwt accepts a key whose line breaks are still written as \\n", async () => {
+  const escaped = { ...sa, private_key: sa.private_key.replace(/\n/g, "\\n") };
+  const jwt = await signedJwt(escaped, 1000);
+  const [header, claims, signature] = jwt.split(".");
+  const verify = createVerify("RSA-SHA256");
+  verify.update(`${header}.${claims}`);
+  assert.equal(verify.verify(publicKey, Buffer.from(signature, "base64url")), true);
+});
+
+test("a failed Google sign-in says why", async () => {
+  const fake = (async () =>
+    new Response('{"error":"invalid_grant","error_description":"Invalid JWT Signature."}', { status: 400 })) as unknown as typeof fetch;
+  await assert.rejects(new FcmClient(sa, fake).send("device-token", {}), /400 .*invalid_grant/);
+});
