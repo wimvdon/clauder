@@ -148,3 +148,10 @@ Wim chose to drop shortcuts altogether: the app shortcuts, pinned links, the sha
 Shortcuts tab and widget, and the test build's link tester that was used to look into this.
 Clauder is now the Tasks screen, the Tasks widget and the notifications.
 
+
+## 2026-11-22: Keep WorkManager's constructors in the release build
+Release 0.1.0 crashed on start. Glance brings WorkManager 2.7.1 and Room 2.2.5, which WorkManager
+starts with the app and which create their database and input mergers by class name. Their
+shrinking rules keep those classes but not their constructors, and R8's full mode (the default
+since AGP 8) then removes the constructors. `app/proguard-rules.pro` now keeps them. Rejected for
+now: adding a newer WorkManager to override Glance's, since that is a new dependency.
