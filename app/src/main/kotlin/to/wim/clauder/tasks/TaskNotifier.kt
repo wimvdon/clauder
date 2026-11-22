@@ -65,7 +65,12 @@ object TaskNotifier {
     }
 
     private fun build(context: Context, update: LiveUpdate, id: Int): android.app.Notification {
-        val counts = context.resources.getQuantityString(R.plurals.notification_counts, update.total, update.done, update.total)
+        val counts = context.resources.getQuantityString(
+            if (update.steps) R.plurals.step_counts else R.plurals.notification_counts,
+            update.total,
+            update.done,
+            update.total,
+        )
         val text = when (update.status) {
             LiveUpdate.Status.Done -> context.getString(R.string.state_done)
             LiveUpdate.Status.Waiting -> context.getString(R.string.state_waiting)

@@ -57,7 +57,7 @@ object HookSetup {
         |     "headers": {"Authorization": "Bearer ${'$'}CLAUDER_HOOK_TOKEN",
         |                 "X-Claude-Remote-Session": "${'$'}CLAUDE_CODE_REMOTE_SESSION_ID"},
         |     "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"]}
-        |events = {"TaskCreated": None, "TaskCompleted": None, "PostToolUse": "TaskCreate|TaskUpdate",
+        |events = {"TaskCreated": None, "TaskCompleted": None, "PostToolUse": "TaskCreate|TaskUpdate|TodoWrite|mcp__hearthbot__update_progress_checklist",
         |          "Stop": None, "Notification": None, "SessionEnd": None}
         |hooks = d.setdefault("hooks", {})
         |for name, matcher in events.items():

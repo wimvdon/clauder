@@ -21,6 +21,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -30,9 +31,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -166,17 +169,23 @@ private fun SessionCard(list: TaskList) {
                 )
             }
             Text(
-                "${stateLabel(list.state)} · ${pluralStringResource(R.plurals.notification_counts, list.tasks.size, list.doneCount, list.tasks.size)}",
+                "${stateLabel(list.state)} · ${pluralStringResource(
+                    if (list.hasSteps) R.plurals.step_counts else R.plurals.notification_counts,
+                    list.items.size,
+                    list.doneCount,
+                    list.items.size,
+                )}",
                 style = MaterialTheme.typography.labelLarge,
                 color = if (list.state == SessionState.Waiting) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             LinearProgressIndicator(
-                progress = { if (list.tasks.isEmpty()) 0f else list.doneCount.toFloat() / list.tasks.size },
+                progress = { if (list.items.isEmpty()) 0f else list.doneCount.toFloat() / list.items.size },
                 modifier = Modifier.fillMaxWidth(),
             )
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                list.tasks.forEach { TaskRow(it) }
+                list.items.forEach { TaskRow(it) }
             }
+            if (list.hasSteps && list.tasks.isNotEmpty()) TaskDetails(list.tasks)
         }
     }
 }
@@ -190,6 +199,25 @@ private fun stateLabel(state: SessionState): String = stringResource(
         SessionState.Ended -> R.string.state_ended
     },
 )
+
+/** Claude Code's own tasks under a project thread's steps, folded away by default. */
+@Composable
+private fun TaskDetails(tasks: List<TaskItem>) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val done = tasks.count { it.status == TaskStatus.Completed }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = { open = !open }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+            Text(stringResource(R.string.tasks_toggle, done, tasks.size))
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                painterResource(R.drawable.ic_expand_more),
+                contentDescription = stringResource(if (open) R.string.section_expanded else R.string.section_collapsed),
+                modifier = Modifier.size(18.dp).rotate(if (open) 180f else 0f),
+            )
+        }
+        if (open) tasks.forEach { TaskRow(it) }
+    }
+}
 
 @Composable
 private fun TaskRow(task: TaskItem) {

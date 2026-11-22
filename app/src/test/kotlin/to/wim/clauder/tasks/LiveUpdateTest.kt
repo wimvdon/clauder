@@ -62,4 +62,14 @@ class LiveUpdateTest {
         assertEquals(LiveUpdate.CODE_URL, LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending, url = "https://evil.example/"))!!.openUrl)
         assertEquals(LiveUpdate.CODE_URL, LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending, url = "https://claude.ai.evil.example/"))!!.openUrl)
     }
+
+    @Test
+    fun `a project thread counts its steps, not its tasks`() {
+        val steps = listOf(TaskItem("plan:1", "One", TaskStatus.Completed), TaskItem("plan:2", "Two", TaskStatus.InProgress))
+        val update = LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending, TaskStatus.Pending, TaskStatus.Pending).copy(steps = steps))!!
+        assertTrue(update.steps)
+        assertEquals(2, update.total)
+        assertEquals(1, update.done)
+        assertEquals("Two", update.currentTask)
+    }
 }
