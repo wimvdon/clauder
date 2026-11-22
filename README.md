@@ -203,6 +203,20 @@ JSON
 
 ---
 
+## Live task list: Worker and hooks
+
+Claude Code sessions report their task list to a small Cloudflare Worker (`worker/`) through
+hooks (`hooks/`). Setup steps for the hooks are in [`hooks/README.md`](hooks/README.md); what the
+hooks send is in [`docs/spike-hooks.md`](docs/spike-hooks.md).
+
+The `Worker` workflow deploys `worker/` on every push to `main` once these repository secrets
+exist (Settings → Secrets and variables → Actions): `CLOUDFLARE_API_TOKEN` (a token with the
+"Edit Cloudflare Workers" template), `CLOUDFLARE_ACCOUNT_ID`, and `CLAUDER_HOOK_TOKEN` (a long
+random string; the workflow stores it as the Worker secret `HOOK_TOKEN`, and the cloud environment
+needs the same value in its `CLAUDER_HOOK_TOKEN` variable).
+
+---
+
 ## For developers
 
 Requirements: JDK 21 and the Android SDK (or Android Studio). Common commands:

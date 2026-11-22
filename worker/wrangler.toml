@@ -1,0 +1,17 @@
+# Spike Worker for milestone 1. The bearer token is a secret, never in this file:
+#   npx wrangler secret put HOOK_TOKEN
+name = "clauder"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[observability]
+enabled = true
+
+[[durable_objects.bindings]]
+name = "SPIKE_LOG"
+class_name = "SpikeLog"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SpikeLog"]
