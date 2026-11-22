@@ -13,9 +13,14 @@ Clauder shows the task list of every running Claude Code session on the phone.
   older TodoWrite) are its **tasks**. The Worker keeps both apart; progress, the notification and
   the widget count the steps when there are any, else the tasks (`TaskList.items`). The Tasks
   screen shows the steps and folds the tasks away under them.
-- **States:** Running (Claude works), Idle (its turn ended and nothing runs in the background),
-  Waiting for you (a project thread showed a decision card, or Claude Code asked for a permission),
-  Done, Ended. Stop alone means Idle, because it ends every turn (`worker/src/tasklist.ts`).
+- **States:** Running (Claude works), Idle (nothing is in progress and nothing runs in the
+  background), Waiting for you (a project thread showed a decision card, or Claude Code asked for a
+  permission), Done, Ended. The checklist decides: Stop ends every turn, also while Claude waits on
+  CI or a reminder, so after Stop a step (or task) still marked in progress keeps the session
+  Running, and only a list with nothing in progress becomes Idle (`worker/src/tasklist.ts`). The
+  phone applies the same rule to what it shows (`TaskList.shown`), and turns a session that has been
+  silent for 12 hours into Idle, so an abandoned one moves out of the way. A session that ended
+  with open steps reads "Ended early".
   While waiting, the list carries `need`: the decision card's question, or the permission
   prompt's message. The notification, the Tasks screen and the widget show it. A permission
   prompt is answered within the turn, so Stop turns it into Idle; an open decision card stays
@@ -23,9 +28,9 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
   prompt event (without the prompt's text). The Tasks screen groups sessions under the
-  project's name, else the repository's (`SessionBoard.sections`). A group folds shut by tapping
-  its header, and its idle and finished sessions sit under an "N inactive sessions" row that starts
-  folded. In the shade, idle and finished sessions are bundled per project with a summary
+  project's name, else the repository's (`SessionBoard.sections`). Every group starts open and
+  folds shut by tapping its header. Working and waiting sessions are full cards with their steps;
+  idle and finished ones follow as one-line rows (title, state, count), always in view. In the shade, idle and finished sessions are bundled per project with a summary
   notification (`LiveUpdate.bundle`, `TaskNotifier.refreshBundles`); working and waiting sessions
   stay on their own so they keep their Live Update. The widget shows the name too. claude.ai doesn't give the project's icon or colour to the session.
 - **Notification:** one per session (id from the session key). `tasks/LiveUpdate` works out what it

@@ -78,7 +78,21 @@ class SessionBoardTest {
                 SessionBoard.Section("rss", emptyList(), listOf(onlyIdle)),
                 SessionBoard.Section(null, emptyList(), listOf(loose)),
             ),
-            SessionBoard.sections(listOf(onlyIdle, running, idle, done, waiting, loose)),
+            SessionBoard.sections(listOf(onlyIdle, running, idle, done, waiting, loose), nowMillis = 0),
         )
+    }
+
+    @Test
+    fun `a session between turns with a step in progress stays with the active ones`() {
+        val now = java.time.Instant.parse("2026-11-22T14:00:00Z").toEpochMilli()
+        val working = TaskList(
+            "a", "Fix crash", null, SessionState.Idle, 1, "2026-11-22T13:50:00Z",
+            tasks = emptyList(),
+            steps = listOf(TaskItem("1", "Fix", TaskStatus.Completed), TaskItem("2", "Merge", TaskStatus.InProgress)),
+            project = "Clauder",
+        )
+        val section = SessionBoard.sections(listOf(working), now).single()
+        assertEquals(listOf(working.copy(state = SessionState.Running)), section.active)
+        assertEquals(emptyList<TaskList>(), section.inactive)
     }
 }

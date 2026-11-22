@@ -8,6 +8,7 @@
     <string name="state_waiting">Waiting for you</string>
     <string name="state_done">Done</string>
     <string name="state_ended">Ended</string>
+    <string name="state_ended_early">Ended early</string>
     <string name="task_done">Done</string>
     <string name="task_in_progress">In progress</string>
     <string name="task_pending">To do</string>

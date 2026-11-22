@@ -80,6 +80,26 @@ test("Stop with open tasks means idle, a new prompt resumes", () => {
   assert.equal(run([update("1", "pending", "in_progress")], idle).state, "running");
 });
 
+test("Stop while a task is in progress keeps the session running", () => {
+  const list = run([created("1", "a"), update("1", "pending", "in_progress"), { hook_event_name: "Stop", cwd: CWD }]);
+  assert.equal(list.state, "running");
+});
+
+test("Stop while a checklist step is in progress keeps a project thread running", () => {
+  const list = run([
+    checklist("Fix crash\n\n✓ Find it\n✓ Open a pull request\n✱ Merge when CI is green\n○ Release"),
+    { hook_event_name: "Stop", cwd: "/home/user" },
+  ]);
+  assert.equal(list.state, "running");
+  // The steps decide, not Claude Code's own tasks.
+  const noStep = run([
+    created("1", "a"), update("1", "pending", "in_progress"),
+    checklist("Plan\n\n✓ One\n○ Two"),
+    { hook_event_name: "Stop", cwd: "/home/user" },
+  ]);
+  assert.equal(noStep.state, "idle");
+});
+
 test("Stop while background work runs keeps the session running", () => {
   const list = run([
     created("1", "a"),

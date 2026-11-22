@@ -19,6 +19,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -31,12 +33,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -47,6 +51,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import to.wim.clauder.ClauderApp
 import to.wim.clauder.R
@@ -144,10 +149,17 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
 
 @Composable
 private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: (TaskList) -> Unit) {
-    val sections = SessionBoard.sections(sessions)
-    // Folded projects, and projects whose inactive sessions are shown. Both start closed.
+    // The shown state depends on the time (a long silence makes a session idle), so re-read it
+    // every minute.
+    val now by produceState(System.currentTimeMillis()) {
+        while (true) {
+            delay(60_000)
+            value = System.currentTimeMillis()
+        }
+    }
+    val sections = SessionBoard.sections(sessions, now)
+    // Projects the user folded. Every project starts open.
     val folded = remember { mutableStateMapOf<String, Boolean>() }
-    val showInactive = remember { mutableStateMapOf<String, Boolean>() }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -170,13 +182,8 @@ private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: 
             }
             if (!open) return@forEach
             items(section.active, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute) }
-            if (section.inactive.isNotEmpty()) {
-                val shown = showInactive[id] == true
-                item(key = "inactive:$id") {
-                    InactiveToggle(section.inactive.size, shown) { showInactive[id] = !shown }
-                }
-                if (shown) items(section.inactive, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute) }
-            }
+            // Inactive sessions stay in view as one-line rows: nothing to watch, still one tap away.
+            items(section.inactive, key = { it.key }) { InactiveRow(it, it.key in muted) }
         }
     }
 }
@@ -187,7 +194,6 @@ private fun GroupHeader(text: String, count: Int, open: Boolean, onToggle: () ->
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .readableWidth()
-            .padding(top = 8.dp)
             .heightIn(min = 48.dp)
             .clickable(role = Role.Button, onClick = onToggle)
             .padding(horizontal = 4.dp)
@@ -218,20 +224,44 @@ private fun GroupHeader(text: String, count: Int, open: Boolean, onToggle: () ->
     }
 }
 
+/** An idle or finished session: its title and state on two lines, without the steps. */
 @Composable
-private fun InactiveToggle(count: Int, shown: Boolean, onToggle: () -> Unit) {
-    Row(Modifier.readableWidth()) {
-        TextButton(onClick = onToggle) {
-            Text(pluralStringResource(R.plurals.notification_inactive, count, count))
-            Spacer(Modifier.width(4.dp))
+private fun InactiveRow(list: TaskList, muted: Boolean) {
+    val context = LocalContext.current
+    val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
+    val line = listOfNotNull(
+        stringResource(stateLabelRes(list)),
+        countsLabel(list),
+        stringResource(R.string.session_muted).takeIf { muted },
+    ).joinToString(" · ")
+    ListItem(
+        headlineContent = { Text(list.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = { Text(line) },
+        trailingContent = {
             Icon(
-                painterResource(R.drawable.ic_expand_more),
-                contentDescription = stringResource(if (shown) R.string.section_expanded else R.string.section_collapsed),
-                modifier = Modifier.size(18.dp).rotate(if (shown) 180f else 0f),
+                painterResource(R.drawable.ic_open_in_new),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
             )
-        }
-    }
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier
+            .readableWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClickLabel = stringResource(R.string.session_open), role = Role.Button) {
+                ClaudeApp.open(context, url)
+            },
+    )
 }
+
+@Composable
+private fun countsLabel(list: TaskList): String = pluralStringResource(
+    if (list.hasSteps) R.plurals.step_counts else R.plurals.notification_counts,
+    list.items.size,
+    list.doneCount,
+    list.items.size,
+)
 
 @Composable
 private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit) {
@@ -263,12 +293,7 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
                 )
             }
             Text(
-                "${stateLabel(list.state)} · ${pluralStringResource(
-                    if (list.hasSteps) R.plurals.step_counts else R.plurals.notification_counts,
-                    list.items.size,
-                    list.doneCount,
-                    list.items.size,
-                )}",
+                "${stringResource(stateLabelRes(list))} · ${countsLabel(list)}",
                 style = MaterialTheme.typography.labelLarge,
                 color = if (list.state == SessionState.Waiting) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -304,17 +329,6 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
         }
     }
 }
-
-@Composable
-private fun stateLabel(state: SessionState): String = stringResource(
-    when (state) {
-        SessionState.Running -> R.string.state_running
-        SessionState.Idle -> R.string.state_idle
-        SessionState.Waiting -> R.string.state_waiting
-        SessionState.Done -> R.string.state_done
-        SessionState.Ended -> R.string.state_ended
-    },
-)
 
 /** Claude Code's own tasks under a project thread's steps, folded away by default. */
 @Composable

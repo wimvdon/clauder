@@ -5,7 +5,7 @@ import org.json.JSONObject
 
 enum class TaskStatus { Pending, InProgress, Completed }
 
-/** Running: Claude is working. Idle: Claude finished its turn and nothing runs. Waiting: Claude
+/** Running: Claude is working (or a step is still in progress). Idle: nothing is in progress. Waiting: Claude
  * asked you something (a decision or a permission). Done: every task is completed. Ended: the
  * session closed. */
 enum class SessionState { Running, Idle, Waiting, Done, Ended }
@@ -47,6 +47,31 @@ data class TaskList(
         }
     val isFinished: Boolean get() = state == SessionState.Done || state == SessionState.Ended
 
+    /** The session closed before its last step or task was done. */
+    val endedEarly: Boolean get() = state == SessionState.Ended && doneCount < items.size
+
+    /**
+     * The state to show at [nowMillis]. The checklist decides: a step (or task) marked in progress
+     * means Claude is working, even between turns (while it waits on CI or a reminder). Only a
+     * session that has been silent for [STALE_MS] counts as idle, so an abandoned one moves out of
+     * the way.
+     */
+    fun shown(nowMillis: Long): TaskList {
+        val silent = updatedMillis()?.let { nowMillis - it > STALE_MS } ?: false
+        val next = when {
+            state == SessionState.Idle && current != null && !silent -> SessionState.Running
+            state == SessionState.Running && silent -> SessionState.Idle
+            else -> state
+        }
+        return if (next == state) this else copy(state = next)
+    }
+
+    private fun updatedMillis(): Long? = try {
+        java.time.Instant.parse(updatedAt).toEpochMilli()
+    } catch (e: java.time.format.DateTimeParseException) {
+        null
+    }
+
     /** The Worker's GET /sessions format, so [fromJson] reads it back (used for the cache). */
     fun toJson(): JSONObject = JSONObject()
         .put("key", key)
@@ -76,6 +101,10 @@ data class TaskList(
     )
 
     companion object {
+        /** How long a session may stay silent before it counts as idle: long enough for a slow CI
+         * run or a reminder later in the day. */
+        const val STALE_MS = 12 * 60 * 60 * 1000L
+
         private fun status(value: String?): TaskStatus = when (value) {
             "in_progress" -> TaskStatus.InProgress
             "completed" -> TaskStatus.Completed
