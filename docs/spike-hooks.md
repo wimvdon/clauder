@@ -54,7 +54,10 @@ A real project thread with `.claude/settings.json` on `main` sent **nothing**: t
 `/home/user`, one folder above the repository, so Claude Code never loads the repository's project
 settings there. Hooks in the user-level `~/.claude/settings.json` do fire from any folder (checked
 with a nested session started in `/home/user`). So the hooks are installed per cloud environment by
-its setup script (`hooks/install-user-hooks.sh`). Re-test in a fresh thread pending.
+its setup script (`hooks/install-user-hooks.sh`). Re-tested in a fresh project thread on the
+"Android" environment: every task event arrived within a second, each carrying the thread's
+`cse_…` id. The coordinator's own task list did not report: it doesn't run with these hooks, so
+the coordinator's task list is not covered for now.
 
 ## 3. Network access
 
