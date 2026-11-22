@@ -13,8 +13,14 @@ data class Summary(
     val done: Int get() = active.sumOf { it.doneCount }
     val total: Int get() = active.sumOf { it.items.size }
 
-    /** The active sessions' titles in the bar's order, cut short so several fit on one line. */
-    val names: List<String> get() = active.map { shortTitle(it.title) }
+    /**
+     * The active sessions' projects (else repository, else the thread's title) in the bar's order,
+     * each named once with "×n" when it has several sessions, cut short so several fit on one line.
+     */
+    val names: List<String>
+        get() = active.groupBy { it.group ?: it.title }.map { (name, lists) ->
+            if (lists.size > 1) "${shortTitle(name)} ×${lists.size}" else shortTitle(name)
+        }
 
     private fun shortTitle(title: String): String {
         val words = title.trim().split(Regex("\\s+"))
@@ -23,7 +29,7 @@ data class Summary(
     }
 
     companion object {
-        /** Characters per title in the summary line. */
+        /** Characters per name in the summary line. */
         const val MAX_NAME = 18
 
         /** [lists] as shown at [nowMillis], leaving out muted sessions. */
