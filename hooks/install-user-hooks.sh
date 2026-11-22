@@ -45,7 +45,7 @@ h = {"type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "timeout
      "headers": {"Authorization": "Bearer $CLAUDER_HOOK_TOKEN",
                  "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID"},
      "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"]}
-tools = "TaskCreate|TaskUpdate|TodoWrite|mcp__hearthbot__update_progress_checklist|mcp__hearthbot__request_decision|mcp__hearthbot__close_decision"
+tools = "TaskCreate|TaskUpdate|TodoWrite|mcp__hearthbot__update_progress_checklist|mcp__hearthbot__request_decision|mcp__hearthbot__close_decision|mcp__hearthbot__post_message"
 events = {"TaskCreated": None, "TaskCompleted": None, "PostToolUse": tools,
           "Stop": None, "Notification": None, "SessionEnd": None}
 hooks = d.setdefault("hooks", {})

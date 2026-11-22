@@ -1,6 +1,8 @@
 // Pure task-list logic: turns raw Claude Code hook payloads into one session's task list.
 // No Worker types, so it runs under plain Node tests.
 
+import { findAsk, waitsOnUser } from "./ask.ts";
+
 export type TaskStatus = "pending" | "in_progress" | "completed";
 
 export interface Task {
@@ -12,8 +14,9 @@ export interface Task {
 /** running: Claude is working, or a step or task is still marked in progress (Claude's turn often
  * ends while it waits on CI or a reminder, and the checklist says the work goes on). idle: nothing is
  * in progress and nothing runs. waiting:
- * Claude asked the user something (a decision card or a permission prompt). done: every task is
- * completed. ended: the session closed. */
+ * Claude asked the user something (a decision card, a permission prompt, a question in its last
+ * reply, or a next step that waits on approval). done: every task is completed. ended: the
+ * session closed. */
 export type SessionState = "running" | "idle" | "waiting" | "done" | "ended";
 
 export interface SessionList {
@@ -37,8 +40,12 @@ export interface SessionList {
   /** While waiting: what Claude asks, such as a decision card's question or the permission it needs. */
   need?: string;
   /** What the wait is for. A decision card stays open across turns; a permission prompt or a
-   * question dialog is answered before the turn ends. */
-  needKind?: "decision" | "permission";
+   * question dialog is answered before the turn ends; a question is what the turn's last reply
+   * asks. */
+  needKind?: "decision" | "permission" | "question";
+  /** What the turn's last reply (post_message) asks, "" when it asks nothing. Unset until the
+   * turn sends a reply; Stop reads it, the next prompt clears it. Not sent to the phone. */
+  ask?: string;
   /** Bumped on every change, so the phone can drop out-of-order pushes. */
   seq: number;
   updatedAt: string;
@@ -85,6 +92,8 @@ export const CHECKLIST_TOOL = "mcp__hearthbot__update_progress_checklist";
 /** A project thread asks the user to choose; close_decision withdraws or settles the card. */
 export const DECISION_TOOL = "mcp__hearthbot__request_decision";
 export const CLOSE_DECISION_TOOL = "mcp__hearthbot__close_decision";
+/** A project thread's reply to the person; a question in the turn's last reply means it waits. */
+export const REPLY_TOOL = "mcp__hearthbot__post_message";
 
 /** Notification types that mean Claude can't go on without the user. "idle_prompt" only says
  * Claude finished a turn, which Stop already covers. */
@@ -184,7 +193,8 @@ function upsert(tasks: Task[], id: string, change: Partial<Task>): Task[] {
 }
 
 function stateFor(tasks: Task[], steps: Task[], state: SessionState): SessionState {
-  if (state === "ended") return "ended";
+  // Waiting wins over done: a thread that finished its steps can still ask what comes next.
+  if (state === "ended" || state === "waiting") return state;
   const main = steps.length > 0 ? steps : tasks;
   if (main.length > 0 && main.every((t) => t.status === "completed")) return "done";
   return state === "done" ? "running" : state;
@@ -203,6 +213,10 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
   let state = list.state;
   let need = list.need;
   let needKind = list.needKind;
+  let ask = list.ask;
+  // An open decision card keeps the session waiting while Claude goes on with the work.
+  const deciding = state === "waiting" && needKind === "decision";
+  const working: SessionState = deciding ? "waiting" : "running";
   // Title: the checklist heading, else the thread's title, else the folder name.
   let thread = list.thread;
   let title = list.titleFromPlan
@@ -217,7 +231,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
       const id = str(input.task_id);
       if (!id) return null;
       tasks = upsert(tasks, id, { subject: clip(str(input.task_subject) ?? `Task ${id}`) });
-      state = "running";
+      state = working;
       break;
     }
     case "TaskCompleted": {
@@ -236,7 +250,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
         const subject = str(toolInput?.subject);
         if (!id) return null;
         tasks = upsert(tasks, id, subject ? { subject: clip(subject) } : {});
-        state = "running";
+        state = working;
       } else if (tool === "TaskUpdate") {
         const id = str(toolInput?.taskId) ?? str(response?.taskId);
         if (!id || response?.success === false) return null;
@@ -250,7 +264,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
           if (subject) change.subject = clip(subject);
           tasks = upsert(tasks, id, change);
         }
-        state = "running";
+        state = working;
       } else if (tool === CHECKLIST_TOOL) {
         const text = str(toolInput?.text);
         if (!text) return null;
@@ -260,29 +274,52 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
           title = checklist.title;
           titleFromPlan = true;
         }
-        state = "running";
+        state = working;
       } else if (tool === "TodoWrite") {
         tasks = replaceTodos(tasks, parseTodos(toolInput?.todos));
-        state = "running";
+        state = working;
       } else if (tool === DECISION_TOOL) {
         state = "waiting";
         need = clip(str(toolInput?.question) ?? "", MAX_NEED) || undefined;
         needKind = "decision";
       } else if (tool === CLOSE_DECISION_TOOL) {
         state = "running";
+      } else if (tool === REPLY_TOOL) {
+        // Only the turn's last reply counts: an earlier question may be answered by a later reply.
+        ask = clip(findAsk(str(toolInput?.text) ?? "") ?? "", MAX_NEED);
       } else {
         return null;
       }
       break;
     }
-    case "Stop":
+    case "Stop": {
       if (list.tasks.length === 0 && steps.length === 0) return null;
       // Stop ends every turn, so on its own it doesn't mean Claude waits for the user or stopped
-      // working. A decision card that is still open keeps the session waiting; a step or task
-      // still marked in progress, or background work, keeps it running.
-      if (state === "waiting" && needKind === "decision") break;
-      state = hasRunningWork(input) || hasWorkInProgress(tasks, steps) ? "running" : "idle";
+      // working. A decision card that is still open keeps the session waiting, and so does a
+      // question in the turn's last reply. Otherwise a step or task still marked in progress, or
+      // background work, keeps it running, and a next step such as "After approval: build it"
+      // means the thread waits on the user.
+      if (deciding) break;
+      // A project thread replies with post_message; other sessions end the turn with plain text.
+      const asked = ask ?? (findAsk(str(input.last_assistant_message) ?? "") ?? "");
+      ask = undefined;
+      const blocked = (steps.length > 0 ? steps : tasks).find(
+        (t) => t.status === "pending" && waitsOnUser(t.subject),
+      );
+      const busy = hasRunningWork(input) || hasWorkInProgress(tasks, steps);
+      if (asked) {
+        state = "waiting";
+        need = clip(asked, MAX_NEED);
+        needKind = "question";
+      } else if (blocked && !busy) {
+        state = "waiting";
+        need = blocked.subject;
+        needKind = "question";
+      } else {
+        state = busy ? "running" : "idle";
+      }
       break;
+    }
     case "Notification": {
       const type = str(input.notification_type);
       const message = str(input.message) ?? "";
@@ -294,6 +331,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     }
     case "UserPromptSubmit": {
       state = "running";
+      ask = undefined;
       const info = projectInfo(input);
       project = info.project ?? project;
       projectId = info.projectId ?? projectId;
@@ -322,10 +360,11 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     thread !== list.thread ||
     repo !== list.repo ||
     need !== list.need ||
+    ask !== list.ask ||
     JSON.stringify(tasks) !== JSON.stringify(list.tasks) ||
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   if (!changed) return null;
-  const { need: _need, needKind: _needKind, ...rest } = list;
+  const { need: _need, needKind: _needKind, ask: _ask, ...rest } = list;
   return {
     ...rest,
     title,
@@ -339,6 +378,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     ...(repo ? { repo } : {}),
     ...(need ? { need } : {}),
     ...(needKind ? { needKind } : {}),
+    ...(ask !== undefined ? { ask } : {}),
     seq: list.seq + 1,
     updatedAt: now,
   };

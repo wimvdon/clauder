@@ -14,7 +14,8 @@ Clauder shows the task list of every running Claude Code session on the phone.
   the widget count the steps when there are any, else the tasks (`TaskList.items`). The Tasks
   screen shows the steps and folds the tasks away under them.
 - **States:** Running (Claude works), Idle (nothing is in progress and nothing runs in the
-  background), Waiting for you (a project thread showed a decision card, or Claude Code asked for a
+  background), Waiting for you (a project thread showed a decision card, its last reply of the turn
+  asked the user something, its next step waits on approval, or Claude Code asked for a
   permission), Done, Ended. The checklist decides: Stop ends every turn, also while Claude waits on
   CI or a reminder, so after Stop a step (or task) still marked in progress keeps the session
   Running, and only a list with nothing in progress becomes Idle (`worker/src/tasklist.ts`). The
@@ -25,6 +26,15 @@ Clauder shows the task list of every running Claude Code session on the phone.
   prompt's message. The notification, the Tasks screen and the widget show it. A permission
   prompt is answered within the turn, so Stop turns it into Idle; an open decision card stays
   waiting until it is closed or Wim writes.
+  Plain questions: the hooks also match the reply tool (`mcp__hearthbot__post_message`). The
+  Worker keeps only what the turn's last reply asks (`worker/src/ask.ts`: the last question put
+  to the user, such as "Which do you like?", or a request for approval such as "I'll open the PR
+  once you approve"), and on Stop that makes the session Waiting with the question as `need`.
+  Questions that aren't for the user (headings, quotes, code, "Why did it fail? The token
+  expired.") don't count, and neither does "let me know if…". Sessions without the reply tool use
+  Stop's `last_assistant_message`. A pending step such as "After approval: build it" also means
+  Waiting once nothing is in progress. Waiting wins over Done, so "All merged. Shall I cut a
+  release?" still asks.
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
   prompt event (without the prompt's text). The Tasks screen groups sessions under the

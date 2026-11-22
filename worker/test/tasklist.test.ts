@@ -108,7 +108,7 @@ test("Stop while background work runs keeps the session running", () => {
   assert.equal(list.state, "running");
 });
 
-test("only a decision card or a permission prompt means waiting", () => {
+test("a decision card or a permission prompt means waiting", () => {
   const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: {}, tool_response: {} };
   const waiting = run([created("1", "a"), decision, { hook_event_name: "Stop" }]);
   assert.equal(waiting.state, "waiting");
@@ -302,4 +302,84 @@ test("waiting says what Claude asks, and forgets it once answered", () => {
   const after = run([{ hook_event_name: "Stop" }], prompted);
   assert.equal(after.state, "idle");
   assert.equal(after.need, undefined);
+});
+
+const reply = (text: string) => ({
+  hook_event_name: "PostToolUse", cwd: "/home/user", tool_name: "mcp__hearthbot__post_message",
+  tool_input: { text }, tool_response: {},
+});
+const MOCKUP_PLAN = "Playful Material 3 mockup\n\n✓ Read the screens\n✓ Design a mockup\n✓ Share the mockup for approval\n✓ Add wordmark options\n○ After approval: build it in the app and open a pull request";
+
+test("a question in the turn's last reply means waiting, with the question as what's needed", () => {
+  const list = run([
+    checklist("Plan\n\n✓ One\n○ Two"),
+    reply("Below them are the four launcher icons side by side. You can mix them. Which do you like? I'd go with A, because the icon matches."),
+    { hook_event_name: "Stop", cwd: "/home/user" },
+  ]);
+  assert.equal(list.state, "waiting");
+  assert.equal(list.need, "Which do you like?");
+  assert.equal(list.needKind, "question");
+  assert.equal(toPushData(list).need, "Which do you like?");
+  assert.equal("ask" in toPushData(list), false);
+  const answered = run([{ hook_event_name: "UserPromptSubmit" }], list);
+  assert.equal(answered.state, "running");
+  assert.equal(answered.need, undefined);
+  assert.equal(answered.ask, undefined);
+});
+
+test("only the turn's last reply counts", () => {
+  const list = run([
+    checklist("Plan\n\n✓ One\n○ Two"),
+    reply("Should I use the old token? Checking now."),
+    reply("The old token works, so I used it. The PR is open."),
+    { hook_event_name: "Stop", cwd: "/home/user" },
+  ]);
+  assert.equal(list.state, "idle");
+  assert.equal(list.need, undefined);
+});
+
+test("a reply without a question doesn't change the state on its own", () => {
+  const list = run([checklist("Plan\n\n✓ One\n✱ Two"), reply("Tests pass. Waiting on CI now.")]);
+  assert.equal(list.state, "running");
+  const stopped = run([{ hook_event_name: "Stop", cwd: "/home/user" }], list);
+  assert.equal(stopped.state, "running");
+});
+
+test("a question after every step is done still waits", () => {
+  const list = run([
+    checklist("Plan\n\n✓ One\n✓ Two"),
+    reply("PR #22 is merged. Shall I cut a release?"),
+    { hook_event_name: "Stop", cwd: "/home/user" },
+  ]);
+  assert.equal(list.state, "waiting");
+  assert.equal(list.need, "Shall I cut a release?");
+});
+
+test("a pending step that waits on approval means waiting once nothing else runs", () => {
+  const list = run([checklist(MOCKUP_PLAN), reply("The mockup is ready to look at."), { hook_event_name: "Stop", cwd: "/home/user" }]);
+  assert.equal(list.state, "waiting");
+  assert.equal(list.need, "After approval: build it in the app and open a pull request");
+  const busy = run([
+    checklist(MOCKUP_PLAN.replace("✓ Add", "✱ Add")),
+    { hook_event_name: "Stop", cwd: "/home/user" },
+  ]);
+  assert.equal(busy.state, "running");
+});
+
+test("sessions without a reply tool use the last assistant message", () => {
+  const list = run([
+    created("1", "a"),
+    { hook_event_name: "Stop", cwd: CWD, last_assistant_message: "Done with the parser. Want me to add tests too?" },
+  ]);
+  assert.equal(list.state, "waiting");
+  assert.equal(list.need, "Want me to add tests too?");
+  const plain = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD, last_assistant_message: "Done. Let me know if anything breaks." }]);
+  assert.equal(plain.state, "idle");
+});
+
+test("a decision card stays waiting while the checklist moves on", () => {
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Which font?" }, tool_response: {} };
+  const list = run([checklist("Plan\n\n✱ One"), decision, checklist("Plan\n\n✓ One\n✱ Two"), { hook_event_name: "Stop" }]);
+  assert.equal(list.state, "waiting");
+  assert.equal(list.need, "Which font?");
 });
