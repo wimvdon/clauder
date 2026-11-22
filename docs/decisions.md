@@ -2,6 +2,21 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-22: Icons: same padding in every app, white background, white details; colour scheme follows the icon
+
+All ten apps get one icon family. For Clauder the ring already sat at the shared padding (its
+furthest point is 26.3 from the middle of the 108 canvas), so the shape keeps its size (scale
+1.0) but is now wrapped in the same `<group>` as every other app. The adaptive-icon background
+changes from the soft terracotta plate to plain white (`ic_launcher_background`). The check stays
+in the gradient (a white check would vanish on white) and the two open segments keep their pale
+tint `#F0C9BC` (not light enough to count as a plate-coloured detail). The app has no in-app logo
+or icon-on-a-plate: the status bar and Quick Settings icon already showed the bare shape, and the
+empty-state circles hold generic Material icons, so nothing else changed there. Colour scheme: the
+scheme is already built around the icon's terracotta; the icon gradient's middle stop is `#DA6440`
+and the primaries `#B0502C` (light) and `#F0A487` (dark) are its darker and lighter shades. They
+stay, because `#DA6440` itself gives only about 3.6:1 with white text and about 4:1 on dark
+containers (WCAG AA needs 4.5:1). Dynamic colour is unchanged.
+
 ## 2026-11-22: Status bar and Quick Settings tile show the ring too
 
 The owner asked for every icon to follow the new design. The status bar icon, the Quick Settings
