@@ -95,4 +95,45 @@ class SessionBoardTest {
         assertEquals(listOf(working.copy(state = SessionState.Running)), section.active)
         assertEquals(emptyList<TaskList>(), section.inactive)
     }
+
+    @Test
+    fun `inactive sessions start folded under one row per project, active ones stay in view`() {
+        val running = list("a", 1, "5").copy(project = "Noter")
+        val done = list("c", 1, "3").copy(project = "Noter", state = SessionState.Done)
+        val idle = list("b", 1, "4").copy(project = "Noter", state = SessionState.Idle)
+        val sections = listOf(SessionBoard.Section("Noter", listOf(running), listOf(done, idle)))
+        assertEquals(
+            listOf(
+                SessionBoard.Row.Header("Noter", 3, open = true),
+                SessionBoard.Row.Active(running),
+                SessionBoard.Row.InactiveToggle("Noter", 2, open = false),
+            ),
+            SessionBoard.rows(sections, foldedGroups = emptySet(), openInactive = emptySet()),
+        )
+        assertEquals(
+            listOf(
+                SessionBoard.Row.Header("Noter", 3, open = true),
+                SessionBoard.Row.Active(running),
+                SessionBoard.Row.InactiveToggle("Noter", 2, open = true),
+                SessionBoard.Row.Inactive(done),
+                SessionBoard.Row.Inactive(idle),
+            ),
+            SessionBoard.rows(sections, foldedGroups = emptySet(), openInactive = setOf("Noter")),
+        )
+    }
+
+    @Test
+    fun `a folded project shows only its header, and a lone list without a project has none`() {
+        val running = list("a", 1, "5").copy(project = "Noter")
+        val loose = list("e", 1, "1").copy(state = SessionState.Ended)
+        val noter = SessionBoard.Section("Noter", listOf(running), emptyList())
+        assertEquals(
+            listOf(SessionBoard.Row.Header("Noter", 1, open = false)),
+            SessionBoard.rows(listOf(noter), foldedGroups = setOf("Noter"), openInactive = emptySet()),
+        )
+        assertEquals(
+            listOf(SessionBoard.Row.InactiveToggle(null, 1, open = false)),
+            SessionBoard.rows(listOf(SessionBoard.Section(null, emptyList(), listOf(loose))), emptySet(), emptySet()),
+        )
+    }
 }

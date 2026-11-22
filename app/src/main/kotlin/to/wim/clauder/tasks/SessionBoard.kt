@@ -44,6 +44,42 @@ object SessionBoard {
         return named.sortedBy { it.active.isEmpty() } + rest
     }
 
+    /** One line of the Tasks screen. */
+    sealed interface Row {
+        /** A project's header; tapping it folds the whole project. */
+        data class Header(val group: String?, val count: Int, val open: Boolean) : Row
+
+        /** A session that is working or waiting for you, shown in full. */
+        data class Active(val list: TaskList) : Row
+
+        /** "3 inactive" under a project's active sessions; tapping it shows or hides them. */
+        data class InactiveToggle(val group: String?, val count: Int, val open: Boolean) : Row
+
+        /** An idle or finished session, as one line. */
+        data class Inactive(val list: TaskList) : Row
+    }
+
+    /** The Tasks screen, top to bottom. Projects start open and their inactive sessions start
+     * folded: [foldedGroups] holds the projects the user closed and [openInactive] the projects whose
+     * inactive sessions the user opened (by group name, "" for sessions without a project). */
+    fun rows(sections: List<Section>, foldedGroups: Set<String>, openInactive: Set<String>): List<Row> = sections.flatMap { section ->
+        val id = section.group.orEmpty()
+        val open = id !in foldedGroups
+        buildList {
+            // A lone list of sessions without a project needs no header to fold it.
+            if (section.group != null || sections.size > 1) {
+                add(Row.Header(section.group, section.active.size + section.inactive.size, open))
+            }
+            if (!open) return@buildList
+            section.active.forEach { add(Row.Active(it)) }
+            if (section.inactive.isNotEmpty()) {
+                val showInactive = id in openInactive
+                add(Row.InactiveToggle(section.group, section.inactive.size, showInactive))
+                if (showInactive) section.inactive.forEach { add(Row.Inactive(it)) }
+            }
+        }
+    }
+
     /** Idle (nothing for you, nothing running) or finished. */
     fun isInactive(list: TaskList): Boolean = list.isFinished || list.state == SessionState.Idle
 

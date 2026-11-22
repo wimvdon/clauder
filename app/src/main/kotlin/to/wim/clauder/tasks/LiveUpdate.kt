@@ -46,7 +46,7 @@ data class LiveUpdate(
 
     /** Idle and finished sessions are bundled per project in the shade, so the bundle can be
      * folded away; live ones stay on their own to keep their progress bar. Null: not bundled. */
-    val bundle: String? get() = if (ongoing) null else BUNDLE_PREFIX + group.orEmpty()
+    val bundle: String? get() = if (status == Status.Idle || status == Status.Done) BUNDLE_PREFIX + group.orEmpty() else null
 
     companion object {
         const val SEGMENT_LENGTH = 100
@@ -55,8 +55,10 @@ data class LiveUpdate(
         const val BUNDLE_PREFIX = "inactive:"
 
         /** Null when there is nothing to show: no tasks yet, or the session closed with open
-         * tasks (then the notification goes away). */
-        fun from(session: TaskList, nowMillis: Long = System.currentTimeMillis()): LiveUpdate? {
+         * tasks (then the notification goes away). With [summaryMode] on, the summary is the one
+         * Live Update, so a session that waits for you is a plain notification: it alerts and can
+         * be swiped away. */
+        fun from(session: TaskList, nowMillis: Long = System.currentTimeMillis(), summaryMode: Boolean = false): LiveUpdate? {
             val list = session.shown(nowMillis)
             val wakeAt = list.wakeAtMillis(nowMillis)
             val items = list.items
@@ -73,7 +75,7 @@ data class LiveUpdate(
             }
             val finished = status == Status.Done
             // An idle session stays in the shade but isn't pinned as ongoing or promoted.
-            val live = !finished && status != Status.Idle
+            val live = !finished && status != Status.Idle && !(summaryMode && status == Status.Waiting)
             return LiveUpdate(
                 title = list.title,
                 group = list.group,

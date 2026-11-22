@@ -13,7 +13,6 @@ import androidx.glance.LocalContext
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.action.actionStartActivity as startIntent
 import androidx.glance.appwidget.cornerRadius
@@ -27,6 +26,7 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -42,6 +42,7 @@ import to.wim.clauder.MainActivity
 import to.wim.clauder.R
 import to.wim.clauder.links.ClaudeApp
 import to.wim.clauder.tasks.LiveUpdate
+import to.wim.clauder.tasks.SegmentBar
 import to.wim.clauder.tasks.SessionBoard
 import to.wim.clauder.tasks.SessionState
 import to.wim.clauder.tasks.Summary
@@ -62,7 +63,7 @@ class TasksWidget : GlanceAppWidget() {
             val sessions by store.sessions.collectAsState(firstSessions)
             val muted by store.muted.collectAsState(firstMuted)
             val now = System.currentTimeMillis()
-            val (active, finished) = SessionBoard.split(SessionBoard.sort(sessions).map { it.shown(now) })
+            val (finished, active) = SessionBoard.sort(sessions).map { it.shown(now) }.partition { SessionBoard.isInactive(it) }
             val colors = widgetColors(settings.dynamicColor)
             if (colors != null) {
                 GlanceTheme(colors = colors) { Content(settings.isConnected, active, finished, muted) }
@@ -104,15 +105,53 @@ class TasksWidget : GlanceAppWidget() {
                     )
                 }
             }
-            val sessions = SessionBoard.groups(active).flatMap { it.second }.ifEmpty { finished.take(1) }
+            // Only what is working or waiting gets a card; idle and finished sessions fold into one
+            // line, as on the Tasks screen.
+            val sessions = SessionBoard.groups(active).flatMap { it.second }
             when {
                 !connected -> Message(context.getString(R.string.widget_connect))
-                sessions.isEmpty() -> Message(context.getString(R.string.widget_no_sessions))
+                sessions.isEmpty() && finished.isEmpty() -> Message(context.getString(R.string.widget_no_sessions))
+                sessions.isEmpty() -> Message(context.resources.getQuantityString(R.plurals.notification_inactive, finished.size, finished.size))
                 else -> LazyColumn {
                     items(sessions, itemId = { it.key.hashCode().toLong() }) { list -> Session(context, list, list.key in muted) }
+                    if (finished.isNotEmpty()) {
+                        item(itemId = INACTIVE_ROW_ID) { InactiveLine(context, finished.size) }
+                    }
                 }
             }
         }
+    }
+
+    /** One segment per step, like the notification. The empty ones are a groove in the surface
+     * colour, which in dark mode stands out from the card (the old track nearly vanished). */
+    @Composable
+    private fun Segments(bar: SegmentBar) {
+        Row(GlanceModifier.fillMaxWidth().height(5.dp)) {
+            repeat(bar.segments) { index ->
+                Box(GlanceModifier.defaultWeight().fillMaxHeight().padding(horizontal = 1.5.dp)) {
+                    Box(
+                        GlanceModifier
+                            .fillMaxSize()
+                            .cornerRadius(2.dp)
+                            .background(if (index < bar.filled) GlanceTheme.colors.primary else GlanceTheme.colors.surface),
+                    ) {}
+                }
+            }
+        }
+    }
+
+    /** "3 inactive sessions": opens the app, where they can be shown. */
+    @Composable
+    private fun InactiveLine(context: Context, count: Int) {
+        Text(
+            context.resources.getQuantityString(R.plurals.notification_inactive, count, count),
+            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
+            maxLines = 1,
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .clickable(actionStartActivity<MainActivity>()),
+        )
     }
 
     @Composable
@@ -195,17 +234,14 @@ class TasksWidget : GlanceAppWidget() {
                 }
                 if (list.items.isNotEmpty()) {
                     Spacer(GlanceModifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = list.doneCount.toFloat() / list.items.size,
-                        modifier = GlanceModifier.fillMaxWidth().height(4.dp).cornerRadius(2.dp),
-                        color = GlanceTheme.colors.primary,
-                        backgroundColor = if (waiting) GlanceTheme.colors.surface else GlanceTheme.colors.secondaryContainer,
-                    )
+                    Segments(SegmentBar.of(list, SegmentBar.WIDGET_MAX))
                 }
             }
         }
     }
 }
+
+private const val INACTIVE_ROW_ID = -1L
 
 class TasksWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TasksWidget()

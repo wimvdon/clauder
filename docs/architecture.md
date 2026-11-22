@@ -46,7 +46,9 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **Notifications:** one per session by default. With "One notification for all sessions"
   (`Settings.summaryNotification`, backed up) the phone posts one ongoing summary
   (`Summary`, `TaskNotifier.showSummary`) and only the sessions that wait for you get their own,
-  alerting, notification (`NotificationPlan`). On Android 16 the summary's progress bar has one
+  alerting, notification (`NotificationPlan`). The summary is then the only Live Update: those
+  "Waiting for you" notifications are plain ones, not ongoing or promoted, so they can be swiped
+  away (`LiveUpdate.from(summaryMode = true)`). On Android 16 the summary's progress bar has one
   block per session (`SummaryBar`): waiting for you, working, or holding on CI, a reminder or
   helpers, each in its own colour (`res/values*/colors.xml`), with a dot at how far that session is.
   Its status bar chip reads "3 · 1?" (active sessions · waiting for you). A Live Update can't be
@@ -61,8 +63,10 @@ Clauder shows the task list of every running Claude Code session on the phone.
   the claude.ai project and thread names from the session's transcript and sends them with the
   prompt event (without the prompt's text). The Tasks screen groups sessions under the
   project's name, else the repository's (`SessionBoard.sections`). Every group starts open and
-  folds shut by tapping its header. Working and waiting sessions are full cards with their steps;
-  idle and finished ones follow as one-line rows (title, state, count), always in view. In the shade, idle and finished sessions are bundled per project with a summary
+  folds shut by tapping its header. Working and waiting sessions are full cards with their steps
+  and a segmented progress bar (`SegmentBar`, one segment per step); idle and finished ones fold
+  under one "N inactive sessions" row per project that opens them as one-line rows (title, state,
+  count) (`SessionBoard.rows`). In the shade, idle and finished sessions are bundled per project with a summary
   notification (`LiveUpdate.bundle`, `TaskNotifier.refreshBundles`); working and waiting sessions
   stay on their own so they keep their Live Update. The widget shows the name too. claude.ai doesn't give the project's icon or colour to the session.
 - **Notification:** one per session (id from the session key). `tasks/LiveUpdate` works out what it
@@ -73,9 +77,11 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **No shortcuts:** Clauder had app shortcuts, pinned links and a Shortcuts widget, removed on
   22 Nov 2026 (see `docs/decisions.md`). On start, `ClauderApp.retireShortcuts` greys out links an
   earlier version pinned (only the launcher can remove them) and forgets their saved list.
-- **Widget (Glance):** `widget/TasksWidget` shows the active sessions (or the last finished
-  one) as tonal cards under a header with the same summary line as the tile; a session that waits
-  for you uses the primary container. It uses the system widget corner radii. It reads `SettingsStore` flows inside its content, so a widget on screen follows every
+- **Widget (Glance):** `widget/TasksWidget` shows the working and waiting sessions as tonal cards
+  under a header with the same summary line as the tile, then one "N inactive sessions" line that
+  opens the app; a session that waits for you uses the primary container. Its progress bar has one
+  segment per step (at most ten, a widget limit; `SegmentBar.WIDGET_MAX`), with the empty ones in
+  the surface colour so they stay visible in dark mode. It uses the system widget corner radii. It reads `SettingsStore` flows inside its content, so a widget on screen follows every
   change; `widget/Widgets` redraws it after a push, a fetch, or a change of theme, connection or
   mutes (`ClauderApp`). Taps on it and on notifications go through `links/OpenLinkActivity`
   (not exported), which opens only https claude.ai links (`ClaudeApp.safeUrl`).

@@ -68,7 +68,7 @@ object TaskNotifier {
      */
     fun apply(context: Context, list: TaskList, board: List<TaskList>, muted: Set<String>, summaryMode: Boolean) {
         val now = System.currentTimeMillis()
-        if (NotificationPlan.individual(list, muted, summaryMode, now)) show(context, list) else cancel(context, list.key)
+        if (NotificationPlan.individual(list, muted, summaryMode, now)) show(context, list, summaryMode = summaryMode) else cancel(context, list.key)
         showSummary(context, board, muted, summaryMode, now)
     }
 
@@ -76,7 +76,7 @@ object TaskNotifier {
     fun applyAll(context: Context, board: List<TaskList>, muted: Set<String>, summaryMode: Boolean) {
         val now = System.currentTimeMillis()
         board.forEach {
-            if (NotificationPlan.individual(it, muted, summaryMode, now)) show(context, it, alert = false) else cancel(context, it.key)
+            if (NotificationPlan.individual(it, muted, summaryMode, now)) show(context, it, alert = false, summaryMode = summaryMode) else cancel(context, it.key)
         }
         showSummary(context, board, muted, summaryMode, now)
     }
@@ -190,9 +190,9 @@ object TaskNotifier {
         null -> null
     }
 
-    fun show(context: Context, list: TaskList, alert: Boolean = true) {
+    fun show(context: Context, list: TaskList, alert: Boolean = true, summaryMode: Boolean = false) {
         val manager = NotificationManagerCompat.from(context)
-        val update = LiveUpdate.from(list)
+        val update = LiveUpdate.from(list, summaryMode = summaryMode)
         if (update == null) {
             manager.cancel(idFor(list.key))
             refreshBundles(context)

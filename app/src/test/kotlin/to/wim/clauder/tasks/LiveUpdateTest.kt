@@ -41,6 +41,24 @@ class LiveUpdateTest {
     }
 
     @Test
+    fun `with the summary on, waiting for you is a plain notification that can be swiped away`() {
+        val update = LiveUpdate.from(list(SessionState.Waiting, TaskStatus.Pending).copy(project = "Clauder"), summaryMode = true)!!
+        assertEquals(LiveUpdate.Status.Waiting, update.status)
+        assertFalse(update.ongoing)
+        assertFalse(update.requestPromotion)
+        assertFalse(update.silent)
+        // Not tucked into the shade's bundle of inactive sessions.
+        assertNull(update.bundle)
+    }
+
+    @Test
+    fun `the summary setting leaves working sessions live`() {
+        val update = LiveUpdate.from(list(SessionState.Running, TaskStatus.InProgress), summaryMode = true)!!
+        assertTrue(update.ongoing)
+        assertTrue(update.requestPromotion)
+    }
+
+    @Test
     fun `waiting for you stays ongoing`() {
         val update = LiveUpdate.from(list(SessionState.Waiting, TaskStatus.Completed, TaskStatus.Pending))!!
         assertEquals(LiveUpdate.Status.Waiting, update.status)
