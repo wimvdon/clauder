@@ -1,12 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Status bar icon: the launcher icon's speech bubble with the check cut out. -->
+<!-- Status bar, Quick Settings tile and shortcut icon: the launcher icon's themed layer
+     (ic_launcher_monochrome), cropped to the ring so it fills the 24dp icon. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M30,22h48a14,14 0,0 1,14 14v28a14,14 0,0 1,-14 14h-32l-16,14v-14h0a14,14 0,0 1,-14 -14v-28a14,14 0,0 1,14 -14zM36,50.5l6,-6 9,9 17,-17 6,6 -23,23z" />
+    android:viewportWidth="56"
+    android:viewportHeight="56">
+    <group
+        android:translateX="-26"
+        android:translateY="-26">
+        <path
+            android:pathData="M59.32,32.65A22,22 0 0,1 69.83,38.72 M75.15,47.94A22,22 0 0,1 75.15,60.06 M69.83,69.28A22,22 0 0,1 59.32,75.35 M48.68,75.35A22,22 0 0,1 38.17,69.28"
+            android:strokeWidth="8.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeColor="#FFFFFFFF" />
+        <path
+            android:pathData="M32.85,60.06A22,22 0 0,1 32.85,47.94 M38.17,38.72A22,22 0 0,1 48.68,32.65"
+            android:strokeWidth="8.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeAlpha="0.4"
+            android:strokeColor="#FFFFFFFF" />
+        <path
+            android:pathData="M45,54.5l6,6 12,-12"
+            android:strokeWidth="6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeColor="#FFFFFFFF" />
+    </group>
 </vector>
