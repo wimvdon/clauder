@@ -14,31 +14,27 @@ Clauder shows the task list of every running Claude Code session on the phone.
   the widget count the steps when there are any, else the tasks (`TaskList.items`). The Tasks
   screen shows the steps and folds the tasks away under them.
 - **States:** Running (Claude works), Idle (nothing is in progress and nothing runs in the
-  background), Waiting for you (a project thread showed a decision card, its last reply of the turn
-  asked the user something, its next step waits on approval, or Claude Code asked for a
-  permission), Done, Ended. The checklist decides: Stop ends every turn, also while Claude waits on
-  CI or a reminder, so after Stop a step (or task) still marked in progress keeps the session
-  Running, and only a list with nothing in progress becomes Idle (`worker/src/tasklist.ts`). The
-  phone applies the same rule to what it shows (`TaskList.shown`), and turns a session that has been
-  silent for 12 hours into Idle, so an abandoned one moves out of the way. A session that ended
-  with open steps reads "Ended early". A project thread's session that stops between wakes
-  (`SessionEnd` reason "other") pauses instead: a question stays open, anything else is Idle.
-  While waiting, the list carries `need`: the decision card's question, or the permission
-  prompt's message. The notification, the Tasks screen and the widget show it. A permission
-  prompt is answered within the turn, so Stop turns it into Idle; an open decision card stays
-  waiting until it is closed or Wim writes.
-  Plain questions: the hooks also match the reply tool (`mcp__hearthbot__post_message`). The
-  Worker keeps only what the turn's last reply asks (`worker/src/ask.ts`: the last question put
-  to the user, such as "Which do you like?", or a request for approval such as "I'll open the PR
-  once you approve"), and on Stop that makes the session Waiting with the question as `need`.
-  Questions that aren't for the user (headings, quotes, code, "Why did it fail? The token
-  expired.") don't count, and neither does "let me know if…". Sessions without the reply tool use
-  Stop's `last_assistant_message`. A pending step such as "After approval: build it" also means
-  Waiting once nothing is in progress. Waiting wins over Done, so "All merged. Shall I cut a
-  release?" still asks.
+  background), Waiting for you (a project thread showed a decision card, or Claude Code sent a
+  `permission_prompt` or `elicitation_dialog` notification), Done, Ended. Every state comes from
+  raw hook data: event names, `notification_type`, tool inputs and tool results. Text is never
+  read to guess a state, so a question written in a plain reply doesn't make a session Waiting:
+  no hook field says a reply waits on the user. The checklist decides the rest: Stop ends every
+  turn, also while Claude waits on CI or a reminder, so after Stop a step (or task) still marked
+  in progress keeps the session Running, and only a list with nothing in progress becomes Idle
+  (`worker/src/tasklist.ts`). The phone applies the same rule to what it shows
+  (`TaskList.shown`), and turns a session that has been silent for 12 hours into Idle, so an
+  abandoned one moves out of the way. A session that ended with open steps reads "Ended early".
+  A project thread's session that stops between wakes (`SessionEnd` reason "other") pauses
+  instead: an open decision card stays Waiting, anything else is Idle.
+  While waiting, the list carries `need`: the decision card's question, or the notification's
+  message. The notification, the Tasks screen and the widget show it. A permission prompt is
+  answered within the turn, so Stop turns it into Idle; an open decision card stays waiting until
+  it is closed or Wim writes.
 - **What a session waits on, and what it made** (`worker/src/extras.ts`): the hooks also match
   the GitHub tools (create, read, merge and update a pull request), `subscribe_pr_activity`,
-  `ReadNotifications` (CI events delivered to the thread), `send_later`, `set_thread_resolved`
+  `ReadNotifications` (CI events delivered to the thread: only an event's kind and its data count:
+  `check_suite.completed` means no suite is running or failed, and `pull_request.closed` carries
+  its `outcome`), `send_later`, `set_thread_resolved`
   and the reply's `attached_outputs`. The Worker keeps the session's pull request with its CI
   state, the first https link or Artifact the last reply attached, when a reminder fires, and
   marks a resolved thread Done. After Stop, a PR whose CI still runs, a reminder still ahead or

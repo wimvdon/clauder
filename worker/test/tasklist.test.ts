@@ -156,12 +156,12 @@ test("SessionEnd ends the list", () => {
   assert.equal(run([created("1", "a"), { hook_event_name: "SessionEnd", reason: "other" }]).state, "ended");
 });
 
-test("a project thread pauses between wakes instead of ending, and keeps its question", () => {
+test("a project thread pauses between wakes instead of ending, and keeps an open decision card", () => {
   const prompt = { hook_event_name: "UserPromptSubmit", clauder: { project: "Code", thread: "Icons" } };
   const end = { hook_event_name: "SessionEnd", reason: "other" };
   assert.equal(run([prompt, created("1", "a"), end]).state, "idle");
-  const asked = { hook_event_name: "Stop", last_assistant_message: "Which finish do you prefer?" };
-  assert.equal(run([prompt, created("1", "a"), asked, end]).state, "waiting");
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Which finish?" }, tool_response: {} };
+  assert.equal(run([prompt, created("1", "a"), decision, { hook_event_name: "Stop" }, end]).state, "waiting");
   assert.equal(run([prompt, created("1", "a"), { hook_event_name: "SessionEnd", reason: "logout" }]).state, "ended");
 });
 
@@ -319,71 +319,27 @@ const reply = (text: string) => ({
 });
 const MOCKUP_PLAN = "Playful Material 3 mockup\n\n✓ Read the screens\n✓ Design a mockup\n✓ Share the mockup for approval\n✓ Add wordmark options\n○ After approval: build it in the app and open a pull request";
 
-test("a question in the turn's last reply means waiting, with the question as what's needed", () => {
-  const list = run([
+test("a reply's text never makes a session wait: no hook field says it waits on the user", () => {
+  const asked = run([
     checklist("Plan\n\n✓ One\n○ Two"),
-    reply("Below them are the four launcher icons side by side. You can mix them. Which do you like? I'd go with A, because the icon matches."),
+    reply("Which do you like? I'd go with A."),
     { hook_event_name: "Stop", cwd: "/home/user" },
   ]);
-  assert.equal(list.state, "waiting");
-  assert.equal(list.need, "Which do you like?");
-  assert.equal(list.needKind, "question");
-  assert.equal(toPushData(list).need, "Which do you like?");
-  assert.equal("ask" in toPushData(list), false);
-  const answered = run([{ hook_event_name: "UserPromptSubmit" }], list);
-  assert.equal(answered.state, "running");
-  assert.equal(answered.need, undefined);
-  assert.equal(answered.ask, undefined);
-});
-
-test("only the turn's last reply counts", () => {
-  const list = run([
-    checklist("Plan\n\n✓ One\n○ Two"),
-    reply("Should I use the old token? Checking now."),
-    reply("The old token works, so I used it. The PR is open."),
-    { hook_event_name: "Stop", cwd: "/home/user" },
-  ]);
-  assert.equal(list.state, "idle");
-  assert.equal(list.need, undefined);
-});
-
-test("a reply without a question doesn't change the state on its own", () => {
-  const list = run([checklist("Plan\n\n✓ One\n✱ Two"), reply("Tests pass. Waiting on CI now.")]);
-  assert.equal(list.state, "running");
-  const stopped = run([{ hook_event_name: "Stop", cwd: "/home/user" }], list);
-  assert.equal(stopped.state, "running");
-});
-
-test("a question after every step is done still waits", () => {
-  const list = run([
-    checklist("Plan\n\n✓ One\n✓ Two"),
-    reply("PR #22 is merged. Shall I cut a release?"),
-    { hook_event_name: "Stop", cwd: "/home/user" },
-  ]);
-  assert.equal(list.state, "waiting");
-  assert.equal(list.need, "Shall I cut a release?");
-});
-
-test("a pending step that waits on approval means waiting once nothing else runs", () => {
-  const list = run([checklist(MOCKUP_PLAN), reply("The mockup is ready to look at."), { hook_event_name: "Stop", cwd: "/home/user" }]);
-  assert.equal(list.state, "waiting");
-  assert.equal(list.need, "After approval: build it in the app and open a pull request");
-  const busy = run([
-    checklist(MOCKUP_PLAN.replace("✓ Add", "✱ Add")),
-    { hook_event_name: "Stop", cwd: "/home/user" },
-  ]);
+  assert.equal(asked.state, "idle");
+  assert.equal(asked.need, undefined);
+  assert.equal(run([checklist(MOCKUP_PLAN), { hook_event_name: "Stop", cwd: "/home/user" }]).state, "idle");
+  const plain = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD, last_assistant_message: "Want me to add tests too?" }]);
+  assert.equal(plain.state, "idle");
+  const busy = run([checklist("Plan\n\n✓ One\n✱ Two"), reply("Waiting on CI."), { hook_event_name: "Stop", cwd: "/home/user" }]);
   assert.equal(busy.state, "running");
 });
 
-test("sessions without a reply tool use the last assistant message", () => {
-  const list = run([
-    created("1", "a"),
-    { hook_event_name: "Stop", cwd: CWD, last_assistant_message: "Done with the parser. Want me to add tests too?" },
-  ]);
-  assert.equal(list.state, "waiting");
-  assert.equal(list.need, "Want me to add tests too?");
-  const plain = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD, last_assistant_message: "Done. Let me know if anything breaks." }]);
-  assert.equal(plain.state, "idle");
+test("only a permission prompt or a question form notification means waiting", () => {
+  const base = run([created("1", "a")]);
+  const form = { hook_event_name: "Notification", notification_type: "elicitation_dialog", message: "Claude needs your input" };
+  assert.equal(run([form], base).needKind, "permission");
+  // Without a notification type the message text is not guessed at.
+  assert.equal(applyHook(base, { hook_event_name: "Notification", message: "Claude needs your permission to use Bash" }, NOW), null);
 });
 
 test("a decision card stays waiting while the checklist moves on", () => {

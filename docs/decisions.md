@@ -208,3 +208,14 @@ session, or every step in one bar) he chose one block per session: each block is
 state and carries a dot at the session's progress, so the one that needs him stands out. The bar
 stays full (`setStyledByProgress(false)`), so every block keeps its colour. Android may still
 adjust the colours for contrast.
+
+## 2026-11-22: States come only from raw hook data
+Wim asked for no workarounds: every state must come from real hook data, not from reading text.
+The question check on the turn's last reply (`worker/src/ask.ts`) and the "After approval" step
+check are removed, and so is the fallback that read "permission" in a notification without a
+`notification_type`. Waiting for you now means exactly a decision card (`request_decision`) or
+a `permission_prompt` or `elicitation_dialog` notification. A question in a plain reply has no
+hook signal (the thread's "blocked" state lives on claude.ai and hooks can't read it), so it
+shows as Idle. A `pull_request.closed` event with `outcome` "merged" now counts as merged
+(it read as closed before). Replaces the
+entry "A question in Claude's last reply means Waiting for you" above.

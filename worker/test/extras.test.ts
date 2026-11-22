@@ -26,10 +26,17 @@ test("check runs, merges and closes update the PR the session follows", () => {
 
 test("GitHub notifications finish CI", () => {
   const open = { number: 22, url: "https://github.com/wimvdon/clauder/pull/22", state: "open" as const, ci: "running" as const };
-  const text = `--- Notification 1 of 1 ---\n<event source="github" kind="check_suite.completed" from="system">\n{"head_sha":"abc","pr":"wimvdon/clauder#22"}\n</event>`;
-  assert.equal(applyPrTool(open, "ReadNotifications", {}, text)?.ci, "passed");
-  const other = text.replace("#22", "#23");
-  assert.equal(applyPrTool(open, "ReadNotifications", {}, other)?.ci, "running");
+  const event = (data: string) => `--- Notification 1 of 1 ---\n<event source="github" kind="check_suite.completed" from="system">\n${data}\n</event>`;
+  // The real event: "no check suite on the head is still running or failed", with no conclusion.
+  const passed = event(`{"head_sha":"abc","pr":"wimvdon/clauder#22"}`);
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, passed)?.ci, "passed");
+  const failed = event(`{"head_sha":"abc","conclusion":"failure","pr":"wimvdon/clauder#22"}`);
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, failed)?.ci, "failed");
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, passed.replace("#22", "#23")), open);
+  const merged = `<event source="github" kind="pull_request.closed" from="system" trust="relay">\n    <!-- The PR has been merged. -->\n    {"outcome":"merged","pr":"wimvdon/clauder#22"}\n</event>`;
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, merged)?.state, "merged");
+  const closed = merged.replace('"merged"', '"closed"');
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, closed)?.state, "closed");
 });
 
 test("subscribing follows a PR the session didn't create", () => {
