@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "TaskCreated": [
+      { "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
+    ],
+    "TaskCompleted": [
+      { "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "TaskCreate|TaskUpdate", "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
+    ],
+    "Notification": [
+      { "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
+    ]
+  }
+}

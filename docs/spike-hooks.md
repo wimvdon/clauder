@@ -54,6 +54,7 @@ set `CLAUDE_CODE_REMOTE_SESSION_ID` (`cse_<id>`), and an HTTP hook can send it i
   untrusted workspace, so it ignores a repository's `.claude/settings.json` (hooks only loaded
   through `--settings`). Whether a real cloud session and a project thread load the repo hooks,
   and whether the coordinator's task list fires them, needs a real session against the live Worker.
-- **3. Network access.** The cloud environment's proxy currently blocks `*.workers.dev`
-  (`403 … no rule or network setting allows this host`). The Worker's host has to be added to the
-  environment's allowed domains.
+- **3. Network access.** The cloud environment's proxy blocks `*.workers.dev` by default
+  (`403 … no rule or network setting allows this host`). After adding
+  `clauder.wim-d57.workers.dev` to the "Android" environment's allowed hosts, the Worker answers
+  from inside a session.
