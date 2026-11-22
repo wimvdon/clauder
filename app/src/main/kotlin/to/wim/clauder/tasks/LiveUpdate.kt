@@ -6,6 +6,8 @@ data class LiveUpdate(
     /** The project (or repository) the session belongs to. */
     val group: String?,
     val status: Status,
+    /** While waiting: what Claude asks, shown in place of "Waiting for you" when known. */
+    val need: String?,
     /** True when [done] and [total] count a project thread's steps rather than tasks. */
     val steps: Boolean,
     val done: Int,
@@ -60,6 +62,7 @@ data class LiveUpdate(
                 title = list.title,
                 group = list.group,
                 status = status,
+                need = list.need?.takeIf { status == Status.Waiting },
                 steps = list.hasSteps,
                 done = done,
                 total = total,

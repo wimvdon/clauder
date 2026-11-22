@@ -32,12 +32,18 @@ export interface SessionList {
   thread?: string;
   /** The folder Claude works in, when it is a repository rather than the home folder. */
   repo?: string;
+  /** While waiting: what Claude asks, such as a decision card's question or the permission it needs. */
+  need?: string;
+  /** What the wait is for. A decision card stays open across turns; a permission prompt or a
+   * question dialog is answered before the turn ends. */
+  needKind?: "decision" | "permission";
   /** Bumped on every change, so the phone can drop out-of-order pushes. */
   seq: number;
   updatedAt: string;
 }
 
 export const MAX_TASKS = 50;
+export const MAX_NEED = 200;
 export const MAX_SUBJECT = 120;
 
 type Json = Record<string, unknown>;
@@ -187,6 +193,8 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
   let tasks = list.tasks;
   let steps = list.steps ?? [];
   let state = list.state;
+  let need = list.need;
+  let needKind = list.needKind;
   // Title: the checklist heading, else the thread's title, else the folder name.
   let thread = list.thread;
   let title = list.titleFromPlan
@@ -250,6 +258,8 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
         state = "running";
       } else if (tool === DECISION_TOOL) {
         state = "waiting";
+        need = clip(str(toolInput?.question) ?? "", MAX_NEED) || undefined;
+        needKind = "decision";
       } else if (tool === CLOSE_DECISION_TOOL) {
         state = "running";
       } else {
@@ -262,13 +272,15 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
       // Stop ends every turn, so on its own it doesn't mean Claude waits for the user. A decision
       // card that is still open keeps the session waiting.
       if (hasRunningWork(input)) state = "running";
-      else if (state !== "waiting") state = "idle";
+      else if (state !== "waiting" || needKind !== "decision") state = "idle";
       break;
     case "Notification": {
       const type = str(input.notification_type);
       const message = str(input.message) ?? "";
       if (type ? !ASKING.has(type) : !/permission/i.test(message)) return null;
       state = "waiting";
+      need = clip(message, MAX_NEED) || undefined;
+      needKind = "permission";
       break;
     }
     case "UserPromptSubmit": {
@@ -288,6 +300,10 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
   }
 
   state = stateFor(tasks, steps, state);
+  if (state !== "waiting") {
+    need = undefined;
+    needKind = undefined;
+  }
 
   const changed =
     state !== list.state ||
@@ -296,11 +312,13 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     projectId !== list.projectId ||
     thread !== list.thread ||
     repo !== list.repo ||
+    need !== list.need ||
     JSON.stringify(tasks) !== JSON.stringify(list.tasks) ||
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   if (!changed) return null;
+  const { need: _need, needKind: _needKind, ...rest } = list;
   return {
-    ...list,
+    ...rest,
     title,
     titleFromPlan,
     tasks,
@@ -310,6 +328,8 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     ...(projectId ? { projectId } : {}),
     ...(thread ? { thread } : {}),
     ...(repo ? { repo } : {}),
+    ...(need ? { need } : {}),
+    ...(needKind ? { needKind } : {}),
     seq: list.seq + 1,
     updatedAt: now,
   };
@@ -345,6 +365,7 @@ export function toPushData(list: SessionList): Record<string, string> {
     project: list.project ?? "",
     projectId: list.projectId ?? "",
     repo: list.repo ?? "",
+    need: list.need ?? "",
     state: list.state,
     seq: String(list.seq),
     updatedAt: list.updatedAt,

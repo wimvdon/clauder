@@ -16,6 +16,10 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **States:** Running (Claude works), Idle (its turn ended and nothing runs in the background),
   Waiting for you (a project thread showed a decision card, or Claude Code asked for a permission),
   Done, Ended. Stop alone means Idle, because it ends every turn (`worker/src/tasklist.ts`).
+  While waiting, the list carries `need`: the decision card's question, or the permission
+  prompt's message. The notification, the Tasks screen and the widget show it. A permission
+  prompt is answered within the turn, so Stop turns it into Idle; an open decision card stays
+  waiting until it is closed or Wim writes.
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
   prompt event (without the prompt's text). The Tasks screen groups sessions under the

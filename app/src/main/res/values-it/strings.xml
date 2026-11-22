@@ -148,4 +148,5 @@
         <item quantity="other">%d sessioni inattive</item>
         <item quantity="many">%d sessioni inattive</item>
     </plurals>
+    <string name="state_waiting_need">Ti sta aspettando: %1$s</string>
 </resources>

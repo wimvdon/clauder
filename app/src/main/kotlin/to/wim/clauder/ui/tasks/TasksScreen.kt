@@ -272,6 +272,9 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
                 style = MaterialTheme.typography.labelLarge,
                 color = if (list.state == SessionState.Waiting) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            list.need?.takeIf { list.state == SessionState.Waiting }?.let {
+                Text(it, style = MaterialTheme.typography.bodyLarge)
+            }
             LinearProgressIndicator(
                 progress = { if (list.items.isEmpty()) 0f else list.doneCount.toFloat() / list.items.size },
                 modifier = Modifier.fillMaxWidth(),

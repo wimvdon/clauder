@@ -144,4 +144,5 @@
         <item quantity="one">%d inactieve sessie</item>
         <item quantity="other">%d inactieve sessies</item>
     </plurals>
+    <string name="state_waiting_need">Wacht op jou: %1$s</string>
 </resources>

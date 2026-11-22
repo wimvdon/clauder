@@ -147,4 +147,5 @@
         <item quantity="one">%d inactive session</item>
         <item quantity="other">%d inactive sessions</item>
     </plurals>
+    <string name="state_waiting_need">Waiting for you: %1$s</string>
 </resources>
