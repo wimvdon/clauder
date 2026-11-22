@@ -133,3 +133,11 @@ Without a `LICENSE` file the legal default is already all rights reserved, but t
   event. Rejected: asking claude.ai for them (the Worker has no sign-in there, and the app must
   never talk to Claude directly).
 
+## 2026-11-22: The Worker serves the hook installer
+Each cloud environment's setup script used to hold the whole installer, so every hook change meant
+pasting a new block into every environment. The Worker now serves `hooks/install-user-hooks.sh`
+at `GET /install.sh` (no token: the script holds no secret, the token comes from the
+environment's variable), and the setup script needs one `curl … | bash` line that never changes.
+The trade-off: whoever controls the Worker controls what the environments run, which was already
+true of where the hooks send their data.
+

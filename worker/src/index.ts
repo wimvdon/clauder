@@ -12,6 +12,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
+import { installScript } from "./install";
 import { applyHook, emptyList, sessionKey, toPushData, type SessionList } from "./tasklist";
 
 export interface Env {
@@ -222,6 +223,12 @@ export function demoList(now: string): SessionList {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    // A cloud environment's setup script runs: curl -fsS https://<worker>/install.sh | bash
+    if (request.method === "GET" && url.pathname === "/install.sh") {
+      return new Response(installScript(url.host), {
+        headers: { "content-type": "text/x-shellscript; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
     if (!isAuthorized(request.headers.get("authorization"), env.HOOK_TOKEN)) {
       return json({ error: "unauthorized" }, 401);
     }
