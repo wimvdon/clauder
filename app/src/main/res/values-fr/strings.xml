@@ -7,6 +7,7 @@
     <string name="state_waiting">Vous attend</string>
     <string name="state_done">Terminé</string>
     <string name="state_ended">Terminée</string>
+    <string name="state_ended_early">Arrêtée avant la fin</string>
     <string name="task_done">Terminée</string>
     <string name="task_in_progress">En cours</string>
     <string name="task_pending">À faire</string>

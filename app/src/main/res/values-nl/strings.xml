@@ -7,6 +7,7 @@
     <string name="state_waiting">Wacht op jou</string>
     <string name="state_done">Klaar</string>
     <string name="state_ended">Beëindigd</string>
+    <string name="state_ended_early">Vroeg gestopt</string>
     <string name="task_done">Klaar</string>
     <string name="task_in_progress">Bezig</string>
     <string name="task_pending">Te doen</string>

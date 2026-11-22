@@ -155,3 +155,16 @@ starts with the app and which create their database and input mergers by class n
 shrinking rules keep those classes but not their constructors, and R8's full mode (the default
 since AGP 8) then removes the constructors. `app/proguard-rules.pro` now keeps them. Rejected for
 now: adding a newer WorkManager to override Glance's, since that is a new dependency.
+
+## 2026-11-22: The checklist decides whether a session is working
+
+A project thread's turn ends many times before its work is done: while it waits on CI, a pull
+request event or a reminder. Marking every Stop as Idle showed working threads as "Inactive" and
+hid them under a folded "N inactive sessions" row. Now a step (or task) marked in progress keeps a
+session Running across turns, in the Worker and on the phone; Idle means nothing is in progress.
+The phone treats 12 hours of silence as Idle, so abandoned sessions still move aside. The Tasks
+screen no longer hides inactive sessions behind a toggle: they show as one-line rows under the
+active cards. A session that closed with open steps reads "Ended early" instead of "Ended".
+Rejected: a shorter silence timeout (a slow CI run or an evening reminder would flip a thread to
+Idle) and guessing from the time alone without the checklist.
+

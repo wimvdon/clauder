@@ -32,10 +32,11 @@ object SessionBoard {
     /** One project (or repository) on the Tasks screen: what is working or waiting, and what is idle or finished. */
     data class Section(val group: String?, val active: List<TaskList>, val inactive: List<TaskList>)
 
-    /** [groups] split into active and inactive sessions. Projects with something active come
-     * first; sessions without a project stay last. */
-    fun sections(lists: List<TaskList>): List<Section> {
-        val all = groups(lists).map { (group, members) ->
+    /** [groups] split into active and inactive sessions, with each session's state as shown at
+     * [nowMillis] (see [TaskList.shown]). Projects with something active come first; sessions
+     * without a project stay last. */
+    fun sections(lists: List<TaskList>, nowMillis: Long): List<Section> {
+        val all = groups(lists.map { it.shown(nowMillis) }).map { (group, members) ->
             val (inactive, active) = members.partition { isInactive(it) }
             Section(group, active, inactive)
         }

@@ -134,5 +134,39 @@ class TaskListTest {
         assertEquals(list, TaskList.listFromJson(TaskList.listToJson(listOf(list))).single())
         assertNull(TaskList.fromPushData(push() + ("need" to ""))!!.need)
     }
-}
 
+    private val now = java.time.Instant.parse("2026-11-22T14:00:00Z").toEpochMilli()
+
+    private fun session(state: SessionState, updatedAt: String, vararg steps: TaskStatus) = TaskList(
+        "k", "t", null, state, 1, updatedAt, tasks = emptyList(),
+        steps = steps.mapIndexed { i, s -> TaskItem("$i", "step $i", s) },
+    )
+
+    @Test
+    fun `a step in progress means working, even after Claude's turn ended`() {
+        val between = session(SessionState.Idle, "2026-11-22T13:00:00Z", TaskStatus.Completed, TaskStatus.InProgress)
+        assertEquals(SessionState.Running, between.shown(now).state)
+    }
+
+    @Test
+    fun `nothing in progress after the turn ended means idle`() {
+        val between = session(SessionState.Idle, "2026-11-22T13:00:00Z", TaskStatus.Completed, TaskStatus.Pending)
+        assertEquals(SessionState.Idle, between.shown(now).state)
+    }
+
+    @Test
+    fun `a session silent for half a day counts as idle`() {
+        val old = "2026-11-22T01:00:00Z"
+        assertEquals(SessionState.Idle, session(SessionState.Idle, old, TaskStatus.InProgress).shown(now).state)
+        assertEquals(SessionState.Idle, session(SessionState.Running, old, TaskStatus.InProgress).shown(now).state)
+        assertEquals(SessionState.Waiting, session(SessionState.Waiting, old, TaskStatus.InProgress).shown(now).state)
+        assertEquals(SessionState.Running, session(SessionState.Running, "2026-11-22T13:00:00Z", TaskStatus.InProgress).shown(now).state)
+    }
+
+    @Test
+    fun `ended with open steps is ended early`() {
+        assertTrue(session(SessionState.Ended, "x", TaskStatus.Completed, TaskStatus.Pending).endedEarly)
+        assertFalse(session(SessionState.Ended, "x", TaskStatus.Completed).endedEarly)
+        assertFalse(session(SessionState.Idle, "x", TaskStatus.Pending).endedEarly)
+    }
+}

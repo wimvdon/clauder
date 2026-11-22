@@ -9,7 +9,9 @@ export interface Task {
   status: TaskStatus;
 }
 
-/** running: Claude is working. idle: Claude finished its turn and nothing is running. waiting:
+/** running: Claude is working, or a step or task is still marked in progress (Claude's turn often
+ * ends while it waits on CI or a reminder, and the checklist says the work goes on). idle: nothing is
+ * in progress and nothing runs. waiting:
  * Claude asked the user something (a decision card or a permission prompt). done: every task is
  * completed. ended: the session closed. */
 export type SessionState = "running" | "idle" | "waiting" | "done" | "ended";
@@ -98,6 +100,12 @@ export function repoFromCwd(cwd: string | null): string | null {
 function hasRunningWork(input: Json): boolean {
   const tasks = input.background_tasks;
   return Array.isArray(tasks) && tasks.some((t) => obj(t)?.status === "running");
+}
+
+/** True when the list the person follows (the steps, else the tasks) has an item in progress. */
+export function hasWorkInProgress(tasks: Task[], steps: Task[]): boolean {
+  const main = steps.length > 0 ? steps : tasks;
+  return main.some((t) => t.status === "in_progress");
 }
 
 /** Project details the UserPromptSubmit hook script reads from the session's transcript. */
@@ -269,10 +277,11 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     }
     case "Stop":
       if (list.tasks.length === 0 && steps.length === 0) return null;
-      // Stop ends every turn, so on its own it doesn't mean Claude waits for the user. A decision
-      // card that is still open keeps the session waiting.
-      if (hasRunningWork(input)) state = "running";
-      else if (state !== "waiting" || needKind !== "decision") state = "idle";
+      // Stop ends every turn, so on its own it doesn't mean Claude waits for the user or stopped
+      // working. A decision card that is still open keeps the session waiting; a step or task
+      // still marked in progress, or background work, keeps it running.
+      if (state === "waiting" && needKind === "decision") break;
+      state = hasRunningWork(input) || hasWorkInProgress(tasks, steps) ? "running" : "idle";
       break;
     case "Notification": {
       const type = str(input.notification_type);

@@ -42,10 +42,11 @@ data class LiveUpdate(
 
         /** Null when there is nothing to show: no tasks yet, or the session closed with open
          * tasks (then the notification goes away). */
-        fun from(list: TaskList): LiveUpdate? {
+        fun from(session: TaskList, nowMillis: Long = System.currentTimeMillis()): LiveUpdate? {
+            val list = session.shown(nowMillis)
             val items = list.items
             if (items.isEmpty()) return null
-            if (list.state == SessionState.Ended && list.doneCount < items.size) return null
+            if (list.endedEarly) return null
             val total = items.size
             val done = list.doneCount
             val currentIndex = items.indexOfFirst { it.status == TaskStatus.InProgress }

@@ -39,6 +39,7 @@ import to.wim.clauder.tasks.LiveUpdate
 import to.wim.clauder.tasks.SessionBoard
 import to.wim.clauder.tasks.SessionState
 import to.wim.clauder.tasks.TaskList
+import to.wim.clauder.ui.tasks.stateLabelRes
 
 /** Home screen widget: the active sessions with their progress. */
 class TasksWidget : GlanceAppWidget() {
@@ -52,7 +53,8 @@ class TasksWidget : GlanceAppWidget() {
             val settings by store.settings.collectAsState(firstSettings)
             val sessions by store.sessions.collectAsState(firstSessions)
             val muted by store.muted.collectAsState(firstMuted)
-            val (active, finished) = SessionBoard.split(SessionBoard.sort(sessions))
+            val now = System.currentTimeMillis()
+            val (active, finished) = SessionBoard.split(SessionBoard.sort(sessions).map { it.shown(now) })
             val colors = widgetColors(settings.dynamicColor)
             if (colors != null) {
                 GlanceTheme(colors = colors) { Content(settings.isConnected, active, finished, muted) }
@@ -101,15 +103,7 @@ class TasksWidget : GlanceAppWidget() {
     @Composable
     private fun Session(context: Context, list: TaskList, muted: Boolean) {
         val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
-        val state = context.getString(
-            when (list.state) {
-                SessionState.Running -> R.string.state_running
-                SessionState.Idle -> R.string.state_idle
-                SessionState.Waiting -> R.string.state_waiting
-                SessionState.Done -> R.string.state_done
-                SessionState.Ended -> R.string.state_ended
-            },
-        )
+        val state = context.getString(stateLabelRes(list))
         val counts = context.resources.getQuantityString(
             if (list.hasSteps) R.plurals.step_counts else R.plurals.notification_counts,
             list.items.size,
