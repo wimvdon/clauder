@@ -120,7 +120,7 @@ object TaskNotifier {
                 .setProgressSegments(bar.blocks.map { NotificationCompat.ProgressStyle.Segment(SummaryBar.BLOCK).setColor(blockColor(context, it)) })
                 .setProgressPoints(bar.points.map { NotificationCompat.ProgressStyle.Point(it).setColor(context.getColor(R.color.summary_point)) })
                 .setProgress(bar.max)
-            // Collapsed is all a Live Update shows: the threads by name, in the blocks' order, and
+            // Collapsed is all a Live Update shows: the projects by name, in the blocks' order, and
             // the steps done across them.
             notification.setStyle(style)
                 .setContentText(summary.names.joinToString(" · "))
