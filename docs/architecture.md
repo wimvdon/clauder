@@ -32,8 +32,9 @@ Clauder shows the task list of every running Claude Code session on the phone.
   it is closed or Wim writes.
 - **What a session waits on, and what it made** (`worker/src/extras.ts`): the hooks also match
   the GitHub tools (create, read, merge and update a pull request), `subscribe_pr_activity`,
-  `ReadNotifications` (CI events delivered to the thread: only an event's kind and its data count,
-  and a finished check suite without a `conclusion` leaves CI as it was), `send_later`, `set_thread_resolved`
+  `ReadNotifications` (CI events delivered to the thread: only an event's kind and its data count:
+  `check_suite.completed` means no suite is running or failed, and `pull_request.closed` carries
+  its `outcome`), `send_later`, `set_thread_resolved`
   and the reply's `attached_outputs`. The Worker keeps the session's pull request with its CI
   state, the first https link or Artifact the last reply attached, when a reminder fires, and
   marks a resolved thread Done. After Stop, a PR whose CI still runs, a reminder still ahead or

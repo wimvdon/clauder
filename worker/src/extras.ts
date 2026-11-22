@@ -144,15 +144,17 @@ export function applyPrTool(current: PullRequest | undefined, tool: string, inpu
   }
 }
 
-/** GitHub events delivered to the session: CI finishing, or the PR merging or closing. Only the
- * event's kind and its data count; a finished check suite without a conclusion in its data says
- * nothing about the result, so CI keeps its last known state until the check runs are read. */
+/** GitHub events delivered to the session, read from each event's kind and data. The event
+ * "check_suite.completed" is defined as "no check suite on the head is still running or failed",
+ * so it means passed unless its data carries a failed conclusion. "pull_request.closed" carries
+ * its outcome ("merged" or not). */
 function prFromNotifications(current: PullRequest, text: string): PullRequest {
   const m = PR_URL.exec(current.url);
   if (!m) return current;
   const ref = `${m[1]}/${m[2]}#${m[3]}`;
   let next = current;
-  const events = /kind="([\w.]+)"[^>]*>\s*(\{[^\n]*\})/g;
+  // The guidance comment between the event tag and its data is skipped.
+  const events = /kind="([\w.]+)"[^>]*>\s*(?:<!--[\s\S]*?-->\s*)?(\{[^\n]*\})/g;
   for (let e = events.exec(text); e; e = events.exec(text)) {
     let data: Json | null = null;
     try {
@@ -163,20 +165,16 @@ function prFromNotifications(current: PullRequest, text: string): PullRequest {
     if (data?.pr !== ref) continue;
     const kind = e[1];
     if (kind === "check_suite.completed") {
-      const ci = ciFromConclusion(data.conclusion);
-      if (ci) next = { ...next, ci };
-    } else if (kind === "pull_request.merged") next = { ...next, state: "merged" };
-    else if (kind === "pull_request.closed" && next.state !== "merged") next = { ...next, state: "closed" };
+      next = { ...next, ci: FAILED.includes(String(data.conclusion)) ? "failed" : "passed" };
+    } else if (kind === "pull_request.merged" || (kind === "pull_request.closed" && data.outcome === "merged")) {
+      next = { ...next, state: "merged" };
+    } else if (kind === "pull_request.closed" && next.state !== "merged") next = { ...next, state: "closed" };
   }
   return next;
 }
 
 const FAILED = ["failure", "timed_out", "cancelled", "action_required", "startup_failure"];
 
-function ciFromConclusion(conclusion: unknown): CiState | null {
-  if (conclusion === "success") return "passed";
-  return FAILED.includes(String(conclusion)) ? "failed" : null;
-}
 
 /** The first link the phone can open among a reply's attached outputs: a web link, or an
  * Artifact. Files live in the project folder and can't be opened from the phone. */

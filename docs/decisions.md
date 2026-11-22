@@ -216,5 +216,6 @@ check are removed, and so is the fallback that read "permission" in a notificati
 `notification_type`. Waiting for you now means exactly a decision card (`request_decision`) or
 a `permission_prompt` or `elicitation_dialog` notification. A question in a plain reply has no
 hook signal (the thread's "blocked" state lives on claude.ai and hooks can't read it), so it
-shows as Idle. A CI event without a `conclusion` no longer counts as passed. Replaces the
+shows as Idle. A `pull_request.closed` event with `outcome` "merged" now counts as merged
+(it read as closed before). Replaces the
 entry "A question in Claude's last reply means Waiting for you" above.
