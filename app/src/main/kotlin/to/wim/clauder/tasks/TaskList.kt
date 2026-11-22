@@ -37,6 +37,30 @@ data class TaskList(
         }
     val isFinished: Boolean get() = state == SessionState.Done || state == SessionState.Ended
 
+    /** The Worker's GET /sessions format, so [fromJson] reads it back (used for the cache). */
+    fun toJson(): JSONObject = JSONObject()
+        .put("key", key)
+        .put("title", title)
+        .put("url", url ?: "")
+        .put("state", state.name.lowercase())
+        .put("seq", seq)
+        .put("updatedAt", updatedAt)
+        .put("tasks", itemsToJson(tasks))
+        .put("steps", itemsToJson(steps))
+
+    private fun itemsToJson(items: List<TaskItem>) = JSONArray(
+        items.map {
+            JSONObject().put("id", it.id).put("subject", it.subject).put(
+                "status",
+                when (it.status) {
+                    TaskStatus.Pending -> "pending"
+                    TaskStatus.InProgress -> "in_progress"
+                    TaskStatus.Completed -> "completed"
+                },
+            )
+        },
+    )
+
     companion object {
         private fun status(value: String?): TaskStatus = when (value) {
             "in_progress" -> TaskStatus.InProgress
@@ -100,6 +124,8 @@ data class TaskList(
                 steps = items("steps"),
             )
         }
+
+        fun listToJson(lists: List<TaskList>): String = JSONArray(lists.map { it.toJson() }).toString()
 
         fun listFromJson(text: String): List<TaskList> {
             val array = JSONArray(text)

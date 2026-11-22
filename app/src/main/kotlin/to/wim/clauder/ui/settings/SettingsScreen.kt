@@ -44,6 +44,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -209,7 +210,7 @@ private fun OutcomeText(outcome: ConnectOutcome) {
 private fun NotificationSection(settings: Settings, resumes: Int) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var checks by remember { mutableStateOf(0) }
+    var checks by remember { mutableIntStateOf(0) }
     val granted = remember(resumes, checks) { TaskNotifier.canNotify(context) }
     val promoted = remember(resumes, checks) { canPromote(context) }
     var testResult by remember { mutableStateOf<String?>(null) }
@@ -280,6 +281,20 @@ private fun NotificationSection(settings: Settings, resumes: Int) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
                     )
+                }
+            }
+        }
+        if (granted) {
+            SettingsBlock {
+                Text(stringResource(R.string.waiting_alert), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.waiting_alert_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(onClick = { context.startActivity(TaskNotifier.waitingChannelSettings(context)) }) {
+                    Text(stringResource(R.string.action_change_alert))
                 }
             }
         }

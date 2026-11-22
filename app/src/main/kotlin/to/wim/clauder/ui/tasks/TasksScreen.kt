@@ -41,6 +41,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -51,12 +53,16 @@ import to.wim.clauder.push.Push
 import to.wim.clauder.push.WorkerClient
 import to.wim.clauder.settings.Settings
 import to.wim.clauder.tasks.LiveUpdate
+import to.wim.clauder.tasks.MuteList
+import to.wim.clauder.tasks.SessionBoard
 import to.wim.clauder.tasks.SessionState
 import to.wim.clauder.tasks.TaskItem
 import to.wim.clauder.tasks.TaskList
+import to.wim.clauder.tasks.TaskNotifier
 import to.wim.clauder.tasks.TaskStatus
 import to.wim.clauder.ui.theme.EmptyState
 import to.wim.clauder.ui.theme.readableWidth
+import to.wim.clauder.widget.Widgets
 
 private enum class Load { Loading, Ready, Failed }
 
@@ -64,6 +70,7 @@ private enum class Load { Loading, Ready, Failed }
 @Composable
 fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
     val sessions by Push.sessions.collectAsState()
+    val muted by app.store.muted.collectAsState(emptySet())
     var load by remember { mutableStateOf(Load.Loading) }
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -72,7 +79,8 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
         if (!settings.isConnected) return
         when (val result = WorkerClient(settings.workerUrl, settings.token).sessions()) {
             is WorkerClient.Result.Ok -> {
-                Push.onFetched(result.value)
+                Push.record(app.store, result.value)
+                Widgets.updateTasks(app)
                 load = Load.Ready
             }
             else -> load = if (Push.sessions.value.isEmpty()) Load.Failed else Load.Ready
@@ -107,7 +115,12 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
                 modifier = inner.fillMaxSize(),
             ) {
                 when {
-                    sessions.isNotEmpty() -> SessionList(sessions)
+                    sessions.isNotEmpty() -> SessionList(sessions, muted) { list ->
+                        scope.launch {
+                            app.store.setMuted(MuteList.unmute(muted, list.key))
+                            TaskNotifier.show(app, list)
+                        }
+                    }
                     load == Load.Failed -> EmptyState(
                         icon = R.drawable.ic_cloud_off,
                         title = stringResource(R.string.tasks_error_title),
@@ -128,19 +141,40 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
 }
 
 @Composable
-private fun SessionList(sessions: List<TaskList>) {
+private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: (TaskList) -> Unit) {
+    val (active, finished) = SessionBoard.split(sessions)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        items(sessions, key = { it.key }) { SessionCard(it) }
+        if (active.isNotEmpty()) {
+            item(key = "active") { SectionHeader(stringResource(R.string.tasks_section_active)) }
+            items(active, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute) }
+        }
+        if (finished.isNotEmpty()) {
+            item(key = "finished") { SectionHeader(stringResource(R.string.tasks_section_finished)) }
+            items(finished, key = { it.key }) { SessionCard(it, muted = false, onUnmute) }
+        }
     }
 }
 
 @Composable
-private fun SessionCard(list: TaskList) {
+private fun SectionHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .readableWidth()
+            .padding(top = 8.dp, start = 4.dp)
+            .semantics { heading() },
+    )
+}
+
+@Composable
+private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit) {
     val context = LocalContext.current
     val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
     val openLabel = stringResource(R.string.session_open)
@@ -186,6 +220,24 @@ private fun SessionCard(list: TaskList) {
                 list.items.forEach { TaskRow(it) }
             }
             if (list.hasSteps && list.tasks.isNotEmpty()) TaskDetails(list.tasks)
+            if (muted) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painterResource(R.drawable.ic_notifications_off),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.session_muted),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { onUnmute(list) }) { Text(stringResource(R.string.action_unmute)) }
+                }
+            }
         }
     }
 }

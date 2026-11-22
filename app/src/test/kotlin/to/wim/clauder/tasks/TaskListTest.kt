@@ -91,4 +91,23 @@ class TaskListTest {
         assertFalse(list.hasSteps)
         assertEquals(list.tasks, list.items)
     }
+
+    @Test
+    fun `the saved copy reads back the same`() {
+        val list = TaskList(
+            "cse_1", "Fix login", "https://claude.ai/code/session_1", SessionState.Waiting, 7, "2026-11-22T10:00:00Z",
+            listOf(
+                TaskItem("1", "Read the code", TaskStatus.Completed),
+                TaskItem("2", "Write a test", TaskStatus.InProgress),
+                TaskItem("3", "Open a PR", TaskStatus.Pending),
+            ),
+        )
+        val noUrl = list.copy(
+            key = "cse_2",
+            url = null,
+            state = SessionState.Ended,
+            steps = listOf(TaskItem("plan:1", "Plan", TaskStatus.Completed)),
+        )
+        assertEquals(listOf(list, noUrl), TaskList.listFromJson(TaskList.listToJson(listOf(list, noUrl))))
+    }
 }

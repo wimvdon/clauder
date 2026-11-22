@@ -30,4 +30,23 @@ class SessionBoardTest {
         val board = SessionBoard.mergeAll(emptyList(), listOf(list("a", 1, "t", tasks = 0), list("demo", 1, "t")))
         assertEquals(emptyList<TaskList>(), board)
     }
+
+    @Test
+    fun `split puts finished sessions apart`() {
+        val running = list("a", 1, "2026-11-22T10:00:00Z")
+        val done = list("b", 1, "2026-11-22T11:00:00Z").copy(state = SessionState.Done)
+        val ended = list("c", 1, "2026-11-22T09:00:00Z").copy(state = SessionState.Ended)
+        val (active, finished) = SessionBoard.split(SessionBoard.sort(listOf(running, done, ended)))
+        assertEquals(listOf("a"), active.map { it.key })
+        assertEquals(listOf("b", "c"), finished.map { it.key })
+    }
+
+    @Test
+    fun `keep holds only the newest sessions`() {
+        val lists = (1..25).map { list("s$it", 1, "2026-11-22T10:%02d:00Z".format(it)) }
+        val kept = SessionBoard.keep(lists)
+        assertEquals(SessionBoard.MAX_KEPT, kept.size)
+        assertEquals("s25", kept.first().key)
+        assertEquals("s6", kept.last().key)
+    }
 }

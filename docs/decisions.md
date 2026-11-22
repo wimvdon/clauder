@@ -119,3 +119,8 @@ Without a `LICENSE` file the legal default is already all rights reserved, but t
   Wim follows that checklist, so it is the main list ("steps"), and its heading names the session.
   Claude Code's tasks and to-dos stay visible as folded detail. The hooks match the checklist tool
   (`mcp__hearthbot__update_progress_checklist`) and `TodoWrite` in addition to the task tools.
+
+## 2026-11-22: widgets with Glance
+- Home screen widgets use Jetpack Glance (`glance-appwidget`, `glance-material3` 1.2.0), the
+  AndroidX library for Compose-style widgets, asked for by Wim. The widgets take Clauder's own
+  colours, or the wallpaper's when Dynamic color is on.

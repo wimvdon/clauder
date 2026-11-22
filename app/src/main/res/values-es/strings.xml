@@ -109,4 +109,18 @@
         <item quantity="other">%1$d/%2$d pasos</item>
     </plurals>
     <string name="tasks_toggle">Tareas (%1$d/%2$d)</string>
+    <string name="widget_tasks_title">Sesiones de Claude</string>
+    <string name="widget_tasks_description">Tus sesiones activas y su progreso</string>
+    <string name="widget_shortcuts_title">Accesos directos de Claude</string>
+    <string name="widget_shortcuts_description">Nuevo chat, Code, Proyectos y tus enlaces fijados</string>
+    <string name="widget_connect">Abre Clauder para conectarte</string>
+    <string name="widget_no_sessions">No hay sesiones ahora</string>
+    <string name="session_muted">Silenciada</string>
+    <string name="action_mute">Silenciar</string>
+    <string name="action_unmute">Activar sonido</string>
+    <string name="waiting_alert">Aviso cuando Claude espera</string>
+    <string name="waiting_alert_body">Elige el sonido, la vibración y la ventana emergente de «Te está esperando».</string>
+    <string name="action_change_alert">Cambiar aviso</string>
+    <string name="tasks_section_active">Activas</string>
+    <string name="tasks_section_finished">Terminadas hace poco</string>
 </resources>

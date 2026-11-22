@@ -24,11 +24,25 @@ Clauder shows the task list of every running Claude Code session on the phone.
   edits, `ShortcutPinner` for the launcher). Sharing text with a claude.ai link to Clauder opens
   the same Add dialog. Only https links on claude.ai are accepted (`ClaudeLink`). Android can't
   take a pinned shortcut off the home screen, so Remove disables it and says so.
+- **Widgets (Glance):** `widget/TasksWidget` shows the active sessions (or the last finished
+  one) and `widget/ShortcutsWidget` the four app shortcuts plus pinned links. Both read
+  `SettingsStore` flows inside their content, so a widget on screen follows every change;
+  `widget/Widgets` redraws them after a push, a fetch, or a change of theme, connection, mutes or
+  pinned shortcuts (`ClauderApp`). Taps go through `links/OpenLinkActivity`.
+- **Mute:** a session's notification has a Mute button (`tasks/MuteReceiver`). A muted session
+  stays on the Tasks screen and in the widget, with Unmute on its card, but gets no notification;
+  it is forgotten once it ends (`tasks/MuteList`).
+- **Waiting alert:** "Waiting for you" uses its own channel (`waiting`, default importance), so it
+  can alert while progress stays quiet. Settings opens that channel's system settings.
+- **Session cache:** `push/Push.record` merges every push and fetch into the newest 20 sessions
+  (`SessionBoard.keep`) and saves them, because a push can start the app from cold.
 - **Screens:** Tasks (the sessions from the Worker's `GET /sessions`, kept up to date by pushes,
+  in "Active" and "Recently finished" sections,
   `tasks/SessionBoard`), Shortcuts and Settings (connection, notifications, the setup block for cloud
   environments, appearance).
 - **Stored data:** theme, Dynamic color and the Worker address in `backed_up_settings`; the
-  Worker token, the registered FCM token and pinned shortcuts in `device_state` (not backed up).
+  Worker token, the registered FCM token, pinned shortcuts, the session cache and muted sessions
+  in `device_state` (not backed up).
   See `settings/SettingsStore.kt`.
 - **Worker client:** `push/WorkerClient.kt` (plain `HttpURLConnection`, no extra library).
 
