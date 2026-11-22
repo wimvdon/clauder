@@ -80,4 +80,27 @@
         <item quantity="many">%1$d/%2$d tâches</item>
         <item quantity="other">%1$d/%2$d tâches</item>
     </plurals>
+    <string name="nav_shortcuts">Raccourcis</string>
+    <string name="shortcuts_title">Raccourcis</string>
+    <string name="action_add">Ajouter</string>
+    <string name="action_cancel">Annuler</string>
+    <string name="action_save">Enregistrer</string>
+    <string name="action_remove">Supprimer</string>
+    <string name="shortcuts_empty_title">Aucun raccourci</string>
+    <string name="shortcuts_empty_body">Appuyez sur Ajouter ou partagez un lien claude.ai avec Clauder pour mettre une conversation, un projet ou un artifact sur votre écran d’accueil.</string>
+    <string name="shortcuts_static_hint">Appuyez longuement sur l’icône Clauder pour Nouvelle conversation, Code, Projets et Artifacts.</string>
+    <string name="shortcut_add_title">Ajouter à l’écran d’accueil</string>
+    <string name="shortcut_edit_title">Modifier le raccourci</string>
+    <string name="shortcut_link">Lien claude.ai</string>
+    <string name="shortcut_name">Nom</string>
+    <string name="shortcut_bad_link">Seuls les liens claude.ai fonctionnent.</string>
+    <string name="shortcut_missing_name">Saisissez un nom.</string>
+    <string name="shortcut_pin_unsupported">Votre écran d’accueil ne permet pas d’ajouter des raccourcis.</string>
+    <string name="shortcut_removed">Supprimé dans Clauder</string>
+    <string name="shortcut_removed_hint">Supprimé. Faites glisser l’icône grisée hors de l’écran d’accueil.</string>
+    <string name="shortcut_new_chat">Nouvelle conversation</string>
+    <string name="shortcut_code">Code</string>
+    <string name="shortcut_code_long">Claude Code</string>
+    <string name="shortcut_projects">Projets</string>
+    <string name="shortcut_artifacts">Artifacts</string>
 </resources>

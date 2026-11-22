@@ -80,4 +80,27 @@
         <item quantity="many">%1$d/%2$d attività</item>
         <item quantity="other">%1$d/%2$d attività</item>
     </plurals>
+    <string name="nav_shortcuts">Scorciatoie</string>
+    <string name="shortcuts_title">Scorciatoie</string>
+    <string name="action_add">Aggiungi</string>
+    <string name="action_cancel">Annulla</string>
+    <string name="action_save">Salva</string>
+    <string name="action_remove">Rimuovi</string>
+    <string name="shortcuts_empty_title">Ancora nessuna scorciatoia</string>
+    <string name="shortcuts_empty_body">Tocca Aggiungi o condividi un link claude.ai con Clauder per mettere una chat, un progetto o un artifact nella schermata Home.</string>
+    <string name="shortcuts_static_hint">Tieni premuta l’icona di Clauder per Nuova chat, Code, Progetti e Artifacts.</string>
+    <string name="shortcut_add_title">Aggiungi alla schermata Home</string>
+    <string name="shortcut_edit_title">Modifica scorciatoia</string>
+    <string name="shortcut_link">Link claude.ai</string>
+    <string name="shortcut_name">Nome</string>
+    <string name="shortcut_bad_link">Funzionano solo i link claude.ai.</string>
+    <string name="shortcut_missing_name">Inserisci un nome.</string>
+    <string name="shortcut_pin_unsupported">La tua app della schermata Home non può aggiungere scorciatoie.</string>
+    <string name="shortcut_removed">Rimosso in Clauder</string>
+    <string name="shortcut_removed_hint">Rimosso. Trascina l’icona grigia fuori dalla schermata Home.</string>
+    <string name="shortcut_new_chat">Nuova chat</string>
+    <string name="shortcut_code">Code</string>
+    <string name="shortcut_code_long">Claude Code</string>
+    <string name="shortcut_projects">Progetti</string>
+    <string name="shortcut_artifacts">Artifacts</string>
 </resources>

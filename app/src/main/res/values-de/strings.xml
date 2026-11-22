@@ -78,4 +78,27 @@
         <item quantity="one">%1$d/%2$d Aufgabe</item>
         <item quantity="other">%1$d/%2$d Aufgaben</item>
     </plurals>
+    <string name="nav_shortcuts">Verknüpfungen</string>
+    <string name="shortcuts_title">Verknüpfungen</string>
+    <string name="action_add">Hinzufügen</string>
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_save">Speichern</string>
+    <string name="action_remove">Entfernen</string>
+    <string name="shortcuts_empty_title">Noch keine Verknüpfungen</string>
+    <string name="shortcuts_empty_body">Tippe auf Hinzufügen oder teile einen claude.ai-Link mit Clauder, um einen Chat, ein Projekt oder ein Artifact auf deinen Startbildschirm zu legen.</string>
+    <string name="shortcuts_static_hint">Halte das Clauder-Symbol gedrückt für Neuer Chat, Code, Projekte und Artifacts.</string>
+    <string name="shortcut_add_title">Zum Startbildschirm hinzufügen</string>
+    <string name="shortcut_edit_title">Verknüpfung bearbeiten</string>
+    <string name="shortcut_link">claude.ai-Link</string>
+    <string name="shortcut_name">Name</string>
+    <string name="shortcut_bad_link">Nur claude.ai-Links funktionieren.</string>
+    <string name="shortcut_missing_name">Gib einen Namen ein.</string>
+    <string name="shortcut_pin_unsupported">Deine Startbildschirm-App kann keine Verknüpfungen hinzufügen.</string>
+    <string name="shortcut_removed">In Clauder entfernt</string>
+    <string name="shortcut_removed_hint">Entfernt. Zieh das graue Symbol vom Startbildschirm.</string>
+    <string name="shortcut_new_chat">Neuer Chat</string>
+    <string name="shortcut_code">Code</string>
+    <string name="shortcut_code_long">Claude Code</string>
+    <string name="shortcut_projects">Projekte</string>
+    <string name="shortcut_artifacts">Artifacts</string>
 </resources>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the app icon. The URLs must match StaticShortcuts (checked by ShortcutsXmlTest). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_chat"
+        android:icon="@drawable/ic_shortcut_new"
+        android:shortcutShortLabel="@string/shortcut_new_chat"
+        android:shortcutLongLabel="@string/shortcut_new_chat">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://claude.ai/new" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="code"
+        android:icon="@drawable/ic_shortcut_code"
+        android:shortcutShortLabel="@string/shortcut_code"
+        android:shortcutLongLabel="@string/shortcut_code_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://claude.ai/code" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="projects"
+        android:icon="@drawable/ic_shortcut_project"
+        android:shortcutShortLabel="@string/shortcut_projects"
+        android:shortcutLongLabel="@string/shortcut_projects">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://claude.ai/code/projects/browse" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="artifacts"
+        android:icon="@drawable/ic_shortcut_artifact"
+        android:shortcutShortLabel="@string/shortcut_artifacts"
+        android:shortcutLongLabel="@string/shortcut_artifacts">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://claude.ai/artifacts" />
+    </shortcut>
+</shortcuts>

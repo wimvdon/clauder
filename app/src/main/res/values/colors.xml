@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home screen shortcut icons: the middle stop of the app icon's gradient. -->
+    <color name="shortcut_background">#D97757</color>
+</resources>
