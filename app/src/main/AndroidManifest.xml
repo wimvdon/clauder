@@ -66,6 +66,35 @@
             </intent-filter>
         </service>
 
+        <!-- The Mute button on a session's notification. -->
+        <receiver
+            android:name=".tasks.MuteReceiver"
+            android:exported="false" />
+
+        <!-- Home screen widgets (Glance). -->
+        <receiver
+            android:name=".widget.TasksWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_tasks_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/tasks_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.ShortcutsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_shortcuts_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/shortcuts_widget_info" />
+        </receiver>
+
         <!-- No google-services.json: Firebase is started by hand in ClauderApp. -->
         <meta-data
             android:name="firebase_messaging_auto_init_enabled"

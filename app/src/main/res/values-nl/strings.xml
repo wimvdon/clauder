@@ -106,4 +106,18 @@
         <item quantity="other">%1$d/%2$d stappen</item>
     </plurals>
     <string name="tasks_toggle">Taken (%1$d/%2$d)</string>
+    <string name="widget_tasks_title">Claude-sessies</string>
+    <string name="widget_tasks_description">Je actieve sessies en hun voortgang</string>
+    <string name="widget_shortcuts_title">Claude-snelkoppelingen</string>
+    <string name="widget_shortcuts_description">Nieuwe chat, Code, Projecten en je vastgezette links</string>
+    <string name="widget_connect">Open Clauder om te verbinden</string>
+    <string name="widget_no_sessions">Op dit moment geen sessies</string>
+    <string name="session_muted">Gedempt</string>
+    <string name="action_mute">Dempen</string>
+    <string name="action_unmute">Dempen opheffen</string>
+    <string name="waiting_alert">Melding als Claude wacht</string>
+    <string name="waiting_alert_body">Kies het geluid, de trilling en de pop-up voor ‘Wacht op jou’.</string>
+    <string name="action_change_alert">Melding aanpassen</string>
+    <string name="tasks_section_active">Actief</string>
+    <string name="tasks_section_finished">Onlangs afgerond</string>
 </resources>

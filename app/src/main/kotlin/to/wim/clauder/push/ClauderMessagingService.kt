@@ -2,10 +2,14 @@ package to.wim.clauder.push
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import to.wim.clauder.ClauderApp
+import to.wim.clauder.tasks.MuteList
 import to.wim.clauder.tasks.TaskList
 import to.wim.clauder.tasks.TaskNotifier
+import to.wim.clauder.widget.Widgets
 
 /** Receives the Worker's task-list pushes and turns each into a Live Update. */
 class ClauderMessagingService : FirebaseMessagingService() {
@@ -14,8 +18,16 @@ class ClauderMessagingService : FirebaseMessagingService() {
         val list = TaskList.fromPushData(message.data) ?: return
         val app = application as ClauderApp
         if (!app.seqGate.accept(list)) return
-        Push.onPush(list)
-        TaskNotifier.show(this, list)
+        // Firebase calls this on a background thread and keeps the process alive until it
+        // returns, so the work is done here rather than in a coroutine that could be cut off.
+        runBlocking {
+            Push.record(app.store, listOf(list))
+            val muted = app.store.muted.first()
+            if (list.key in muted) TaskNotifier.cancel(app, list.key) else TaskNotifier.show(app, list)
+            val after = MuteList.afterPush(muted, list)
+            if (after != muted) app.store.setMuted(after)
+            Widgets.updateTasks(app)
+        }
     }
 
     // Firebase Messaging 26 reports a new token through onRegistered; older paths still call

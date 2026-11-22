@@ -13,6 +13,14 @@ object SessionBoard {
     fun mergeAll(current: List<TaskList>, fetched: List<TaskList>): List<TaskList> =
         fetched.fold(current) { board, list -> merge(board, list) }
 
+    /** Active sessions first, then the ones that finished (all done, or closed). */
+    fun split(lists: List<TaskList>): Pair<List<TaskList>, List<TaskList>> = lists.partition { !it.isFinished }
+
+    /** What the phone keeps between app starts: the newest [max] sessions. */
+    fun keep(lists: List<TaskList>, max: Int = MAX_KEPT): List<TaskList> = sort(lists).take(max)
+
+    const val MAX_KEPT = 20
+
     /** Sessions without steps or tasks (a session that only stopped or ended) are left out. */
     fun sort(lists: List<TaskList>): List<TaskList> =
         lists.filter { it.items.isNotEmpty() && it.key != "demo" }.sortedByDescending { it.updatedAt }

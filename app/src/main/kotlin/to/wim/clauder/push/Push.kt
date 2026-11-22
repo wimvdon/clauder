@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import to.wim.clauder.BuildConfig
 import to.wim.clauder.settings.SettingsStore
 import to.wim.clauder.settings.WorkerUrl
@@ -27,9 +29,21 @@ object Push {
     /** Sessions shown on the Tasks screen, updated by every push while the app runs. */
     val sessions: StateFlow<List<TaskList>> = sessionsFlow.asStateFlow()
 
-    fun onPush(list: TaskList) = sessionsFlow.update { SessionBoard.merge(it, list) }
+    private val saving = Mutex()
 
-    fun onFetched(lists: List<TaskList>) = sessionsFlow.update { SessionBoard.mergeAll(it, lists) }
+    /** Adds pushed or fetched lists to the board and saves it, so the widget and the next app
+     * start have them. The saved copy is the base, because a push can start the app from cold. */
+    suspend fun record(store: SettingsStore, lists: List<TaskList>) = saving.withLock {
+        val board = SessionBoard.keep(SessionBoard.mergeAll(store.cachedSessions(), lists))
+        store.saveSessions(board)
+        sessionsFlow.update { SessionBoard.keep(SessionBoard.mergeAll(it, board)) }
+    }
+
+    /** Shows the saved sessions until the Worker answers. */
+    suspend fun restore(store: SettingsStore) {
+        val saved = store.cachedSessions()
+        sessionsFlow.update { SessionBoard.keep(SessionBoard.mergeAll(it, saved)) }
+    }
 
     /** Called once from [to.wim.clauder.ClauderApp]. There is no google-services.json: the
      * options come from BuildConfig, so no Firebase file is kept in the repository. */

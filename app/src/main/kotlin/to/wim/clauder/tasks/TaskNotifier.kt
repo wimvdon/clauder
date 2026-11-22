@@ -49,6 +49,14 @@ object TaskNotifier {
 
     private fun idFor(key: String): Int = key.hashCode()
 
+    fun cancel(context: Context, key: String) = NotificationManagerCompat.from(context).cancel(idFor(key))
+
+    /** Opens the system settings of the "Waiting for you" channel (sound, vibration, pop-up). */
+    fun waitingChannelSettings(context: Context): Intent =
+        Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+            .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, CHANNEL_WAITING)
+
     fun show(context: Context, list: TaskList) {
         val manager = NotificationManagerCompat.from(context)
         val update = LiveUpdate.from(list)
@@ -58,13 +66,14 @@ object TaskNotifier {
         }
         if (!canNotify(context)) return
         try {
-            manager.notify(idFor(list.key), build(context, update, idFor(list.key)))
+            manager.notify(idFor(list.key), build(context, update, list.key))
         } catch (e: SecurityException) {
             // The permission was taken away between the check and the call.
         }
     }
 
-    private fun build(context: Context, update: LiveUpdate, id: Int): android.app.Notification {
+    private fun build(context: Context, update: LiveUpdate, key: String): android.app.Notification {
+        val id = idFor(key)
         val counts = context.resources.getQuantityString(
             if (update.steps) R.plurals.step_counts else R.plurals.notification_counts,
             update.total,
@@ -104,6 +113,15 @@ object TaskNotifier {
             )
             .setRequestPromotedOngoing(update.requestPromotion)
         update.timeoutMs?.let { builder.setTimeoutAfter(it) }
+        if (update.status != LiveUpdate.Status.Done) {
+            val mute = PendingIntent.getBroadcast(
+                context,
+                id,
+                Intent(context, MuteReceiver::class.java).putExtra(MuteReceiver.EXTRA_KEY, key),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.addAction(R.drawable.ic_notifications_off, context.getString(R.string.action_mute), mute)
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             val style = NotificationCompat.ProgressStyle()
