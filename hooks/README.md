@@ -36,8 +36,12 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 |---|---|
 | `TaskCreated` | A task was added (id, subject, description) |
 | `PostToolUse` on `TaskCreate\|TaskUpdate` | Status changes (`pending` → `in_progress` → `completed`) and renames |
+| `PostToolUse` on `TodoWrite` and the checklist tool | To-dos, and a project thread's checklist (its steps) |
+| `PostToolUse` on `request_decision`, `close_decision` | A project thread asks you to choose: "Waiting for you" |
 | `TaskCompleted` | A task was marked done |
-| `Stop`, `Notification` | Claude stopped and is waiting for you |
+| `UserPromptSubmit` (user-level install only) | Claude starts working again. This is a small script (`~/.claude/clauder-prompt.py`) that also reads the project's and the thread's name from the session transcript and sends them along |
+| `Stop` | Claude finished its turn: "Idle", or "Running" while background work goes on |
+| `Notification` | Only a permission prompt or a question form counts as "Waiting for you" |
 | `SessionEnd` | The session closed |
 
 `SessionStart` is left out on purpose: Claude Code does not send HTTP hooks for it.
@@ -50,4 +54,6 @@ sent. A session without `CLAUDER_HOOK_TOKEN` is refused by the Worker and carrie
 ## Privacy
 
 The hook input is sent as-is. Besides task text it includes the working directory, the transcript
-path and, for `Stop`, Claude's last message. It goes only to your own Worker.
+path and, for `Stop`, Claude's last message. The prompt script adds the project's and thread's
+names and ids and leaves out the prompt's text. The repository-level `settings.json` has no
+`UserPromptSubmit` hook, so prompts are never sent. It goes only to your own Worker.

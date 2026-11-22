@@ -3,6 +3,8 @@ package to.wim.clauder.tasks
 /** What the notification shows, worked out without Android types so it can be unit tested. */
 data class LiveUpdate(
     val title: String,
+    /** The project (or repository) the session belongs to. */
+    val group: String?,
     val status: Status,
     /** True when [done] and [total] count a project thread's steps rather than tasks. */
     val steps: Boolean,
@@ -22,7 +24,7 @@ data class LiveUpdate(
     val timeoutMs: Long?,
     val openUrl: String,
 ) {
-    enum class Status { Tasks, Waiting, Done }
+    enum class Status { Tasks, Idle, Waiting, Done }
 
     val max: Int get() = segmentCount * SEGMENT_LENGTH
 
@@ -43,11 +45,15 @@ data class LiveUpdate(
             val status = when (list.state) {
                 SessionState.Done, SessionState.Ended -> Status.Done
                 SessionState.Waiting -> Status.Waiting
+                SessionState.Idle -> Status.Idle
                 SessionState.Running -> Status.Tasks
             }
             val finished = status == Status.Done
+            // An idle session stays in the shade but isn't pinned as ongoing or promoted.
+            val live = !finished && status != Status.Idle
             return LiveUpdate(
                 title = list.title,
+                group = list.group,
                 status = status,
                 steps = list.hasSteps,
                 done = done,
@@ -57,8 +63,8 @@ data class LiveUpdate(
                 segmentCount = maxOf(total, 1),
                 progress = (if (finished) maxOf(total, 1) else done) * SEGMENT_LENGTH,
                 pointPosition = if (currentIndex >= 0 && !finished) currentIndex * SEGMENT_LENGTH + SEGMENT_LENGTH / 2 else null,
-                ongoing = !finished,
-                requestPromotion = !finished,
+                ongoing = live,
+                requestPromotion = live,
                 timeoutMs = if (finished) DONE_TIMEOUT_MS else null,
                 openUrl = list.url?.takeIf { isClaudeUrl(it) } ?: CODE_URL,
             )

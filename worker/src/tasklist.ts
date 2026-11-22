@@ -9,9 +9,10 @@ export interface Task {
   status: TaskStatus;
 }
 
-/** running: Claude is working. waiting: Claude stopped and waits for the user. done: every task is
+/** running: Claude is working. idle: Claude finished its turn and nothing is running. waiting:
+ * Claude asked the user something (a decision card or a permission prompt). done: every task is
  * completed. ended: the session closed. */
-export type SessionState = "running" | "waiting" | "done" | "ended";
+export type SessionState = "running" | "idle" | "waiting" | "done" | "ended";
 
 export interface SessionList {
   key: string;
@@ -24,6 +25,13 @@ export interface SessionList {
   state: SessionState;
   /** True once a project thread's checklist named the list; the folder name no longer applies. */
   titleFromPlan?: boolean;
+  /** The claude.ai project the session belongs to, when it is a project thread. */
+  project?: string;
+  projectId?: string;
+  /** A project thread's own title, used until its checklist names the list. */
+  thread?: string;
+  /** The folder Claude works in, when it is a repository rather than the home folder. */
+  repo?: string;
   /** Bumped on every change, so the phone can drop out-of-order pushes. */
   seq: number;
   updatedAt: string;
@@ -66,6 +74,39 @@ export function sessionKey(remoteSessionId: string | null, body: unknown): strin
 }
 
 export const CHECKLIST_TOOL = "mcp__hearthbot__update_progress_checklist";
+/** A project thread asks the user to choose; close_decision withdraws or settles the card. */
+export const DECISION_TOOL = "mcp__hearthbot__request_decision";
+export const CLOSE_DECISION_TOOL = "mcp__hearthbot__close_decision";
+
+/** Notification types that mean Claude can't go on without the user. "idle_prompt" only says
+ * Claude finished a turn, which Stop already covers. */
+const ASKING = new Set(["permission_prompt", "elicitation_dialog"]);
+
+/** The repository folder, or null for a home folder (project threads start in /home/user). */
+export function repoFromCwd(cwd: string | null): string | null {
+  const title = titleFromCwd(cwd);
+  return title === "Claude Code" ? null : title;
+}
+
+/** True when the Stop payload lists background work (subagents, shells) that is still running. */
+function hasRunningWork(input: Json): boolean {
+  const tasks = input.background_tasks;
+  return Array.isArray(tasks) && tasks.some((t) => obj(t)?.status === "running");
+}
+
+/** Project details the UserPromptSubmit hook script reads from the session's transcript. */
+function projectInfo(input: Json): { project?: string; projectId?: string; thread?: string } {
+  const info = obj(input.clauder);
+  if (!info) return {};
+  const project = str(info.project);
+  const projectId = str(info.projectId);
+  const thread = str(info.thread);
+  return {
+    ...(project ? { project: clip(project, 80) } : {}),
+    ...(projectId && /^chan_[A-Za-z0-9]+$/.test(projectId) ? { projectId } : {}),
+    ...(thread ? { thread: clip(thread, 80) } : {}),
+  };
+}
 
 /** A project thread's progress checklist: a header, a blank line, then one step per line that
  * starts with ✓ (done), ✱ (in progress) or ○ (not started). */
@@ -146,8 +187,14 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
   let tasks = list.tasks;
   let steps = list.steps ?? [];
   let state = list.state;
-  let title = list.tasks.length === 0 && steps.length === 0 && !list.titleFromPlan ? titleFromCwd(str(input.cwd)) : list.title;
+  // Title: the checklist heading, else the thread's title, else the folder name.
+  let thread = list.thread;
+  let title = list.titleFromPlan
+    ? list.title
+    : (thread ?? (list.tasks.length === 0 && steps.length === 0 ? titleFromCwd(str(input.cwd)) : list.title));
   let titleFromPlan = list.titleFromPlan ?? false;
+  let { project, projectId } = list;
+  const repo = repoFromCwd(str(input.cwd)) ?? list.repo;
 
   switch (event) {
     case "TaskCreated": {
@@ -201,19 +248,38 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
       } else if (tool === "TodoWrite") {
         tasks = replaceTodos(tasks, parseTodos(toolInput?.todos));
         state = "running";
+      } else if (tool === DECISION_TOOL) {
+        state = "waiting";
+      } else if (tool === CLOSE_DECISION_TOOL) {
+        state = "running";
       } else {
         return null;
       }
       break;
     }
     case "Stop":
-    case "Notification":
       if (list.tasks.length === 0 && steps.length === 0) return null;
+      // Stop ends every turn, so on its own it doesn't mean Claude waits for the user. A decision
+      // card that is still open keeps the session waiting.
+      if (hasRunningWork(input)) state = "running";
+      else if (state !== "waiting") state = "idle";
+      break;
+    case "Notification": {
+      const type = str(input.notification_type);
+      const message = str(input.message) ?? "";
+      if (type ? !ASKING.has(type) : !/permission/i.test(message)) return null;
       state = "waiting";
       break;
-    case "UserPromptSubmit":
+    }
+    case "UserPromptSubmit": {
       state = "running";
+      const info = projectInfo(input);
+      project = info.project ?? project;
+      projectId = info.projectId ?? projectId;
+      thread = info.thread ?? thread;
+      if (thread && !titleFromPlan) title = thread;
       break;
+    }
     case "SessionEnd":
       state = "ended";
       break;
@@ -226,10 +292,27 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
   const changed =
     state !== list.state ||
     title !== list.title ||
+    project !== list.project ||
+    projectId !== list.projectId ||
+    thread !== list.thread ||
+    repo !== list.repo ||
     JSON.stringify(tasks) !== JSON.stringify(list.tasks) ||
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   if (!changed) return null;
-  return { ...list, title, titleFromPlan, tasks, steps, state, seq: list.seq + 1, updatedAt: now };
+  return {
+    ...list,
+    title,
+    titleFromPlan,
+    tasks,
+    steps,
+    state,
+    ...(project ? { project } : {}),
+    ...(projectId ? { projectId } : {}),
+    ...(thread ? { thread } : {}),
+    ...(repo ? { repo } : {}),
+    seq: list.seq + 1,
+    updatedAt: now,
+  };
 }
 
 export interface Progress {
@@ -259,6 +342,9 @@ export function toPushData(list: SessionList): Record<string, string> {
     key: list.key,
     title: list.title,
     url: list.url ?? "",
+    project: list.project ?? "",
+    projectId: list.projectId ?? "",
+    repo: list.repo ?? "",
     state: list.state,
     seq: String(list.seq),
     updatedAt: list.updatedAt,
