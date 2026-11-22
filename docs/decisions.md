@@ -2,6 +2,16 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-22: The app icon is a segmented progress ring on a soft terracotta plate
+
+Part of making all of the owner's app icons one family. The speech bubble with a check said
+"chat" more than what Clauder does: show a session's task progress. The new icon is a ring of
+six segments, four done and two to go, around a check, like the notification's segmented
+progress bar. The owner asked for clearly separate segments and a stronger gradient (amber,
+terracotta, rose). The white background becomes a soft plate in the app's terracotta. Rejected
+(mockup rounds 13–16): a task-list card, a bubble with a progress bar, and rings of eight or
+twelve segments (the gaps close up at small sizes).
+
 ## 2026-11-22: The Android app: Firebase without google-services.json, a warm Claude-like theme
 
 The app receives the Worker's pushes through Firebase Cloud Messaging (`firebase-messaging`,
