@@ -1,7 +1,6 @@
 // Pure task-list logic: turns raw Claude Code hook payloads into one session's task list.
 // No Worker types, so it runs under plain Node tests.
 
-import { findAsk, waitsOnUser } from "./ask.ts";
 import {
   applyPrTool,
   linkFromOutputs,
@@ -27,8 +26,9 @@ export interface Task {
 /** running: Claude is working, or a step or task is still marked in progress (Claude's turn often
  * ends while it waits on CI or a reminder, and the checklist says the work goes on). idle: nothing is
  * in progress and nothing runs. waiting:
- * Claude asked the user something (a decision card, a permission prompt, a question in its last
- * reply, or a next step that waits on approval). done: every task is completed. ended: the
+ * Claude can't go on without the user: a decision card, a permission prompt or a question form.
+ * Only those come from real hook data; a question written in a plain reply has no hook signal and
+ * is not guessed at. done: every task is completed. ended: the
  * session closed. */
 export type SessionState = "running" | "idle" | "waiting" | "done" | "ended";
 
@@ -53,12 +53,8 @@ export interface SessionList {
   /** While waiting: what Claude asks, such as a decision card's question or the permission it needs. */
   need?: string;
   /** What the wait is for. A decision card stays open across turns; a permission prompt or a
-   * question dialog is answered before the turn ends; a question is what the turn's last reply
-   * asks. */
-  needKind?: "decision" | "permission" | "question";
-  /** What the turn's last reply (post_message) asks, "" when it asks nothing. Unset until the
-   * turn sends a reply; Stop reads it, the next prompt clears it. Not sent to the phone. */
-  ask?: string;
+   * question form (Notification) is answered before the turn ends. */
+  needKind?: "decision" | "permission";
   /** The pull request the session works on (the newest it opened or follows), with its CI. */
   pr?: PullRequest;
   /** A link the last reply attached that the phone can open, such as a mockup or a page. */
@@ -117,7 +113,7 @@ export const CHECKLIST_TOOL = "mcp__hearthbot__update_progress_checklist";
 /** A project thread asks the user to choose; close_decision withdraws or settles the card. */
 export const DECISION_TOOL = "mcp__hearthbot__request_decision";
 export const CLOSE_DECISION_TOOL = "mcp__hearthbot__close_decision";
-/** A project thread's reply to the person; a question in the turn's last reply means it waits. */
+/** A project thread's reply to the person; only its attached link is used. */
 export const REPLY_TOOL = "mcp__hearthbot__post_message";
 export const RESOLVE_TOOL = "mcp__hearthbot__set_thread_resolved";
 
@@ -240,7 +236,6 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
   let state = list.state;
   let need = list.need;
   let needKind = list.needKind;
-  let ask = list.ask;
   let pr = list.pr;
   let link = list.link;
   let wakeAt = list.wakeAt && list.wakeAt > now ? list.wakeAt : undefined;
@@ -318,8 +313,6 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
       } else if (tool === CLOSE_DECISION_TOOL) {
         state = "running";
       } else if (tool === REPLY_TOOL) {
-        // Only the turn's last reply counts: an earlier question may be answered by a later reply.
-        ask = clip(findAsk(str(toolInput?.text) ?? "") ?? "", MAX_NEED);
         const attached = linkFromOutputs(toolInput?.attached_outputs);
         if (attached) link = attached;
       } else if (tool === RESOLVE_TOOL) {
@@ -340,40 +333,23 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
       usage = usageFrom(obj(input.clauder)?.usage) ?? usage;
       helpers = runningWork(input) || undefined;
       // Stop ends every turn, so on its own it doesn't mean Claude waits for the user or stopped
-      // working. A decision card that is still open keeps the session waiting, and so does a
-      // question in the turn's last reply. Otherwise a step or task still marked in progress, or
-      // background work, keeps it running, and a next step such as "After approval: build it"
-      // means the thread waits on the user.
+      // working. A decision card that is still open keeps the session waiting. Otherwise a step
+      // or task still marked in progress, background work, open CI or a reminder keeps it
+      // running. The reply's text is not read: no hook field says it waits on the user.
       if (deciding) break;
-      // A project thread replies with post_message; other sessions end the turn with plain text.
-      const asked = ask ?? (findAsk(str(input.last_assistant_message) ?? "") ?? "");
-      ask = undefined;
-      const blocked = (steps.length > 0 ? steps : tasks).find(
-        (t) => t.status === "pending" && waitsOnUser(t.subject),
-      );
       // Waiting on CI or on a reminder Claude set is still work in progress.
       const busy =
         helpers !== undefined ||
         hasWorkInProgress(tasks, steps) ||
         (pr?.state === "open" && pr.ci === "running") ||
         wakeAt !== undefined;
-      if (asked) {
-        state = "waiting";
-        need = clip(asked, MAX_NEED);
-        needKind = "question";
-      } else if (blocked && !busy) {
-        state = "waiting";
-        need = blocked.subject;
-        needKind = "question";
-      } else {
-        state = busy ? "running" : "idle";
-      }
+      state = busy ? "running" : "idle";
       break;
     }
     case "Notification": {
       const type = str(input.notification_type);
       const message = str(input.message) ?? "";
-      if (type ? !ASKING.has(type) : !/permission/i.test(message)) return null;
+      if (!type || !ASKING.has(type)) return null;
       state = "waiting";
       need = clip(message, MAX_NEED) || undefined;
       needKind = "permission";
@@ -381,7 +357,6 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     }
     case "UserPromptSubmit": {
       state = "running";
-      ask = undefined;
       // A new message reopens a resolved thread, and a reminder that brought Claude back is spent.
       resolved = false;
       const info = projectInfo(input);
@@ -393,7 +368,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     }
     case "SessionEnd":
       // A project thread's session stops between wakes (reason "other") and resumes on the next
-      // message, so it pauses: a question stays open, and anything else waits as idle.
+      // message, so it pauses: an open decision card stays waiting, and anything else is idle.
       if (project && input?.reason === "other") {
         if (state !== "waiting" && state !== "done") state = "idle";
       } else {
@@ -418,7 +393,6 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     thread !== list.thread ||
     repo !== list.repo ||
     need !== list.need ||
-    ask !== list.ask ||
     resolved !== (list.resolved ?? false) ||
     wakeAt !== list.wakeAt ||
     helpers !== list.helpers ||
@@ -429,7 +403,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   if (!changed) return null;
   const {
-    need: _need, needKind: _needKind, ask: _ask, pr: _pr, link: _link, wakeAt: _wakeAt,
+    need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt,
     helpers: _helpers, usage: _usage, resolved: _resolved, ...rest
   } = list;
   return {
@@ -445,7 +419,6 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     ...(repo ? { repo } : {}),
     ...(need ? { need } : {}),
     ...(needKind ? { needKind } : {}),
-    ...(ask !== undefined ? { ask } : {}),
     ...(pr ? { pr } : {}),
     ...(link ? { link } : {}),
     ...(wakeAt ? { wakeAt } : {}),

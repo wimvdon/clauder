@@ -26,10 +26,15 @@ test("check runs, merges and closes update the PR the session follows", () => {
 
 test("GitHub notifications finish CI", () => {
   const open = { number: 22, url: "https://github.com/wimvdon/clauder/pull/22", state: "open" as const, ci: "running" as const };
-  const text = `--- Notification 1 of 1 ---\n<event source="github" kind="check_suite.completed" from="system">\n{"head_sha":"abc","pr":"wimvdon/clauder#22"}\n</event>`;
-  assert.equal(applyPrTool(open, "ReadNotifications", {}, text)?.ci, "passed");
-  const other = text.replace("#22", "#23");
-  assert.equal(applyPrTool(open, "ReadNotifications", {}, other)?.ci, "running");
+  const event = (data: string) => `--- Notification 1 of 1 ---\n<event source="github" kind="check_suite.completed" from="system">\n${data}\n</event>`;
+  const passed = event(`{"head_sha":"abc","conclusion":"success","pr":"wimvdon/clauder#22"}`);
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, passed)?.ci, "passed");
+  const failed = event(`{"head_sha":"abc","conclusion":"failure","pr":"wimvdon/clauder#22"}`);
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, failed)?.ci, "failed");
+  // Without a conclusion the event doesn't say how CI ended, so nothing is guessed.
+  const unknown = event(`{"head_sha":"abc","pr":"wimvdon/clauder#22"}`);
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, unknown), open);
+  assert.equal(applyPrTool(open, "ReadNotifications", {}, passed.replace("#22", "#23")), open);
 });
 
 test("subscribing follows a PR the session didn't create", () => {
