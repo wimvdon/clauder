@@ -537,7 +537,8 @@ function pick(list: SessionList): Partial<SessionList> {
 /**
  * Applies what the model read in the reply of the turn that ended at [seq]. The summary line is
  * always kept. A question makes a working or idle thread wait on the user, and names what a
- * thread that already waits (with nothing else to show) asks. Ignored when [reply] is no longer
+ * thread that already waits (with nothing else to show) asks. A finished turn marks a thread that
+ * waits on nothing but the person resolved. Ignored when [reply] is no longer
  * the one waiting to be read: a new prompt started the next turn, or the check was already done.
  * Events in between (a session pause, a late tool result) don't drop it. Returns null when
  * nothing changes.
@@ -559,6 +560,13 @@ export function applyAsk(list: SessionList, reply: string, read: TurnRead | null
       next.need = clip(read.question, MAX_NEED);
       next.needKind = "question";
     }
+  } else if (read.finished && list.state === "waiting" && list.needKind === undefined && list.hooksCurrent && !list.resolved) {
+    // The reply says the work is finished, and only the person could wake the thread (nothing
+    // armed, no open card or question, current hooks): resolved, as Mark resolved does. Only in
+    // Clauder; the Worker can't reach the Claude app. The person's next message reopens it.
+    next.state = "done";
+    next.resolved = true;
+    delete next.need;
   }
   const shown = next.state !== list.state || next.need !== list.need || next.summary !== list.summary;
   return shown ? { ...next, seq: nextSeq(list, now), updatedAt: now } : next;

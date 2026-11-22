@@ -56,7 +56,12 @@ Clauder shows the task list of every running Claude Code session on the phone.
   model answers that the reply waits on the user, the session becomes Waiting for you with the
   question as `need`. The answer only counts for the turn it read (the reply it read must still be
   the one waiting, until the next prompt; other events in between don't drop it); if the model
-  fails, nothing changes. The reply text is kept in the Durable Object only
+  fails, nothing changes. The same answer says whether the reply reports the work as finished
+  with nothing left for the user (such as "PR merged, 0.2.11 is released"). If so, and the turn
+  ended Waiting for you with nothing armed, no open card or question and current hooks, the
+  session is marked resolved and shows Done, the same as Mark resolved. That happens only in
+  Clauder: the Worker can't resolve the thread in the Claude app. The person's next message
+  reopens it. The reply text is kept in the Durable Object only
   until the turn ends and never goes to the phone or `/sessions`.
   The phone also shows a Running session that has been silent for 12 hours as Idle
   (`TaskList.shown`).
