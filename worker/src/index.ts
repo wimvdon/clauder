@@ -146,7 +146,10 @@ export class Hub extends DurableObject<Env> {
   }
 
   /** Stores the list and pushes it to every phone. Returns how many phones got it. */
-  async publish(list: SessionList, store = true): Promise<{ sent: number; devices: number; fcmConfigured: boolean }> {
+  async publish(
+    list: SessionList,
+    store = true,
+  ): Promise<{ sent: number; devices: number; fcmConfigured: boolean; error?: string }> {
     if (store) this.ctx.storage.sql.exec(
       "INSERT INTO sessions (key, list, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET list = excluded.list, updated_at = excluded.updated_at",
       list.key, JSON.stringify(list), Date.now(),
@@ -156,12 +159,21 @@ export class Hub extends DurableObject<Env> {
     if (!client) return { sent: 0, devices: devices.length, fcmConfigured: false };
     const data = toPushData(list);
     let sent = 0;
+    let error: string | undefined;
     for (const device of devices) {
-      const result = await client.send(device.token, data);
-      if (result === "sent") sent++;
-      if (result === "unregistered") this.unregister(device.token);
+      try {
+        const result = await client.send(device.token, data);
+        if (result === "sent") sent++;
+        if (result === "unregistered") this.unregister(device.token);
+        if (result === "failed") error ??= "FCM refused the message (see the Worker log)";
+      } catch (e) {
+        // Usually the service account key: report it instead of failing the whole request.
+        error = e instanceof Error ? e.message : String(e);
+        console.log(`FCM push failed: ${error}`);
+        break;
+      }
     }
-    return { sent, devices: devices.length, fcmConfigured: true };
+    return { sent, devices: devices.length, fcmConfigured: true, ...(error ? { error } : {}) };
   }
 }
 
@@ -265,7 +277,8 @@ export default {
     }
 
     if (route === "POST /test") {
-      return json(await hub(env).publish(demoList(new Date().toISOString()), false));
+      const result = await hub(env).publish(demoList(new Date().toISOString()), false);
+      return json(result, result.error && result.sent === 0 ? 502 : 200);
     }
 
     if (route === "GET /log") {

@@ -36,7 +36,8 @@ export function jwtClaims(sa: ServiceAccount, nowSeconds: number): Record<string
 }
 
 function pemToDer(pem: string): ArrayBuffer {
-  const body = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+  // A key pasted with its JSON escapes still in place has literal "\n" sequences; drop those too.
+  const body = pem.replace(/\\n/g, "\n").replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
   const binary = atob(body);
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
@@ -79,7 +80,10 @@ export class FcmClient {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
     });
-    if (!response.ok) throw new Error(`token request failed: ${response.status}`);
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Google sign-in for the service account failed: ${response.status} ${text.slice(0, 200)}`);
+    }
     const json = (await response.json()) as { access_token: string; expires_in: number };
     this.token = { value: json.access_token, expiresAt: now + json.expires_in };
     return json.access_token;
