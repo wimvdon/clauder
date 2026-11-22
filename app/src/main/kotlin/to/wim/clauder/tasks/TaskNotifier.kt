@@ -49,7 +49,10 @@ object TaskNotifier {
 
     private fun idFor(key: String): Int = key.hashCode()
 
-    fun cancel(context: Context, key: String) = NotificationManagerCompat.from(context).cancel(idFor(key))
+    fun cancel(context: Context, key: String) {
+        NotificationManagerCompat.from(context).cancel(idFor(key))
+        refreshBundles(context)
+    }
 
     /** Opens the system settings of the "Waiting for you" channel (sound, vibration, pop-up). */
     fun waitingChannelSettings(context: Context): Intent =
@@ -62,13 +65,54 @@ object TaskNotifier {
         val update = LiveUpdate.from(list)
         if (update == null) {
             manager.cancel(idFor(list.key))
+            refreshBundles(context)
             return
         }
         if (!canNotify(context)) return
         try {
             manager.notify(idFor(list.key), build(context, update, list.key))
+            refreshBundles(context)
         } catch (e: SecurityException) {
             // The permission was taken away between the check and the call.
+        }
+    }
+
+    private fun summaryId(bundle: String): Int = "summary:$bundle".hashCode()
+
+    /** Keeps one summary per bundle of idle and finished sessions, so the shade shows each
+     * project's inactive sessions as one group that folds open and shut. A summary goes away
+     * with the last session in it. */
+    private fun refreshBundles(context: Context) {
+        val manager = NotificationManagerCompat.from(context)
+        val active = context.getSystemService(NotificationManager::class.java).activeNotifications
+        val children = active
+            .filter { it.packageName == context.packageName && it.notification.group?.startsWith(LiveUpdate.BUNDLE_PREFIX) == true }
+            .filter { it.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY == 0 }
+            .groupBy { it.notification.group }
+        active
+            .filter { it.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY != 0 && it.notification.group !in children }
+            .forEach { manager.cancel(it.id) }
+        if (!canNotify(context)) return
+        children.forEach { (bundle, members) ->
+            val name = bundle.removePrefix(LiveUpdate.BUNDLE_PREFIX).ifEmpty { context.getString(R.string.app_name) }
+            val text = context.resources.getQuantityString(R.plurals.notification_inactive, members.size, members.size)
+            val summary = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
+                .setSmallIcon(R.drawable.ic_stat_clauder)
+                .setContentTitle(name)
+                .setContentText(text)
+                .setSubText(name)
+                .setGroup(bundle)
+                .setGroupSummary(true)
+                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+                .setSortKey(name)
+                .setShowWhen(false)
+                .setSilent(true)
+                .build()
+            try {
+                manager.notify(summaryId(bundle), summary)
+            } catch (e: SecurityException) {
+                return
+            }
         }
     }
 
@@ -114,6 +158,7 @@ object TaskNotifier {
             )
             .setRequestPromotedOngoing(update.requestPromotion)
         update.group?.let { builder.setSortKey(it) }
+        update.bundle?.let { builder.setGroup(it) }
         update.timeoutMs?.let { builder.setTimeoutAfter(it) }
         if (update.status != LiveUpdate.Status.Done) {
             val mute = PendingIntent.getBroadcast(

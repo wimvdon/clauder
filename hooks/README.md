@@ -20,7 +20,7 @@ next to the environment, then:
 3. **Network access:** add `clauder.wim-d57.workers.dev` under allowed domains.
 
 The script runs when a fresh container is built, so the hooks start working in sessions and threads
-started after the change. Your current environments: Android (done), Default, Electron,
+started after the change. Your current environments: Android, Default, Electron,
 Twenty CRM.
 
 ## Local Claude Code on your computer

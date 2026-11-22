@@ -62,4 +62,23 @@ class SessionBoardTest {
         )
         assertEquals(listOf("Clauder" to listOf(a)), SessionBoard.groups(listOf(a)))
     }
+
+    @Test
+    fun `sections keep idle and finished sessions in their project, apart from the active ones`() {
+        val running = list("a", 1, "5").copy(project = "Noter")
+        val idle = list("b", 1, "4").copy(project = "Clauder", state = SessionState.Idle)
+        val done = list("c", 1, "3").copy(project = "Noter", state = SessionState.Done)
+        val waiting = list("d", 1, "2").copy(project = "Clauder", state = SessionState.Waiting)
+        val loose = list("e", 1, "1").copy(state = SessionState.Ended)
+        val onlyIdle = list("f", 1, "6").copy(repo = "rss", state = SessionState.Idle)
+        assertEquals(
+            listOf(
+                SessionBoard.Section("Noter", listOf(running), listOf(done)),
+                SessionBoard.Section("Clauder", listOf(waiting), listOf(idle)),
+                SessionBoard.Section("rss", emptyList(), listOf(onlyIdle)),
+                SessionBoard.Section(null, emptyList(), listOf(loose)),
+            ),
+            SessionBoard.sections(listOf(onlyIdle, running, idle, done, waiting, loose)),
+        )
+    }
 }

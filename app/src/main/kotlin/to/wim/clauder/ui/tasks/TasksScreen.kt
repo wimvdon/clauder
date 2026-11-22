@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -142,45 +144,97 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
 
 @Composable
 private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: (TaskList) -> Unit) {
-    val (active, finished) = SessionBoard.split(sessions)
+    val sections = SessionBoard.sections(sessions)
+    // Folded projects, and projects whose inactive sessions are shown. Both start closed.
+    val folded = remember { mutableStateMapOf<String, Boolean>() }
+    val showInactive = remember { mutableStateMapOf<String, Boolean>() }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Active sessions under their project's (or repository's) name.
-        val groups = SessionBoard.groups(active)
-        groups.forEach { (group, lists) ->
-            item(key = "group:${group.orEmpty()}") {
-                SectionHeader(
-                    group ?: stringResource(if (groups.size == 1) R.string.tasks_section_active else R.string.tasks_section_other),
-                )
+        sections.forEach { section ->
+            val id = section.group.orEmpty()
+            val open = folded[id] != true
+            // A lone list of sessions without a project needs no header to fold it.
+            if (section.group != null || sections.size > 1) {
+                item(key = "group:$id") {
+                    GroupHeader(
+                        section.group ?: stringResource(R.string.tasks_section_other),
+                        count = section.active.size + section.inactive.size,
+                        open = open,
+                        onToggle = { folded[id] = open },
+                    )
+                }
             }
-            items(lists, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute, showGroup = false) }
-        }
-        if (finished.isNotEmpty()) {
-            item(key = "finished") { SectionHeader(stringResource(R.string.tasks_section_finished)) }
-            items(finished, key = { it.key }) { SessionCard(it, muted = false, onUnmute, showGroup = true) }
+            if (!open) return@forEach
+            items(section.active, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute) }
+            if (section.inactive.isNotEmpty()) {
+                val shown = showInactive[id] == true
+                item(key = "inactive:$id") {
+                    InactiveToggle(section.inactive.size, shown) { showInactive[id] = !shown }
+                }
+                if (shown) items(section.inactive, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute) }
+            }
         }
     }
 }
 
 @Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
+private fun GroupHeader(text: String, count: Int, open: Boolean, onToggle: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .readableWidth()
-            .padding(top = 8.dp, start = 4.dp)
-            .semantics { heading() },
-    )
+            .padding(top = 8.dp)
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClick = onToggle)
+            .padding(horizontal = 4.dp)
+            .semantics(mergeDescendants = true) { heading() },
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (!open) {
+            Text(
+                "$count",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+        Icon(
+            painterResource(R.drawable.ic_expand_more),
+            contentDescription = stringResource(if (open) R.string.section_expanded else R.string.section_collapsed),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp).rotate(if (open) 180f else 0f),
+        )
+    }
 }
 
 @Composable
-private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit, showGroup: Boolean) {
+private fun InactiveToggle(count: Int, shown: Boolean, onToggle: () -> Unit) {
+    Row(Modifier.readableWidth()) {
+        TextButton(onClick = onToggle) {
+            Text(pluralStringResource(R.plurals.notification_inactive, count, count))
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                painterResource(R.drawable.ic_expand_more),
+                contentDescription = stringResource(if (shown) R.string.section_expanded else R.string.section_collapsed),
+                modifier = Modifier.size(18.dp).rotate(if (shown) 180f else 0f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit) {
     val context = LocalContext.current
     val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
     val openLabel = stringResource(R.string.session_open)
@@ -193,9 +247,6 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            list.group?.takeIf { showGroup }?.let {
-                Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     list.title,
