@@ -2,6 +2,12 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-22: Status bar and Quick Settings tile show the ring too
+
+The owner asked for every icon to follow the new design. The status bar icon, the Quick Settings
+tile and the "add tile" prompt still showed the old speech bubble; they now use the themed icon's
+ring and check, cropped so it fills the 24dp icon. The two open segments stay half transparent.
+
 ## 2026-11-22: The app icon is a segmented progress ring on a soft terracotta plate
 
 Part of making all of the owner's app icons one family. The speech bubble with a check said

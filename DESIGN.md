@@ -231,6 +231,8 @@ app apart from their package (and `R` import) lines. Copy a change to the other 
   (amber, terracotta, rose); the segments still to go are a pale tint (`#F0C9BC`). It sits on a
   soft terracotta plate (`#FBF1EE` → `#F7E4DD`) instead of white. The themed icon draws the two
   open segments half transparent.
+  The status bar icon and the Quick Settings tile use the themed icon, cropped to the ring
+  (`ic_stat_clauder`).
 - **Colour:** a full Material 3 scheme around the terracotta `#B0502C` (dark: `#F0A487`) on cream
   `#FAF9F5` (dark: warm charcoal `#1F1E1D`), in the spirit of Claude's own colours
   (`ui/theme/Color.kt`). Every text and container pair meets WCAG AA.
