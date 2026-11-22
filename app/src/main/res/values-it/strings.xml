@@ -143,4 +143,7 @@
         <item quantity="other">%d assistenti al lavoro</item>
         <item quantity="many">%d assistenti al lavoro</item>
     </plurals>
+    <string name="old_hooks_note">Questo thread usa hook vecchi, quindi Clauder non sa sempre se ti sta aspettando. Incolla una volta il messaggio qui sotto nel thread per aggiornarli.</string>
+    <string name="old_hooks_copy">Copia la soluzione</string>
+    <string name="old_hooks_message">Esegui questo una volta per aggiornare gli hook di Clauder in questo container, poi continua: %1$s</string>
 </resources>

@@ -25,7 +25,8 @@ set up (such as CI on a pull request or a reminder) will still wake the session,
 the end of that last reply read by a language model on Cloudflare Workers AI, in your own
 Cloudflare account, to see whether Claude asks you something. Only the answer (the question, in a
 few words) is kept and shown on the phone; the reply text is then dropped. It also receives the pull requests Claude
-opens, reads or merges and their CI results, the reminders Claude sets, and, at the end of each
+opens, reads or merges and their CI results, the `git push` commands Claude runs (with their
+output; no other shell commands are sent), the reminders Claude sets, and, at the end of each
 turn, how many tokens the session used per model (counted on the session's machine from its
 transcript; no text from the transcript is sent for this). When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,

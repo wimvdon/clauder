@@ -3,6 +3,7 @@
 
 import { MAX_REPLY_CHARS, type TurnRead } from "./ask.ts";
 import {
+  afterPush,
   applyPrTool,
   linkFromOutputs,
   PR_TOOLS,
@@ -87,8 +88,12 @@ export interface SessionList {
   /** Set when a turn ended with a reply: the text the model reads next (see ask.ts and
    * [applyAsk]). Not sent to the phone. */
   askCheck?: string;
-  /** The model's one-line summary of the last turn, until the next prompt. */
+  /** The model's one-line summary of the last turn, until the person writes again or a later turn
+   * writes a new one. */
   summary?: string;
+  /** Set when the person wrote while every step was already completed: that old checklist doesn't
+   * make the thread Done until it changes. Not sent to the phone. */
+  staleFinish?: boolean;
   /** Bumped on every change, so the phone can drop out-of-order pushes. */
   seq: number;
   updatedAt: string;
@@ -138,6 +143,7 @@ export const CLOSE_DECISION_TOOL = "mcp__hearthbot__close_decision";
 /** A project thread's reply to the person; only its attached link is used. */
 export const REPLY_TOOL = "mcp__hearthbot__post_message";
 export const RESOLVE_TOOL = "mcp__hearthbot__set_thread_resolved";
+const PUSH_FILES_TOOL = "mcp__github__push_files";
 
 /** Notification types that mean Claude can't go on without the user. "idle_prompt" only says
  * Claude finished a turn, which Stop already covers. */
@@ -236,13 +242,24 @@ function upsert(tasks: Task[], id: string, change: Partial<Task>): Task[] {
   return next;
 }
 
-function stateFor(tasks: Task[], steps: Task[], state: SessionState, resolved: boolean): SessionState {
+/** The next seq: one more than [list]'s, and never less than the time in milliseconds. The phone
+ * drops a push whose seq isn't higher than the last it saw, so when the Worker forgets a quiet
+ * session and it starts again, its new seq must still be higher. */
+export function nextSeq(list: SessionList, now: string): number {
+  const ms = Date.parse(now);
+  return Math.max(list.seq + 1, Number.isNaN(ms) ? 0 : ms);
+}
+
+function allDone(items: Task[]): boolean {
+  return items.length > 0 && items.every((t) => t.status === "completed");
+}
+
+function stateFor(tasks: Task[], steps: Task[], state: SessionState, resolved: boolean, staleFinish = false): SessionState {
   if (state === "ended") return state;
   if (resolved) return "done";
   // Waiting wins over a finished checklist: an unresolved thread still needs the user.
   if (state === "waiting") return state;
-  const main = steps.length > 0 ? steps : tasks;
-  if (main.length > 0 && main.every((t) => t.status === "completed")) return "done";
+  if (!staleFinish && allDone(steps.length > 0 ? steps : tasks)) return "done";
   return state === "done" ? "running" : state;
 }
 
@@ -269,7 +286,9 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   let resolved = list.resolved ?? false;
   let reply = list.reply;
   let summary = list.summary;
-  let askCheck: string | undefined;
+  // The reply the model still has to read stays until a new prompt starts the next turn.
+  let askCheck = list.askCheck;
+  let staleFinish = list.staleFinish ?? false;
   // An open decision card, or a question the person hasn't answered yet, keeps the session
   // waiting while Claude goes on with the work, also through wakes the person didn't cause (CI
   // results, a reminder). Only the person's answer (see [reopens]) or a closed card ends it.
@@ -350,7 +369,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       } else if (tool === RESOLVE_TOOL) {
         resolved = toolInput?.resolved !== false;
       } else if (tool === REMINDER_TOOL) {
-        wakeAt = wakeAtFrom(toolInput, now) ?? wakeAt;
+        wakeAt = wakeAtFrom(toolInput, now, input.tool_response) ?? wakeAt;
       } else if (tool === WATCH_TOOL) {
         watches = [...watches, watchIdFrom(input.tool_response)];
       } else if (tool === UNWATCH_TOOL) {
@@ -358,6 +377,10 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
         const at = id && watches.includes(id) ? watches.indexOf(id) : watches.length - 1;
         if (at < 0) return null;
         watches = watches.filter((_, i) => i !== at);
+      } else if (tool === "Bash" || tool === PUSH_FILES_TOOL) {
+        const next = afterPush(pr, tool, toolInput);
+        if (next === pr) return null;
+        pr = next;
       } else if (tool && PR_TOOLS.includes(tool)) {
         const next = applyPrTool(pr, tool, toolInput, input.tool_response);
         if (next === pr) return null;
@@ -374,7 +397,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       // A model reads the turn's last reply next: a summary line for the phone, and whether it
       // asks the user something (which decides the state only when the hook data can't).
       const said = reply ?? str(input.last_assistant_message)?.slice(-MAX_REPLY_CHARS);
-      if (said) askCheck = said;
+      askCheck = said ?? undefined;
       reply = undefined;
       // Stop ends every turn. An open decision card or question keeps the session waiting. Otherwise it is
       // running while something Claude set up will wake it, and waiting on the user when
@@ -401,8 +424,15 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       const fromPerson = reopens(obj(input.clauder)?.source);
       state = deciding && !fromPerson ? "waiting" : "running";
       reply = undefined;
-      summary = undefined;
-      if (fromPerson) resolved = false;
+      askCheck = undefined;
+      // The summary says where the work stands until the person writes; a CI event or a reminder
+      // keeps it, so a wait on CI still shows the line about it.
+      if (fromPerson) {
+        summary = undefined;
+        resolved = false;
+        // A checklist that was already complete is the last request's; the new one is underway.
+        staleFinish = allDone(steps.length > 0 ? steps : tasks);
+      }
       const info = projectInfo(input);
       project = info.project ?? project;
       projectId = info.projectId ?? projectId;
@@ -425,7 +455,9 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       return null;
   }
 
-  state = stateFor(tasks, steps, state, resolved);
+  // A new checklist or task change is the current work again.
+  if (JSON.stringify(steps) !== JSON.stringify(list.steps ?? []) || JSON.stringify(tasks) !== JSON.stringify(list.tasks)) staleFinish = false;
+  state = stateFor(tasks, steps, state, resolved, staleFinish);
   if (state !== "waiting") {
     need = undefined;
     needKind = undefined;
@@ -452,12 +484,16 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   const {
     need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches, hooksCurrent: _hooksCurrent,
-    helpers: _helpers, usage: _usage, resolved: _resolved, reply: _reply, askCheck: _askCheck, summary: _summary, ...rest
+    helpers: _helpers, usage: _usage, resolved: _resolved, reply: _reply, askCheck: _askCheck, summary: _summary,
+    staleFinish: _staleFinish, ...rest
   } = list;
   if (!changed) {
     // Nothing the phone shows changed; keep the reply or the check without a push (same seq).
-    if (reply === list.reply && askCheck === list.askCheck) return null;
-    return { ...rest, ...pick(list), ...(reply ? { reply } : {}), ...(askCheck ? { askCheck } : {}), ...(summary ? { summary } : {}) };
+    if (reply === list.reply && askCheck === list.askCheck && staleFinish === (list.staleFinish ?? false)) return null;
+    return {
+      ...rest, ...pick(list), ...(reply ? { reply } : {}), ...(askCheck ? { askCheck } : {}), ...(summary ? { summary } : {}),
+      ...(staleFinish ? { staleFinish } : {}),
+    };
   }
   return {
     ...rest,
@@ -483,7 +519,8 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     ...(reply ? { reply } : {}),
     ...(askCheck ? { askCheck } : {}),
     ...(summary ? { summary } : {}),
-    seq: list.seq + 1,
+    ...(staleFinish ? { staleFinish } : {}),
+    seq: nextSeq(list, now),
     updatedAt: now,
   };
 }
@@ -500,12 +537,13 @@ function pick(list: SessionList): Partial<SessionList> {
 /**
  * Applies what the model read in the reply of the turn that ended at [seq]. The summary line is
  * always kept. A question makes a working or idle thread wait on the user, and names what a
- * thread that already waits (with nothing else to show) asks. Ignored when anything happened
- * since that turn ended (seq moved on) or the check was already done. Returns null when nothing
- * changes.
+ * thread that already waits (with nothing else to show) asks. Ignored when [reply] is no longer
+ * the one waiting to be read: a new prompt started the next turn, or the check was already done.
+ * Events in between (a session pause, a late tool result) don't drop it. Returns null when
+ * nothing changes.
  */
-export function applyAsk(list: SessionList, seq: number, read: TurnRead | null, now: string): SessionList | null {
-  if (list.seq !== seq || list.askCheck === undefined) return null;
+export function applyAsk(list: SessionList, reply: string, read: TurnRead | null, now: string): SessionList | null {
+  if (list.askCheck === undefined || list.askCheck !== reply) return null;
   const { askCheck: _askCheck, ...rest } = list;
   if (!read) return rest;
   const next: SessionList = { ...rest };
@@ -523,7 +561,7 @@ export function applyAsk(list: SessionList, seq: number, read: TurnRead | null, 
     }
   }
   const shown = next.state !== list.state || next.need !== list.need || next.summary !== list.summary;
-  return shown ? { ...next, seq: list.seq + 1, updatedAt: now } : next;
+  return shown ? { ...next, seq: nextSeq(list, now), updatedAt: now } : next;
 }
 
 /**
@@ -534,7 +572,7 @@ export function applyAsk(list: SessionList, seq: number, read: TurnRead | null, 
 export function resolveByUser(list: SessionList, now: string): SessionList | null {
   if (list.resolved || list.state === "ended") return null;
   const { need: _need, needKind: _needKind, askCheck: _askCheck, ...rest } = list;
-  return { ...rest, state: "done", resolved: true, seq: list.seq + 1, updatedAt: now };
+  return { ...rest, state: "done", resolved: true, seq: nextSeq(list, now), updatedAt: now };
 }
 
 export interface Progress {
@@ -581,6 +619,9 @@ export function toPushData(list: SessionList): Record<string, string> {
     helpers: String(list.helpers ?? 0),
     tokens: String(list.usage?.tokens ?? 0),
     cost: String(list.usage?.cost ?? 0),
+    // "old" when the session runs hook settings from before the installer reported every wake
+    // source: it can't update them itself, so the phone shows how to.
+    hooks: list.hooksCurrent ? "" : "old",
   });
   const shorten = (items: Task[]) =>
     items.map((t) => ({ ...t, subject: clip(t.subject, Math.max(20, Math.floor(t.subject.length * 0.7))) }));

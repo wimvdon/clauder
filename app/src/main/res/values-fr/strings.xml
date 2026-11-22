@@ -143,4 +143,7 @@
         <item quantity="other">%d assistants au travail</item>
         <item quantity="many">%d assistants au travail</item>
     </plurals>
+    <string name="old_hooks_note">Ce fil utilise d\'anciens hooks : Clauder ne voit pas toujours s\'il vous attend. Collez une fois le message ci-dessous dans le fil pour les mettre à jour.</string>
+    <string name="old_hooks_copy">Copier le correctif</string>
+    <string name="old_hooks_message">Exécute ceci une fois pour mettre à jour les hooks Clauder de ce conteneur, puis continue : %1$s</string>
 </resources>

@@ -335,3 +335,15 @@ the card until the person answered. An open decision card, and a question the re
 now stay Waiting for you until the person answers (a message, a decision tap or a coordinator
 message, read from `clauder.source`) or Claude closes the card. A permission prompt still ends with
 the next prompt, because it is answered within its turn.
+
+## 2026-11-22: Fixes from the hook handling review
+
+Wim chose to fix everything the review found (one pull request). Besides the open question above:
+the summary survives background wakes; a finished checklist doesn't mean Done right after the
+person writes; the model's answer survives other events until the next prompt; `seq` is based on
+the time so it never goes back; a failed push stays due; FCM messages keep a day with a collapse key
+per session; the phone alerts once per wait. The hooks gain a `git push` hook (the `if` filter keeps
+other shell commands out), one retry, and a level instead of the installer's hash, so an installer
+edit no longer makes every live session Idle. Threads on hooks from before the self-update show a
+message to paste into the thread; the Worker doesn't inject instructions into Claude's context
+itself.

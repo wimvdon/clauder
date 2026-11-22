@@ -31,6 +31,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -67,7 +69,9 @@ import to.wim.clauder.R
 import to.wim.clauder.links.ClaudeApp
 import to.wim.clauder.push.Push
 import to.wim.clauder.push.WorkerClient
+import to.wim.clauder.settings.HookSetup
 import to.wim.clauder.settings.Settings
+import to.wim.clauder.settings.WorkerUrl
 import to.wim.clauder.tasks.CiState
 import to.wim.clauder.tasks.LiveUpdate
 import to.wim.clauder.tasks.MuteList
@@ -151,6 +155,7 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
                     sessions.isNotEmpty() -> SessionList(
                         sessions,
                         muted,
+                        hookFix = stringResource(R.string.old_hooks_message, HookSetup.update(WorkerUrl.host(settings.workerUrl))),
                         onUnmute = { list ->
                             scope.launch {
                                 val after = MuteList.unmute(muted, list.key)
@@ -192,7 +197,13 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
 }
 
 @Composable
-private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: (TaskList) -> Unit, onResolve: (TaskList) -> Unit) {
+private fun SessionList(
+    sessions: List<TaskList>,
+    muted: Set<String>,
+    hookFix: String,
+    onUnmute: (TaskList) -> Unit,
+    onResolve: (TaskList) -> Unit,
+) {
     // The shown state depends on the time (a long silence makes a session idle), so re-read it
     // every minute.
     val now by produceState(System.currentTimeMillis()) {
@@ -228,9 +239,9 @@ private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: 
                     open = row.open,
                     onToggle = { folded[row.group.orEmpty()] = row.open },
                 )
-                is SessionBoard.Row.Active -> SessionCard(row.list, row.list.key in muted, onUnmute, onResolve)
+                is SessionBoard.Row.Active -> SessionCard(row.list, row.list.key in muted, hookFix, onUnmute, onResolve)
                 is SessionBoard.Row.InactiveHeader -> InactiveHeader(row.count, row.open) { inactiveOpen = !row.open }
-                is SessionBoard.Row.Inactive -> InactiveRow(row.list, row.list.key in muted)
+                is SessionBoard.Row.Inactive -> InactiveRow(row.list, row.list.key in muted, hookFix)
             }
         }
     }
@@ -310,7 +321,7 @@ private fun GroupHeader(text: String, count: Int, open: Boolean, onToggle: () ->
 
 /** An idle or finished session: its project or repository, title and state, without the steps. */
 @Composable
-private fun InactiveRow(list: TaskList, muted: Boolean) {
+private fun InactiveRow(list: TaskList, muted: Boolean, hookFix: String) {
     val context = LocalContext.current
     val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
     val line = listOfNotNull(
@@ -324,7 +335,12 @@ private fun InactiveRow(list: TaskList, muted: Boolean) {
             { Text(group, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         },
         headlineContent = { Text(list.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(line) },
+        supportingContent = {
+            Column {
+                Text(line)
+                if (list.oldHooks && !list.isFinished) OldHooksNote(hookFix)
+            }
+        },
         trailingContent = {
             Icon(
                 painterResource(R.drawable.ic_open_in_new),
@@ -341,6 +357,29 @@ private fun InactiveRow(list: TaskList, muted: Boolean) {
                 ClaudeApp.open(context, url)
             },
     )
+}
+
+/** A thread on old hook settings can't update them itself: says so, with a message to paste into
+ * the thread that has Claude run the installer once. */
+@Composable
+private fun OldHooksNote(message: String) {
+    val context = LocalContext.current
+    val label = stringResource(R.string.app_name)
+    Column {
+        Text(
+            stringResource(R.string.old_hooks_note),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = {
+            context.getSystemService(ClipboardManager::class.java)
+                .setPrimaryClip(ClipData.newPlainText(label, message))
+        }) {
+            Icon(painterResource(R.drawable.ic_copy), contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.old_hooks_copy))
+        }
+    }
 }
 
 /** The pull request and its CI, a reminder, helpers and the cost, with buttons for the pull
@@ -405,7 +444,7 @@ private fun countsLabel(list: TaskList): String = pluralStringResource(
 )
 
 @Composable
-private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit, onResolve: (TaskList) -> Unit) {
+private fun SessionCard(list: TaskList, muted: Boolean, hookFix: String, onUnmute: (TaskList) -> Unit, onResolve: (TaskList) -> Unit) {
     val context = LocalContext.current
     val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
     val openLabel = stringResource(R.string.session_open)
@@ -453,6 +492,7 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
                     Text(stringResource(R.string.action_resolve))
                 }
             }
+            if (list.oldHooks) OldHooksNote(hookFix)
             SessionExtras(list)
             SegmentedProgress(list)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

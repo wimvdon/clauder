@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import to.wim.clauder.ClauderApp
 import to.wim.clauder.tasks.MuteList
+import to.wim.clauder.tasks.NotificationPlan
 import to.wim.clauder.tasks.TaskList
 import to.wim.clauder.tasks.TaskNotifier
 import to.wim.clauder.tile.ClauderTileService
@@ -22,9 +23,11 @@ class ClauderMessagingService : FirebaseMessagingService() {
         // Firebase calls this on a background thread and keeps the process alive until it
         // returns, so the work is done here rather than in a coroutine that could be cut off.
         runBlocking {
+            val previous = app.store.cachedSessions().firstOrNull { it.key == list.key }
             Push.record(app.store, listOf(list))
             val muted = app.store.muted.first()
-            TaskNotifier.apply(app, list, app.store.cachedSessions(), muted, app.store.current().notify)
+            val alert = NotificationPlan.alertsAgain(previous, list, System.currentTimeMillis())
+            TaskNotifier.apply(app, list, app.store.cachedSessions(), muted, app.store.current().notify, alert)
             val after = MuteList.afterPush(muted, list)
             if (after != muted) app.store.setMuted(after)
             Widgets.updateTasks(app)

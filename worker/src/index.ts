@@ -14,6 +14,7 @@ import { DurableObject } from "cloudflare:workers";
 import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
 import { HOOKS_VERSION, installScript } from "./install";
+import { loadedIsCurrent } from "./hooks";
 import { readTurn, type AskModel } from "./ask";
 import { applyAsk, applyHook, emptyList, resolveByUser, sessionKey, toPushData, type SessionList } from "./tasklist";
 
@@ -36,6 +37,10 @@ const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface LogEntry {
   receivedAt: string;
+  /** The installer version of the hook script (X-Clauder-Hooks) and of the hook settings the
+   * session loaded (X-Clauder-Hooks-Loaded); null when the hooks don't send it (older ones). */
+  hooks?: string | null;
+  hooksLoaded?: string | null;
   remoteSessionId: string | null;
   sessionUrl: string | null;
   event: string | null;
@@ -82,9 +87,11 @@ export class Session extends DurableObject<Env> {
     }
     await this.ctx.storage.put("list", next);
     // A change only to what the phone doesn't see (the reply, a pending check) isn't pushed.
-    const asking = next.askCheck !== undefined && this.env.AI !== undefined;
+    // The model reads each turn's reply once, when the turn ends.
+    const ended = (body as { hook_event_name?: unknown } | null)?.hook_event_name === "Stop";
+    const asking = ended && next.askCheck !== undefined && this.env.AI !== undefined;
     if (next.seq !== base.seq) await this.schedulePush(asking ? ASK_WAIT_MS : PUSH_DEBOUNCE_MS);
-    if (asking) this.ctx.waitUntil(this.checkAsk(next.seq, next.askCheck!));
+    if (asking) this.ctx.waitUntil(this.checkAsk(next.askCheck!));
     return next;
   }
 
@@ -101,12 +108,12 @@ export class Session extends DurableObject<Env> {
   }
 
   /** Has the model read the turn's last reply: its summary line, and whether it asks the user. */
-  private async checkAsk(seq: number, reply: string): Promise<void> {
+  private async checkAsk(reply: string): Promise<void> {
     if (!this.env.AI) return;
     const read = await readTurn(this.env.AI as unknown as AskModel, reply);
     const list = await this.ctx.storage.get<SessionList>("list");
     if (!list) return;
-    const next = applyAsk(list, seq, read, new Date().toISOString());
+    const next = applyAsk(list, reply, read, new Date().toISOString());
     if (!next) return;
     await this.ctx.storage.put("list", next);
     // Push now: the update held back for this read, if any, goes out with it.
@@ -128,8 +135,15 @@ export class Session extends DurableObject<Env> {
     if (await this.ctx.storage.get<boolean>("pushPending")) {
       await this.ctx.storage.put("pushPending", false);
       // The reply text stays here; the phone and /sessions get only what they show.
-      const { reply: _reply, askCheck: _askCheck, ...shown } = list;
-      await hub(this.env).publish(shown);
+      const { reply: _reply, askCheck: _askCheck, staleFinish: _staleFinish, ...shown } = list;
+      try {
+        await hub(this.env).publish(shown);
+      } catch (e) {
+        // Cloudflare runs the alarm again; the push must still be due then, or the retry would
+        // take the session for a quiet one and forget it.
+        await this.ctx.storage.put("pushPending", true);
+        throw e;
+      }
       await this.ctx.storage.setAlarm(Date.now() + SESSION_TTL_MS);
       return;
     }
@@ -287,6 +301,8 @@ export default {
       const remoteSessionId = request.headers.get("x-claude-remote-session");
       const entry: LogEntry = {
         receivedAt: new Date().toISOString(),
+        hooks: request.headers.get("x-clauder-hooks"),
+        hooksLoaded: request.headers.get("x-clauder-hooks-loaded"),
         remoteSessionId,
         sessionUrl: sessionUrl(remoteSessionId),
         event:
@@ -301,7 +317,7 @@ export default {
       // Which hook settings the session loaded at its start; older settings don't say.
       const loaded = request.headers.get("x-clauder-hooks-loaded");
       if (key) {
-        const current = loaded === null ? undefined : loaded === HOOKS_VERSION;
+        const current = loadedIsCurrent(loaded);
         await env.SESSION.get(env.SESSION.idFromName(key)).apply(key, entry.sessionUrl, body, current);
       }
       // An empty JSON object tells Claude Code to carry on as normal. The prompt hook sends its

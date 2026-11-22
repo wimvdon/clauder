@@ -136,4 +136,7 @@
         <item quantity="one">%d Helfer arbeitet</item>
         <item quantity="other">%d Helfer arbeiten</item>
     </plurals>
+    <string name="old_hooks_note">Dieser Thread nutzt alte Hooks, daher erkennt Clauder nicht immer, ob er auf dich wartet. Füge die Nachricht unten einmal in den Thread ein, um sie zu aktualisieren.</string>
+    <string name="old_hooks_copy">Lösung kopieren</string>
+    <string name="old_hooks_message">Führe dies einmal aus, um die Clauder-Hooks in diesem Container zu aktualisieren, und mach dann weiter: %1$s</string>
 </resources>

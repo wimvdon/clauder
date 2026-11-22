@@ -98,7 +98,13 @@ export class FcmClient {
         method: "POST",
         headers: { authorization: `Bearer ${await this.accessToken()}`, "content-type": "application/json" },
         body: JSON.stringify({
-          message: { token: deviceToken, data, android: { priority: "high", ttl: "600s" } },
+          // A phone that is offline gets the newest copy of each session when it comes back: the
+          // message keeps for a day, and a newer one for the same session replaces it.
+          message: {
+            token: deviceToken,
+            data,
+            android: { priority: "high", ttl: "86400s", ...(data.key ? { collapse_key: data.key.slice(0, 100) } : {}) },
+          },
         }),
       },
     );

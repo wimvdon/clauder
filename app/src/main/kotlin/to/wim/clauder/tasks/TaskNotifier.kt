@@ -66,9 +66,9 @@ object TaskNotifier {
      * Shows what [list] changed, and keeps the summary up to date in summary mode. [board] is every
      * session the phone knows, [list] included.
      */
-    fun apply(context: Context, list: TaskList, board: List<TaskList>, muted: Set<String>, prefs: NotifyPrefs) {
+    fun apply(context: Context, list: TaskList, board: List<TaskList>, muted: Set<String>, prefs: NotifyPrefs, alert: Boolean = true) {
         val now = System.currentTimeMillis()
-        if (NotificationPlan.individual(list, muted, prefs, now)) show(context, list, prefs = prefs) else cancel(context, list.key)
+        if (NotificationPlan.individual(list, muted, prefs, now)) show(context, list, alert, prefs) else cancel(context, list.key)
         showSummary(context, board, muted, prefs.summary, now)
     }
 
@@ -200,6 +200,8 @@ object TaskNotifier {
             return
         }
         if (!canNotify(context)) return
+        // A plain alert the person swiped away stays away until there is something new to say.
+        if (!alert && update.plain && !isShowing(context, idFor(list.key))) return
         try {
             manager.notify(idFor(list.key), build(context, update, list.key, alert, NotificationPlan.alerts(update.status, prefs)))
             refreshBundles(context)
@@ -207,6 +209,9 @@ object TaskNotifier {
             // The permission was taken away between the check and the call.
         }
     }
+
+    private fun isShowing(context: Context, id: Int): Boolean =
+        context.getSystemService(NotificationManager::class.java).activeNotifications.any { it.id == id && it.packageName == context.packageName }
 
     private fun linkIntent(context: Context, requestCode: Int, url: String): PendingIntent = PendingIntent.getActivity(
         context,

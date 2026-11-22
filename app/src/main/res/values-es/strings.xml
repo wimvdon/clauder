@@ -143,4 +143,7 @@
         <item quantity="other">%d ayudantes trabajando</item>
         <item quantity="many">%d ayudantes trabajando</item>
     </plurals>
+    <string name="old_hooks_note">Este hilo usa hooks antiguos, así que Clauder no siempre sabe si te espera. Pega una vez el mensaje de abajo en el hilo para actualizarlos.</string>
+    <string name="old_hooks_copy">Copiar la solución</string>
+    <string name="old_hooks_message">Ejecuta esto una vez para actualizar los hooks de Clauder en este contenedor y luego sigue: %1$s</string>
 </resources>

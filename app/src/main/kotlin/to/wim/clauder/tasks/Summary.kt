@@ -85,6 +85,18 @@ object NotificationPlan {
         return !prefs.summary || (prefs.waitingAlerts && list.shown(nowMillis).state == SessionState.Waiting)
     }
 
+    /**
+     * True when the push that brought [next] should make a sound: [next] waits for you and it
+     * didn't before, or it now asks something else. A thread that keeps waiting while Claude goes
+     * on (a checklist update, the summary that follows the turn's end) updates silently, and an
+     * alert the person swiped away stays away. [previous] is the copy the phone had before.
+     */
+    fun alertsAgain(previous: TaskList?, next: TaskList, nowMillis: Long): Boolean {
+        if (next.shown(nowMillis).state != SessionState.Waiting) return false
+        if (previous == null || previous.shown(nowMillis).state != SessionState.Waiting) return true
+        return previous.need != next.need
+    }
+
     /** True when a session's notification goes on the "Waiting for you" channel and makes a sound;
      * otherwise it is a quiet progress notification that still says "Waiting for you". */
     fun alerts(status: LiveUpdate.Status, prefs: NotifyPrefs): Boolean = prefs.waitingAlerts && status == LiveUpdate.Status.Waiting
