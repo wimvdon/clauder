@@ -113,8 +113,8 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **Mute:** a session's notification has a Mute button (`tasks/MuteReceiver`). A muted session
   stays on the Tasks screen and in the widget, with Unmute on its card, but gets no notification;
   it is forgotten once it ends (`tasks/MuteList`).
-- **Mark resolved:** a session that waits for you has a Mark resolved button
-  (`tasks/ResolveReceiver`). Resolving a thread by hand in the Claude app sends no hook event, so
+- **Mark resolved:** a session that waits for you has a Mark resolved button on its notification
+  (`tasks/ResolveReceiver`) and on its card on the Tasks screen. Resolving a thread by hand in the Claude app sends no hook event, so
   the button tells the Worker (`POST /sessions/resolve`, `resolveByUser` in `worker/src/tasklist.ts`):
   the thread is Done until the person writes in it again, exactly as after `set_thread_resolved`.
 - **Waiting alert:** "Waiting for you" uses its own channel (`waiting`, default importance), so it
