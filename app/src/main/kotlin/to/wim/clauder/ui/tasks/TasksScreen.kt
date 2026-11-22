@@ -22,6 +22,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -109,7 +110,16 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.tasks_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.tasks_title)) },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(painterResource(R.drawable.ic_settings_outlined), contentDescription = stringResource(R.string.settings_title))
+                    }
+                },
+            )
+        },
     ) { padding ->
         val inner = Modifier.padding(padding)
         when {

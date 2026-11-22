@@ -283,6 +283,14 @@ folded by default, with the project or repository as a small label above each ti
 with only inactive sessions no longer gets a header. The widget no longer shows inactive sessions
 at all (Wim: "they don't need to be shown at all").
 
+## 2026-11-22: Settings as a page behind a gear icon
+Wim asked for settings on their own page, opened from an icon at the top right. With only two
+destinations, a bottom navigation bar took space on every screen for a page that is rarely
+opened. The bottom bar is gone: the main screen's top app bar shows a gear icon that opens
+Settings as a child page with a back arrow (the system back gesture also returns), as
+`DESIGN.md` describes for child pages. The main screen's title is now "Claude sessions", the
+same as the widget. The app's name and launcher label stay "Clauder".
+
 ## 2026-11-22: A language model checks unclear turn endings for a question
 A thread asked Wim to pick between three mockups while CI ran on another of its PRs, so Clauder
 kept it Working: hook data can't tell "waiting on CI" from "waiting on CI and on you". Wim asked
@@ -292,4 +300,3 @@ a small model on Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fas
 turn's last reply waits on the user. Wim chose Workers AI over Claude Haiku (needs an API key and
 a new library) and over the old keyword list (missed "Pick one: …"). It runs in Wim's Cloudflare
 account on the free tier and needs no new dependency.
-

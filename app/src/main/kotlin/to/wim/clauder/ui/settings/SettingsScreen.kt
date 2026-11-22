@@ -30,6 +30,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -83,12 +84,20 @@ const val DEFAULT_WORKER = "clauder.wim-d57.workers.dev"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(app: ClauderApp, settings: Settings, resumes: Int, modifier: Modifier = Modifier) {
+fun SettingsScreen(app: ClauderApp, settings: Settings, resumes: Int, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(title = { Text(stringResource(R.string.settings_title)) }, scrollBehavior = scrollBehavior)
+            LargeTopAppBar(
+                title = { Text(stringResource(R.string.settings_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
         },
     ) { padding ->
         Column(

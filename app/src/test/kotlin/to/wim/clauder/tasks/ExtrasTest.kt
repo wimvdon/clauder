@@ -177,4 +177,20 @@ class ExtrasTest {
         )
         assertEquals(listOf("Icons", "Redesign app icons…"), summary.names)
     }
+
+    @Test
+    fun `the summary names each project once, in the bar's order, with how many sessions it has`() {
+        val summary = Summary.from(
+            listOf(
+                session("a").copy(project = "Clauder", repo = "clauder"),
+                session("b", SessionState.Waiting).copy(project = "Snoozer"),
+                session("c").copy(repo = "rss-reader"),
+                session("d", SessionState.Waiting).copy(project = "Clauder"),
+                session("e").copy(title = "Loose thread"),
+            ),
+            muted = emptySet(),
+            nowMillis = now,
+        )
+        assertEquals(listOf("Snoozer", "Clauder ×2", "rss-reader", "Loose thread"), summary.names)
+    }
 }

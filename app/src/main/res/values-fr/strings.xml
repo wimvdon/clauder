@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="nav_tasks">Tâches</string>
-    <string name="nav_settings">Paramètres</string>
-    <string name="tasks_title">Tâches</string>
+    <string name="tasks_title">Sessions Claude</string>
+    <string name="action_back">Retour</string>
     <string name="state_running">En cours</string>
     <string name="state_waiting">Vous attend</string>
     <string name="state_done">Terminé</string>

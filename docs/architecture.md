@@ -76,8 +76,8 @@ Clauder shows the task list of every running Claude Code session on the phone.
   helpers, each in its own colour (`res/values*/colors.xml`), with a dot at how far that session is.
   Its status bar chip reads "3 · 1?" (active sessions · waiting for you). A Live Update can't be
   expanded, so its one collapsed line carries what matters: for a session, what Claude is on or
-  asks plus what it waits on; for the summary, the sessions' short names in the blocks' order, with
-  the steps done as sub text. A notification offers buttons for the attached page
+  asks plus what it waits on; for the summary, the sessions' projects (else repository, else thread title) in the
+  blocks' order, each once with "×2" when it has several sessions, with the steps done as sub text. A notification offers buttons for the attached page
   and the pull request (opened through `OpenLinkActivity`: claude.ai in the Claude app, other https
   links in their own app). Done is always silent.
 - **Quick Settings tile** (`tile/ClauderTileService`): shows the same summary line when Quick
@@ -149,7 +149,9 @@ scripts/                   Release helpers (Python/Java) with their own tests.
 - **UI state**: small screens use `rememberSaveable`. When a screen gets real logic or data,
   add a `ViewModel` (`androidx.lifecycle:lifecycle-viewmodel-compose`) that exposes a
   `StateFlow<UiState>` and calls into the plain-Kotlin logic. Record it in `decisions.md`.
-- **Navigation**: one screen today. With several screens, use Navigation Compose.
+- **Navigation**: the sessions screen, with Settings as a child page behind the gear icon in its
+  top app bar (`ui/ClauderRoot.kt`, a saved flag and `BackHandler`). With more screens, use
+  Navigation Compose.
 - **Persistence**: Jetpack DataStore (version already in the catalog). Wrap it behind a small
   repository interface so logic tests can use a fake. Decide per value whether it is backed up
   (see "Backup" below).

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="nav_tasks">Tareas</string>
-    <string name="nav_settings">Ajustes</string>
-    <string name="tasks_title">Tareas</string>
+    <string name="tasks_title">Sesiones de Claude</string>
+    <string name="action_back">Atrás</string>
     <string name="state_running">Trabajando</string>
     <string name="state_waiting">Te está esperando</string>
     <string name="state_done">Listo</string>
