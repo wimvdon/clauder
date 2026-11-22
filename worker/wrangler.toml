@@ -1,5 +1,5 @@
-# Spike Worker for milestone 1. The bearer token is a secret, never in this file:
-#   npx wrangler secret put HOOK_TOKEN
+# Clauder Worker. Secrets (HOOK_TOKEN, FCM_SERVICE_ACCOUNT) are set by the Worker workflow,
+# never in this file.
 name = "clauder"
 main = "src/index.ts"
 compatibility_date = "2026-11-01"
@@ -15,3 +15,15 @@ class_name = "SpikeLog"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SpikeLog"]
+
+[[durable_objects.bindings]]
+name = "SESSION"
+class_name = "Session"
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Session", "Hub"]

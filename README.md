@@ -213,7 +213,13 @@ The `Worker` workflow deploys `worker/` on every push to `main` once these repos
 exist (Settings → Secrets and variables → Actions): `CLOUDFLARE_API_TOKEN` (a token with the
 "Edit Cloudflare Workers" template), `CLOUDFLARE_ACCOUNT_ID`, and `CLAUDER_HOOK_TOKEN` (a long
 random string; the workflow stores it as the Worker secret `HOOK_TOKEN`, and the cloud environment
-needs the same value in its `CLAUDER_HOOK_TOKEN` variable).
+needs the same value in its `CLAUDER_HOOK_TOKEN` variable). For phone pushes, also add
+`FCM_SERVICE_ACCOUNT`: the JSON key of the Firebase project's service account (Firebase console →
+Project settings → Service accounts → Generate new private key; paste the whole file).
+
+The Worker keeps each session's task list in a Durable Object and pushes every change, at most a
+few times a second, to the phones registered with it. Its routes are listed at the top of
+[`worker/src/index.ts`](worker/src/index.ts).
 
 ---
 
