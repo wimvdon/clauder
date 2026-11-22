@@ -29,6 +29,7 @@ class SettingsStore(context: Context) {
         val theme = stringPreferencesKey("theme")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
         val summaryNotification = booleanPreferencesKey("summary_notification")
+        val waitingAlerts = booleanPreferencesKey("waiting_alerts")
         val workerUrl = stringPreferencesKey("worker_url")
         val token = stringPreferencesKey("token")
         val registeredFcmToken = stringPreferencesKey("registered_fcm_token")
@@ -43,6 +44,7 @@ class SettingsStore(context: Context) {
             themeMode = b[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.System,
             dynamicColor = b[Keys.dynamicColor] ?: false,
             summaryNotification = b[Keys.summaryNotification] ?: false,
+            waitingAlerts = b[Keys.waitingAlerts] ?: true,
             workerUrl = b[Keys.workerUrl].orEmpty(),
             token = d[Keys.token].orEmpty(),
             registeredFcmToken = d[Keys.registeredFcmToken].orEmpty(),
@@ -54,6 +56,7 @@ class SettingsStore(context: Context) {
     suspend fun setTheme(mode: ThemeMode) = backedUp.edit { it[Keys.theme] = mode.name }
     suspend fun setDynamicColor(on: Boolean) = backedUp.edit { it[Keys.dynamicColor] = on }
     suspend fun setSummaryNotification(on: Boolean) = backedUp.edit { it[Keys.summaryNotification] = on }
+    suspend fun setWaitingAlerts(on: Boolean) = backedUp.edit { it[Keys.waitingAlerts] = on }
 
     suspend fun setConnection(workerUrl: String, token: String) {
         backedUp.edit { it[Keys.workerUrl] = workerUrl }

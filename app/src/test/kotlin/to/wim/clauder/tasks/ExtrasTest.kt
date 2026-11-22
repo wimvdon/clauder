@@ -106,10 +106,25 @@ class ExtrasTest {
 
     @Test
     fun `in summary mode only a session that waits for you gets its own notification`() {
-        assertTrue(NotificationPlan.individual(session(), emptySet(), summaryMode = false, nowMillis = now))
-        assertFalse(NotificationPlan.individual(session(), emptySet(), summaryMode = true, nowMillis = now))
-        assertTrue(NotificationPlan.individual(session(state = SessionState.Waiting), emptySet(), summaryMode = true, nowMillis = now))
-        assertFalse(NotificationPlan.individual(session(state = SessionState.Waiting), setOf("k"), summaryMode = true, nowMillis = now))
+        assertTrue(NotificationPlan.individual(session(), emptySet(), NotifyPrefs(summary = false), nowMillis = now))
+        assertFalse(NotificationPlan.individual(session(), emptySet(), NotifyPrefs(summary = true), nowMillis = now))
+        assertTrue(NotificationPlan.individual(session(state = SessionState.Waiting), emptySet(), NotifyPrefs(summary = true), nowMillis = now))
+        assertFalse(NotificationPlan.individual(session(state = SessionState.Waiting), setOf("k"), NotifyPrefs(summary = true), nowMillis = now))
+    }
+
+    @Test
+    fun `with the waiting alerts off, the summary alone shows a session that waits for you`() {
+        val quiet = NotifyPrefs(summary = true, waitingAlerts = false)
+        assertFalse(NotificationPlan.individual(session(state = SessionState.Waiting), emptySet(), quiet, nowMillis = now))
+        // One notification per session stays as it is, only without the alert.
+        assertTrue(NotificationPlan.individual(session(state = SessionState.Waiting), emptySet(), NotifyPrefs(waitingAlerts = false), nowMillis = now))
+    }
+
+    @Test
+    fun `only a session that waits for you alerts, and only while the alerts are on`() {
+        assertTrue(NotificationPlan.alerts(LiveUpdate.Status.Waiting, NotifyPrefs()))
+        assertFalse(NotificationPlan.alerts(LiveUpdate.Status.Waiting, NotifyPrefs(waitingAlerts = false)))
+        assertFalse(NotificationPlan.alerts(LiveUpdate.Status.Tasks, NotifyPrefs()))
     }
 
     @Test

@@ -48,7 +48,11 @@ Clauder shows the task list of every running Claude Code session on the phone.
   (`Summary`, `TaskNotifier.showSummary`) and only the sessions that wait for you get their own,
   alerting, notification (`NotificationPlan`). The summary is then the only Live Update: those
   "Waiting for you" notifications are plain ones, not ongoing or promoted, so they can be swiped
-  away (`LiveUpdate.from(summaryMode = true)`). On Android 16 the summary's progress bar has one
+  away (`LiveUpdate.from(summaryMode = true)`).
+  "Alert when Claude waits" (`Settings.waitingAlerts`, backed up, on by default) can be turned off
+  for people who rely on the Claude app's own notifications: a session that waits for you then
+  goes on the quiet progress channel, still saying "Waiting for you" (or, in summary mode, shows
+  only in the summary) (`NotifyPrefs`, `NotificationPlan.alerts`). On Android 16 the summary's progress bar has one
   block per session (`SummaryBar`): waiting for you, working, or holding on CI, a reminder or
   helpers, each in its own colour (`res/values*/colors.xml`), with a dot at how far that session is.
   Its status bar chip reads "3 · 1?" (active sessions · waiting for you). A Live Update can't be

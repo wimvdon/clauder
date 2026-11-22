@@ -22,6 +22,15 @@ class SettingsTest {
     }
 
     @Test
+    fun `waiting alerts start on and travel with the summary setting`() {
+        assertEquals(to.wim.clauder.tasks.NotifyPrefs(summary = false, waitingAlerts = true), Settings().notify)
+        assertEquals(
+            to.wim.clauder.tasks.NotifyPrefs(summary = true, waitingAlerts = false),
+            Settings(summaryNotification = true, waitingAlerts = false).notify,
+        )
+    }
+
+    @Test
     fun `connected needs both an address and a token`() {
         assertFalse(Settings().isConnected)
         assertFalse(Settings(workerUrl = "https://a.dev").isConnected)

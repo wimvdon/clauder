@@ -239,3 +239,6 @@ The progress bars in the app and the widget now have one segment per step, like 
 notification. In dark mode the old track almost matched the card (1.02:1). The app now uses
 outlineVariant for empty segments (1.67:1 against the card, filled primary 4.49:1 against them),
 the widget a surface-coloured groove (1.76:1 against the card, primary 8.22:1 against it).
+Also added "Alert when Claude waits" (on by default). The Claude app already notifies Wim when a
+project thread needs him, so with it off Clauder keeps showing progress and the waiting state but
+no longer makes its own sound or pop-up.

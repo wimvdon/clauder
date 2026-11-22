@@ -66,19 +66,19 @@ object TaskNotifier {
      * Shows what [list] changed, and keeps the summary up to date in summary mode. [board] is every
      * session the phone knows, [list] included.
      */
-    fun apply(context: Context, list: TaskList, board: List<TaskList>, muted: Set<String>, summaryMode: Boolean) {
+    fun apply(context: Context, list: TaskList, board: List<TaskList>, muted: Set<String>, prefs: NotifyPrefs) {
         val now = System.currentTimeMillis()
-        if (NotificationPlan.individual(list, muted, summaryMode, now)) show(context, list, summaryMode = summaryMode) else cancel(context, list.key)
-        showSummary(context, board, muted, summaryMode, now)
+        if (NotificationPlan.individual(list, muted, prefs, now)) show(context, list, prefs = prefs) else cancel(context, list.key)
+        showSummary(context, board, muted, prefs.summary, now)
     }
 
-    /** Redraws every notification after the summary setting changed, without alerting again. */
-    fun applyAll(context: Context, board: List<TaskList>, muted: Set<String>, summaryMode: Boolean) {
+    /** Redraws every notification after a notification setting changed, without alerting again. */
+    fun applyAll(context: Context, board: List<TaskList>, muted: Set<String>, prefs: NotifyPrefs) {
         val now = System.currentTimeMillis()
         board.forEach {
-            if (NotificationPlan.individual(it, muted, summaryMode, now)) show(context, it, alert = false, summaryMode = summaryMode) else cancel(context, it.key)
+            if (NotificationPlan.individual(it, muted, prefs, now)) show(context, it, alert = false, prefs = prefs) else cancel(context, it.key)
         }
-        showSummary(context, board, muted, summaryMode, now)
+        showSummary(context, board, muted, prefs.summary, now)
     }
 
     /** One ongoing notification for everything that is working or waiting. It never alerts: the
@@ -190,9 +190,9 @@ object TaskNotifier {
         null -> null
     }
 
-    fun show(context: Context, list: TaskList, alert: Boolean = true, summaryMode: Boolean = false) {
+    fun show(context: Context, list: TaskList, alert: Boolean = true, prefs: NotifyPrefs = NotifyPrefs()) {
         val manager = NotificationManagerCompat.from(context)
-        val update = LiveUpdate.from(list, summaryMode = summaryMode)
+        val update = LiveUpdate.from(list, summaryMode = prefs.summary)
         if (update == null) {
             manager.cancel(idFor(list.key))
             refreshBundles(context)
@@ -200,7 +200,7 @@ object TaskNotifier {
         }
         if (!canNotify(context)) return
         try {
-            manager.notify(idFor(list.key), build(context, update, list.key, alert))
+            manager.notify(idFor(list.key), build(context, update, list.key, alert, NotificationPlan.alerts(update.status, prefs)))
             refreshBundles(context)
         } catch (e: SecurityException) {
             // The permission was taken away between the check and the call.
@@ -253,7 +253,7 @@ object TaskNotifier {
         }
     }
 
-    private fun build(context: Context, update: LiveUpdate, key: String, alert: Boolean): android.app.Notification {
+    private fun build(context: Context, update: LiveUpdate, key: String, alert: Boolean, alerting: Boolean): android.app.Notification {
         val id = idFor(key)
         val counts = counts(context, update)
         val text = statusText(context, update, counts)
@@ -270,13 +270,13 @@ object TaskNotifier {
             ClaudeApp.openIntent(context, update.openUrl).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val channel = if (update.status == LiveUpdate.Status.Waiting) CHANNEL_WAITING else CHANNEL_PROGRESS
+        val channel = if (alerting) CHANNEL_WAITING else CHANNEL_PROGRESS
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_stat_clauder)
             .setContentTitle(update.title)
             .setContentText(text)
             .setContentIntent(open)
-            .setOnlyAlertOnce(!alert || update.status != LiveUpdate.Status.Waiting)
+            .setOnlyAlertOnce(!alert || !alerting)
             .setSilent(update.silent)
             .setOngoing(update.ongoing)
             .setAutoCancel(!update.ongoing)

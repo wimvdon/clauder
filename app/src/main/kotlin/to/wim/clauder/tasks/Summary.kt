@@ -66,14 +66,22 @@ data class SummaryBar(val blocks: List<Kind>, val points: List<Int>) {
     }
 }
 
+/** The user's notification settings: [summary] is "One notification for all sessions",
+ * [waitingAlerts] is "Alert when Claude waits" (off when the Claude app's own notifications do it). */
+data class NotifyPrefs(val summary: Boolean = false, val waitingAlerts: Boolean = true)
+
 /** Which notifications to show: one per session, or one summary plus the sessions that need you. */
 object NotificationPlan {
     /** True when [list] gets a notification of its own. In summary mode only a session waiting for
-     * you does, so it can alert; the rest is in the summary. */
-    fun individual(list: TaskList, muted: Set<String>, summaryMode: Boolean, nowMillis: Long): Boolean {
+     * you does, so it can alert, and only while those alerts are on; the rest is in the summary. */
+    fun individual(list: TaskList, muted: Set<String>, prefs: NotifyPrefs, nowMillis: Long): Boolean {
         if (list.key in muted) return false
-        return !summaryMode || list.shown(nowMillis).state == SessionState.Waiting
+        return !prefs.summary || (prefs.waitingAlerts && list.shown(nowMillis).state == SessionState.Waiting)
     }
+
+    /** True when a session's notification goes on the "Waiting for you" channel and makes a sound;
+     * otherwise it is a quiet progress notification that still says "Waiting for you". */
+    fun alerts(status: LiveUpdate.Status, prefs: NotifyPrefs): Boolean = prefs.waitingAlerts && status == LiveUpdate.Status.Waiting
 }
 
 /** Short numbers for tokens and cost, such as "1.2M tokens · ≈ $4.10". */

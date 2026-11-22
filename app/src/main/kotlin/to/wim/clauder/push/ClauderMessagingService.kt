@@ -24,8 +24,7 @@ class ClauderMessagingService : FirebaseMessagingService() {
         runBlocking {
             Push.record(app.store, listOf(list))
             val muted = app.store.muted.first()
-            val summaryMode = app.store.current().summaryNotification
-            TaskNotifier.apply(app, list, app.store.cachedSessions(), muted, summaryMode)
+            TaskNotifier.apply(app, list, app.store.cachedSessions(), muted, app.store.current().notify)
             val after = MuteList.afterPush(muted, list)
             if (after != muted) app.store.setMuted(after)
             Widgets.updateTasks(app)

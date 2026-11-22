@@ -96,6 +96,7 @@
     <string name="action_unmute">Riattiva audio</string>
     <string name="waiting_alert">Avviso quando Claude aspetta</string>
     <string name="waiting_alert_body">Scegli suono, vibrazione e pop-up per «Ti sta aspettando».</string>
+    <string name="waiting_alert_setting_summary">Disattivalo se l’app Claude ti avvisa già. L’avanzamento resta visibile.</string>
     <string name="action_change_alert">Modifica avviso</string>
     <string name="state_idle">Inattivo</string>
     <string name="tasks_section_other">Altre sessioni</string>

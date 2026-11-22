@@ -20,9 +20,8 @@ class MuteReceiver : BroadcastReceiver() {
                 val muted = MuteList.mute(app.store.muted.first(), key)
                 app.store.setMuted(muted)
                 // The summary leaves a muted session out.
-                if (app.store.current().summaryNotification) {
-                    TaskNotifier.applyAll(app, app.store.cachedSessions(), muted, summaryMode = true)
-                }
+                val prefs = app.store.current().notify
+                if (prefs.summary) TaskNotifier.applyAll(app, app.store.cachedSessions(), muted, prefs)
             } finally {
                 pending.finish()
             }

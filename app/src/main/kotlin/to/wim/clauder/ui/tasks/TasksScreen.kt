@@ -136,7 +136,7 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
                         scope.launch {
                             val after = MuteList.unmute(muted, list.key)
                             app.store.setMuted(after)
-                            TaskNotifier.apply(app, list, sessions, after, app.store.current().summaryNotification)
+                            TaskNotifier.apply(app, list, sessions, after, app.store.current().notify)
                         }
                     }
                     load == Load.Failed -> EmptyState(
