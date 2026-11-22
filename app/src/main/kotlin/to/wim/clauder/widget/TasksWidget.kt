@@ -135,8 +135,17 @@ class TasksWidget : GlanceAppWidget() {
                 ),
                 maxLines = 1,
             )
-            list.current?.let {
-                Text(it.subject, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp), maxLines = 1)
+            // While waiting, what Claude asks matters more than the step it's on.
+            val detail = list.need?.takeIf { list.state == SessionState.Waiting }
+            (detail ?: list.current?.subject)?.let {
+                Text(
+                    it,
+                    style = TextStyle(
+                        color = if (detail != null) GlanceTheme.colors.onSurface else GlanceTheme.colors.onSurfaceVariant,
+                        fontSize = 13.sp,
+                    ),
+                    maxLines = if (detail != null) 2 else 1,
+                )
             }
             Spacer(GlanceModifier.height(4.dp))
             LinearProgressIndicator(

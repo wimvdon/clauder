@@ -27,6 +27,8 @@ data class TaskList(
     val project: String? = null,
     val projectId: String? = null,
     val repo: String? = null,
+    /** While waiting: what Claude asks, such as a decision's question or the permission it needs. */
+    val need: String? = null,
 ) {
     /** What sessions are grouped by: the project's name, else the repository's. */
     val group: String? get() = project ?: repo
@@ -58,6 +60,7 @@ data class TaskList(
         .put("project", project ?: "")
         .put("projectId", projectId ?: "")
         .put("repo", repo ?: "")
+        .put("need", need ?: "")
 
     private fun itemsToJson(items: List<TaskItem>) = JSONArray(
         items.map {
@@ -115,6 +118,7 @@ data class TaskList(
                 project = data["project"]?.takeIf { it.isNotBlank() },
                 projectId = data["projectId"]?.takeIf { it.isNotBlank() },
                 repo = data["repo"]?.takeIf { it.isNotBlank() },
+                need = data["need"]?.takeIf { it.isNotBlank() },
             )
         }
 
@@ -140,6 +144,7 @@ data class TaskList(
                 project = json.optString("project").takeIf { it.isNotBlank() },
                 projectId = json.optString("projectId").takeIf { it.isNotBlank() },
                 repo = json.optString("repo").takeIf { it.isNotBlank() },
+                need = json.optString("need").takeIf { it.isNotBlank() },
             )
         }
 

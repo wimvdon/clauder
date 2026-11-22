@@ -258,3 +258,28 @@ test("the push carries the steps separately", () => {
   assert.deepEqual(JSON.parse(data.steps), [{ i: "plan:1", s: "One", t: "completed" }]);
   assert.equal(JSON.parse(data.tasks).length, 1);
 });
+
+test("waiting says what Claude asks, and forgets it once answered", () => {
+  const decision = {
+    hook_event_name: "PostToolUse",
+    tool_name: "mcp__hearthbot__request_decision",
+    tool_input: { question: "Merge the shortcuts PR now?", options: [] },
+    tool_response: {},
+  };
+  const asked = run([created("1", "a"), decision, { hook_event_name: "Stop" }]);
+  assert.equal(asked.state, "waiting");
+  assert.equal(asked.need, "Merge the shortcuts PR now?");
+  assert.equal(toPushData(asked).need, "Merge the shortcuts PR now?");
+  const answered = run([{ hook_event_name: "UserPromptSubmit" }], asked);
+  assert.equal(answered.need, undefined);
+  assert.equal(answered.needKind, undefined);
+  assert.equal(toPushData(answered).need, "");
+
+  const permission = { hook_event_name: "Notification", notification_type: "permission_prompt", message: "Claude needs your permission to use Bash" };
+  const prompted = run([created("1", "a"), permission]);
+  assert.equal(prompted.need, "Claude needs your permission to use Bash");
+  // The prompt is answered within the turn, so the turn's end means idle.
+  const after = run([{ hook_event_name: "Stop" }], prompted);
+  assert.equal(after.state, "idle");
+  assert.equal(after.need, undefined);
+});

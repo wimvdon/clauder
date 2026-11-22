@@ -12,9 +12,12 @@ the user-level settings file, written by the environment's setup script.
 In the Claude app or on claude.ai: open a project's settings → **Cloud environment** → the gear
 next to the environment, then:
 
-1. **Setup script:** paste the whole of [`install-user-hooks.sh`](install-user-hooks.sh) at the end,
-   before a final `exit 0` if there is one. For an environment without a script, paste it as the
-   whole script.
+1. **Setup script:** add this line at the end, before a final `exit 0` if there is one (for an
+   environment without a script, it can be the whole script):
+   `curl -fsS https://clauder.wim-d57.workers.dev/install.sh | bash || echo "WARN: Clauder hooks not installed"`
+   The Worker serves [`install-user-hooks.sh`](install-user-hooks.sh) at `/install.sh`, pointed
+   at itself, so the line stays the same when the hooks change. After changing the script, run
+   `node scripts/sync-install.mjs` in `worker/` (a test checks the two match).
 2. **Environment variables:** add `CLAUDER_HOOK_TOKEN` with the same value as the GitHub secret of
    the same name (the Worker's password).
 3. **Network access:** add `clauder.wim-d57.workers.dev` under allowed domains.

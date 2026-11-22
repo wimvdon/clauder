@@ -126,4 +126,13 @@ class TaskListTest {
         assertEquals("clauder", noProject.group)
         assertNull(TaskList.fromPushData(push())!!.group)
     }
+
+    @Test
+    fun `a waiting session says what Claude asks, in pushes and in the saved copy`() {
+        val list = TaskList.fromPushData(push(state = "waiting") + ("need" to "Merge the PR now?"))!!
+        assertEquals("Merge the PR now?", list.need)
+        assertEquals(list, TaskList.listFromJson(TaskList.listToJson(listOf(list))).single())
+        assertNull(TaskList.fromPushData(push() + ("need" to ""))!!.need)
+    }
 }
+

@@ -95,4 +95,12 @@ class LiveUpdateTest {
         assertNull(LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending).copy(project = "Clauder"))!!.bundle)
         assertNull(LiveUpdate.from(list(SessionState.Waiting, TaskStatus.Pending))!!.bundle)
     }
+
+    @Test
+    fun `waiting shows what Claude asks, other states don't`() {
+        assertEquals("Merge?", LiveUpdate.from(list(SessionState.Waiting, TaskStatus.Pending).copy(need = "Merge?"))!!.need)
+        assertNull(LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending).copy(need = "Merge?"))!!.need)
+        assertNull(LiveUpdate.from(list(SessionState.Waiting, TaskStatus.Pending))!!.need)
+    }
 }
+

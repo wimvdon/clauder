@@ -16,6 +16,10 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **States:** Running (Claude works), Idle (its turn ended and nothing runs in the background),
   Waiting for you (a project thread showed a decision card, or Claude Code asked for a permission),
   Done, Ended. Stop alone means Idle, because it ends every turn (`worker/src/tasklist.ts`).
+  While waiting, the list carries `need`: the decision card's question, or the permission
+  prompt's message. The notification, the Tasks screen and the widget show it. A permission
+  prompt is answered within the turn, so Stop turns it into Idle; an open decision card stays
+  waiting until it is closed or Wim writes.
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
   prompt event (without the prompt's text). The Tasks screen groups sessions under the
@@ -29,17 +33,14 @@ Clauder shows the task list of every running Claude Code session on the phone.
   current and next one, "Waiting for you" when Claude stopped, and "Done" that dismisses itself
   after 3 minutes. Android 16 shows it as a Live Update (`ProgressStyle`, promoted ongoing);
   older versions get a standard progress notification. A tap opens the session on claude.ai.
-- **Shortcuts:** long-pressing the app icon shows New chat, Code, Projects and Artifacts
-  (`res/xml/shortcuts.xml`, URLs checked against `StaticShortcuts` by a test). The Shortcuts tab
-  pins any claude.ai link to the home screen with a name (`shortcuts/PinnedShortcuts` for the
-  edits, `ShortcutPinner` for the launcher). Sharing text with a claude.ai link to Clauder opens
-  the same Add dialog. Only https links on claude.ai are accepted (`ClaudeLink`). Android can't
-  take a pinned shortcut off the home screen, so Remove disables it and says so.
-- **Widgets (Glance):** `widget/TasksWidget` shows the active sessions (or the last finished
-  one) and `widget/ShortcutsWidget` the four app shortcuts plus pinned links. Both read
-  `SettingsStore` flows inside their content, so a widget on screen follows every change;
-  `widget/Widgets` redraws them after a push, a fetch, or a change of theme, connection, mutes or
-  pinned shortcuts (`ClauderApp`). Taps go through `links/OpenLinkActivity`.
+- **No shortcuts:** Clauder had app shortcuts, pinned links and a Shortcuts widget, removed on
+  22 Nov 2026 (see `docs/decisions.md`). On start, `ClauderApp.retireShortcuts` greys out links an
+  earlier version pinned (only the launcher can remove them) and forgets their saved list.
+- **Widget (Glance):** `widget/TasksWidget` shows the active sessions (or the last finished
+  one). It reads `SettingsStore` flows inside its content, so a widget on screen follows every
+  change; `widget/Widgets` redraws it after a push, a fetch, or a change of theme, connection or
+  mutes (`ClauderApp`). Taps on it and on notifications go through `links/OpenLinkActivity`
+  (not exported), which opens only https claude.ai links (`ClaudeApp.safeUrl`).
 - **Mute:** a session's notification has a Mute button (`tasks/MuteReceiver`). A muted session
   stays on the Tasks screen and in the widget, with Unmute on its card, but gets no notification;
   it is forgotten once it ends (`tasks/MuteList`).
@@ -47,19 +48,12 @@ Clauder shows the task list of every running Claude Code session on the phone.
   can alert while progress stays quiet. Settings opens that channel's system settings.
 - **Session cache:** `push/Push.record` merges every push and fetch into the newest 20 sessions
   (`SessionBoard.keep`) and saves them, because a push can start the app from cold.
-- **Link tester (test builds only):** Settings → Test build → Link tester
-  (`ui/linktester/LinkTesterActivity`) tries ways to open the Claude app: `claude://` and https
-  links, the app's own activities by name, or any typed link or `intent:` URI. Each row shows what
-  Android would open and the intent filter that matched; the copy button puts a report on the
-  clipboard. "Save the Claude app" copies its APK to a file the user picks (nothing is sent
-  anywhere), so the links its own widgets use can be looked up. The list and the report are plain
-  Kotlin (`links/LinkProbe.kt`).
 - **Screens:** Tasks (the sessions from the Worker's `GET /sessions`, kept up to date by pushes,
   grouped per project,
-  `tasks/SessionBoard`), Shortcuts and Settings (connection, notifications, the setup block for cloud
+  `tasks/SessionBoard`) and Settings (connection, notifications, the setup block for cloud
   environments, appearance).
 - **Stored data:** theme, Dynamic color and the Worker address in `backed_up_settings`; the
-  Worker token, the registered FCM token, pinned shortcuts, the session cache and muted sessions
+  Worker token, the registered FCM token, the session cache and muted sessions
   in `device_state` (not backed up).
   See `settings/SettingsStore.kt`.
 - **Worker client:** `push/WorkerClient.kt` (plain `HttpURLConnection`, no extra library).
