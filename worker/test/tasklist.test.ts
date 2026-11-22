@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyAsk,
   applyHook,
   clip,
   emptyList,
@@ -348,13 +349,63 @@ const reply = (text: string) => ({
 });
 const MOCKUP_PLAN = "Playful Material 3 mockup\n\n✓ Read the screens\n✓ Design a mockup\n✓ Share the mockup for approval\n✓ Add wordmark options\n○ After approval: build it in the app and open a pull request";
 
-test("a reply's text is never read: the wake sources decide", () => {
+test("the wake sources decide first; the reply is checked only when something will still wake the thread", () => {
   const asked = run([checklist("Plan\n\n✓ One\n○ Two"), reply("Which do you like? I'd go with A."), { hook_event_name: "Stop", cwd: "/home/user" }]);
   assert.equal(asked.state, "waiting");
   assert.equal(asked.need, undefined);
+  assert.equal(asked.askCheck, undefined);
+  assert.equal(asked.reply, undefined);
   const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
   const busy = run([checklist("Plan\n\n✓ One\n○ Two"), reply("Which do you like?"), later, { hook_event_name: "Stop", cwd: "/home/user" }]);
   assert.equal(busy.state, "running");
+  assert.equal(busy.askCheck, "Which do you like?");
+  assert.equal(busy.reply, undefined);
+});
+
+test("a reply is kept without a push, and only the turn's last one counts", () => {
+  const start = run([checklist("Plan\n\n✱ One")]);
+  const first = applyHook(start, reply("Working on it."), NOW);
+  assert.equal(first?.seq, start.seq);
+  assert.equal(first?.reply, "Working on it.");
+  const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
+  const list = run([reply("Pick one: T1, T2 or T3."), later, { hook_event_name: "Stop" }], first!);
+  assert.equal(list.askCheck, "Pick one: T1, T2 or T3.");
+  // A new prompt drops a reply from the turn before.
+  const prompted = run([reply("Old"), { hook_event_name: "UserPromptSubmit" }], start);
+  assert.equal(prompted.reply, undefined);
+  assert.equal(toPushData(list).reply, undefined);
+});
+
+test("older hooks: the reply (or the session's last message) is checked instead of showing waiting", () => {
+  const old = run([checklist(PLAN_DONE_BUT_ONE), { hook_event_name: "Stop", last_assistant_message: "Shall I merge it?" }], undefined, false);
+  assert.equal(old.state, "idle");
+  assert.equal(old.askCheck, "Shall I merge it?");
+  const resolved = run([checklist(PLAN_DONE_BUT_ONE), reply("Done."), tool("mcp__hearthbot__set_thread_resolved", { resolved: true }), { hook_event_name: "Stop" }]);
+  assert.equal(resolved.askCheck, undefined);
+});
+
+test("the model's answer marks the thread waiting, only for the turn it read", () => {
+  const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
+  const list = run([checklist(PLAN_DONE_BUT_ONE), reply("CI runs. Pick one: T1, T2 or T3."), later, { hook_event_name: "Stop" }]);
+  const waiting = applyAsk(list, list.seq, "Pick T1, T2 or T3", NOW);
+  assert.equal(waiting?.state, "waiting");
+  assert.equal(waiting?.need, "Pick T1, T2 or T3");
+  assert.equal(waiting?.needKind, "question");
+  assert.equal(waiting?.seq, list.seq + 1);
+  assert.equal(waiting?.askCheck, undefined);
+  assert.equal(toPushData(waiting!).need, "Pick T1, T2 or T3");
+  // Asks nothing, or the model failed: the state stays, the check is done.
+  for (const answer of ["", null]) {
+    const same = applyAsk(list, list.seq, answer, NOW);
+    assert.equal(same?.state, "running");
+    assert.equal(same?.seq, list.seq);
+    assert.equal(same?.askCheck, undefined);
+  }
+  // A late answer for an earlier turn is dropped.
+  const next = run([{ hook_event_name: "UserPromptSubmit" }], list);
+  assert.equal(applyAsk(next, list.seq, "Pick one", NOW), null);
+  // The next prompt ends the wait like any other.
+  assert.equal(run([{ hook_event_name: "UserPromptSubmit" }], waiting!).state, "running");
 });
 
 test("only a permission prompt or a question form notification means waiting", () => {
