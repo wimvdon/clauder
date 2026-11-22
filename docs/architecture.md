@@ -52,7 +52,10 @@ Clauder shows the task list of every running Claude Code session on the phone.
   alerting, notification (`NotificationPlan`). On Android 16 the summary's progress bar has one
   block per session (`SummaryBar`): waiting for you, working, or holding on CI, a reminder or
   helpers, each in its own colour (`res/values*/colors.xml`), with a dot at how far that session is.
-  Its status bar chip reads "3 · 1?" (active sessions · waiting for you). A notification offers buttons for the attached page
+  Its status bar chip reads "3 · 1?" (active sessions · waiting for you). A Live Update can't be
+  expanded, so its one collapsed line carries what matters: for a session, what Claude is on or
+  asks plus what it waits on; for the summary, the sessions' short names in the blocks' order, with
+  the steps done as sub text. A notification offers buttons for the attached page
   and the pull request (opened through `OpenLinkActivity`: claude.ai in the Claude app, other https
   links in their own app). Done is always silent.
 - **Quick Settings tile** (`tile/ClauderTileService`): shows the same summary line when Quick

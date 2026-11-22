@@ -13,7 +13,19 @@ data class Summary(
     val done: Int get() = active.sumOf { it.doneCount }
     val total: Int get() = active.sumOf { it.items.size }
 
+    /** The active sessions' titles in the bar's order, cut short so several fit on one line. */
+    val names: List<String> get() = active.map { shortTitle(it.title) }
+
+    private fun shortTitle(title: String): String {
+        val words = title.trim().split(Regex("\\s+"))
+        return if (title.length <= MAX_NAME || words.size <= 1) title.take(MAX_NAME + 4)
+        else words.fold("") { acc, w -> if (acc.isEmpty()) w else if (acc.length + 1 + w.length <= MAX_NAME) "$acc $w" else acc } + "…"
+    }
+
     companion object {
+        /** Characters per title in the summary line. */
+        const val MAX_NAME = 18
+
         /** [lists] as shown at [nowMillis], leaving out muted sessions. */
         fun from(lists: List<TaskList>, muted: Set<String>, nowMillis: Long): Summary {
             val shown = lists.filter { it.key !in muted && it.items.isNotEmpty() }.map { it.shown(nowMillis) }
