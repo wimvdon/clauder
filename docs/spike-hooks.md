@@ -48,13 +48,20 @@ set `CLAUDE_CODE_REMOTE_SESSION_ID` (`cse_<id>`), and an HTTP hook can send it i
 `allowedEnvVars`. This worked in the spike: every request carried the header. The session's page is
 `https://claude.ai/code/session_<id>` (same `<id>`); the Worker builds that URL.
 
-## Still to verify on the deployed Worker
+## 2. Hooks in cloud sessions and project threads
 
-- **2. Hooks in cloud sessions and project threads.** The spike's nested `claude -p` runs as an
-  untrusted workspace, so it ignores a repository's `.claude/settings.json` (hooks only loaded
-  through `--settings`). Whether a real cloud session and a project thread load the repo hooks,
-  and whether the coordinator's task list fires them, needs a real session against the live Worker.
-- **3. Network access.** The cloud environment's proxy blocks `*.workers.dev` by default
-  (`403 … no rule or network setting allows this host`). After adding
-  `clauder.wim-d57.workers.dev` to the "Android" environment's allowed hosts, the Worker answers
-  from inside a session.
+A real project thread with `.claude/settings.json` on `main` sent **nothing**: threads start in
+`/home/user`, one folder above the repository, so Claude Code never loads the repository's project
+settings there. Hooks in the user-level `~/.claude/settings.json` do fire from any folder (checked
+with a nested session started in `/home/user`). So the hooks are installed per cloud environment by
+its setup script (`hooks/install-user-hooks.sh`). Re-tested in a fresh project thread on the
+"Android" environment: every task event arrived within a second, each carrying the thread's
+`cse_…` id. The coordinator's own task list did not report: it doesn't run with these hooks, so
+the coordinator's task list is not covered for now.
+
+## 3. Network access
+
+The cloud environment's proxy blocks `*.workers.dev` by default
+(`403 … no rule or network setting allows this host`). After adding
+`clauder.wim-d57.workers.dev` to the environment's allowed hosts, the Worker answers from inside a
+session.
