@@ -43,10 +43,10 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 | `PostToolUse` on `request_decision`, `close_decision` | A project thread asks you to choose: "Waiting for you" |
 | `PostToolUse` on `post_message` | A project thread replies: the first link it attaches. Its text is not read |
 | `PostToolUse` on the GitHub PR tools, `subscribe_pr_activity`, `ReadNotifications` | The pull request Claude works on and its CI: waiting on CI counts as working |
-| `PostToolUse` on `send_later`, `set_thread_resolved` | A reminder Claude set (working until then), and a resolved thread (done) |
+| `PostToolUse` on `send_later`, `watch_url`, `unwatch_url`, `unsubscribe_pr_activity`, `set_thread_resolved` | A reminder Claude set (working until then), and a resolved thread (done) |
 | `TaskCompleted` | A task was marked done |
 | `UserPromptSubmit` (user-level install only) | Claude starts working again. This is a small script (`~/.claude/clauder-prompt.py`) that also reads the project's and the thread's name from the session transcript and sends them along |
-| `Stop` (user-level install: the same script as the prompt hook) | Claude finished its turn: "Idle", or "Running" while background work, CI or a reminder goes on. The script adds the tokens used per model, read from the transcript |
+| `Stop` (user-level install: the same script as the prompt hook) | Claude finished its turn: "Running" while something it set up will wake it (a reminder, a cron, CI on a subscribed PR, a watched URL, helpers), else "Waiting for you". The script adds the tokens used per model, read from the transcript |
 | `Notification` | Only `notification_type` `permission_prompt` or `elicitation_dialog` counts as "Waiting for you" |
 | `SessionEnd` | The session closed (a project thread that stops between wakes only pauses) |
 

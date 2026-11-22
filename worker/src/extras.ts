@@ -10,6 +10,8 @@ export interface PullRequest {
   url: string;
   state: PrState;
   ci?: CiState;
+  /** True while the session is subscribed to the PR's activity, so CI and review events wake it. */
+  subscribed?: boolean;
 }
 
 export interface Link {
@@ -94,6 +96,7 @@ export const PR_TOOLS = [
   `${GITHUB}pull_request_read`,
   `${GITHUB}update_pull_request`,
   "mcp__claude-code-remote__subscribe_pr_activity",
+  "mcp__claude-code-remote__unsubscribe_pr_activity",
   "ReadNotifications",
 ];
 
@@ -110,8 +113,15 @@ export function applyPrTool(current: PullRequest | undefined, tool: string, inpu
     }
     case "mcp__claude-code-remote__subscribe_pr_activity": {
       const pr = prFromParts(input?.owner, input?.repo, input?.pullNumber);
-      if (!pr || same(pr)) return current;
-      return pr;
+      if (!pr) return current;
+      if (same(pr)) return current!.subscribed ? current : { ...current!, subscribed: true };
+      return { ...pr, subscribed: true };
+    }
+    case "mcp__claude-code-remote__unsubscribe_pr_activity": {
+      const pr = prFromParts(input?.owner, input?.repo, input?.pullNumber);
+      if (!same(pr) || !current!.subscribed) return current;
+      const { subscribed: _subscribed, ...rest } = current!;
+      return rest;
     }
     case `${GITHUB}merge_pull_request`: {
       const pr = prFromParts(input?.owner, input?.repo, input?.pullNumber);
@@ -244,4 +254,19 @@ export function usageFrom(entries: unknown): Usage | null {
     cost += (input * inPrice + output * outPrice + read * readPrice + write5m * inPrice * 1.25 + write1h * inPrice * 2) / 1e6;
   }
   return tokens > 0 ? { tokens, cost: Math.round(cost * 100) / 100 } : null;
+}
+
+/** True while a PR's events will wake the session: it is subscribed, the PR is open and its CI
+ * has not finished (a passed or failed run is answered within the turn that receives it). */
+export function prWakes(pr: PullRequest | undefined): boolean {
+  return pr?.subscribed === true && pr.state === "open" && pr.ci !== "passed" && pr.ci !== "failed";
+}
+
+export const WATCH_TOOL = "mcp__claude-code-remote__watch_url";
+export const UNWATCH_TOOL = "mcp__claude-code-remote__unwatch_url";
+
+/** The trigger id watch_url returns, or a stand-in when the result carries none. */
+export function watchIdFrom(response: unknown): string {
+  const id = responseJson(response)?.trigger_id;
+  return typeof id === "string" && id ? id : "watch";
 }

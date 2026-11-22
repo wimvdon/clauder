@@ -5,7 +5,11 @@ import {
   applyPrTool,
   linkFromOutputs,
   PR_TOOLS,
+  prWakes,
   REMINDER_TOOL,
+  UNWATCH_TOOL,
+  WATCH_TOOL,
+  watchIdFrom,
   usageFrom,
   wakeAtFrom,
   type Link,
@@ -23,13 +27,13 @@ export interface Task {
   status: TaskStatus;
 }
 
-/** running: Claude is working, or a step or task is still marked in progress (Claude's turn often
- * ends while it waits on CI or a reminder, and the checklist says the work goes on). idle: nothing is
- * in progress and nothing runs. waiting:
- * Claude can't go on without the user: a decision card, a permission prompt or a question form.
- * Only those come from real hook data; a question written in a plain reply has no hook signal and
- * is not guessed at. done: every task is completed. ended: the
- * session closed. */
+/** A turn that ends can only go on when something wakes the session: something Claude set up
+ * itself, or the user. So after Stop: running while a wake source is armed (a reminder still
+ * ahead, an in-session cron, a PR subscription whose CI still runs, a watched URL, or background
+ * helpers and shells). done: the thread was resolved, or, during a turn, every step is completed.
+ * waiting: nothing Claude set up will wake it, so only the user can (also an open decision card
+ * or a permission prompt). idle: only the phone uses it, for a session silent for hours.
+ * ended: the session closed. */
 export type SessionState = "running" | "idle" | "waiting" | "done" | "ended";
 
 export interface SessionList {
@@ -61,6 +65,8 @@ export interface SessionList {
   link?: Link;
   /** When a reminder Claude set (send_later) brings it back, if that is still ahead. */
   wakeAt?: string;
+  /** Inbound webhooks the session watches (watch_url trigger ids). They end with the session. */
+  watches?: string[];
   /** Background helpers (subagents, shells) still running when the turn ended. */
   helpers?: number;
   /** Tokens used so far and what they would cost on the API (from the Stop hook script). */
@@ -131,12 +137,6 @@ export function repoFromCwd(cwd: string | null): string | null {
 function runningWork(input: Json): number {
   const tasks = input.background_tasks;
   return Array.isArray(tasks) ? tasks.filter((t) => obj(t)?.status === "running").length : 0;
-}
-
-/** True when the list the person follows (the steps, else the tasks) has an item in progress. */
-export function hasWorkInProgress(tasks: Task[], steps: Task[]): boolean {
-  const main = steps.length > 0 ? steps : tasks;
-  return main.some((t) => t.status === "in_progress");
 }
 
 /** Project details the UserPromptSubmit hook script reads from the session's transcript. */
@@ -215,9 +215,10 @@ function upsert(tasks: Task[], id: string, change: Partial<Task>): Task[] {
 }
 
 function stateFor(tasks: Task[], steps: Task[], state: SessionState, resolved: boolean): SessionState {
-  // Waiting wins over done: a thread that finished its steps can still ask what comes next.
-  if (state === "ended" || state === "waiting") return state;
+  if (state === "ended") return state;
   if (resolved) return "done";
+  // Waiting wins over a finished checklist: an unresolved thread still needs the user.
+  if (state === "waiting") return state;
   const main = steps.length > 0 ? steps : tasks;
   if (main.length > 0 && main.every((t) => t.status === "completed")) return "done";
   return state === "done" ? "running" : state;
@@ -239,6 +240,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
   let pr = list.pr;
   let link = list.link;
   let wakeAt = list.wakeAt && list.wakeAt > now ? list.wakeAt : undefined;
+  let watches = list.watches ?? [];
   let helpers = list.helpers;
   let usage = list.usage;
   let resolved = list.resolved ?? false;
@@ -319,6 +321,13 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
         resolved = toolInput?.resolved !== false;
       } else if (tool === REMINDER_TOOL) {
         wakeAt = wakeAtFrom(toolInput, now) ?? wakeAt;
+      } else if (tool === WATCH_TOOL) {
+        watches = [...watches, watchIdFrom(input.tool_response)];
+      } else if (tool === UNWATCH_TOOL) {
+        const id = str(toolInput?.trigger_id);
+        const at = id && watches.includes(id) ? watches.indexOf(id) : watches.length - 1;
+        if (at < 0) return null;
+        watches = watches.filter((_, i) => i !== at);
       } else if (tool && PR_TOOLS.includes(tool)) {
         const next = applyPrTool(pr, tool, toolInput, input.tool_response);
         if (next === pr) return null;
@@ -332,18 +341,13 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
       if (list.tasks.length === 0 && steps.length === 0) return null;
       usage = usageFrom(obj(input.clauder)?.usage) ?? usage;
       helpers = runningWork(input) || undefined;
-      // Stop ends every turn, so on its own it doesn't mean Claude waits for the user or stopped
-      // working. A decision card that is still open keeps the session waiting. Otherwise a step
-      // or task still marked in progress, background work, open CI or a reminder keeps it
-      // running. The reply's text is not read: no hook field says it waits on the user.
+      // Stop ends every turn. An open decision card keeps the session waiting. Otherwise it is
+      // running while something Claude set up will wake it, and waiting on the user when
+      // nothing will.
       if (deciding) break;
-      // Waiting on CI or on a reminder Claude set is still work in progress.
-      const busy =
-        helpers !== undefined ||
-        hasWorkInProgress(tasks, steps) ||
-        (pr?.state === "open" && pr.ci === "running") ||
-        wakeAt !== undefined;
-      state = busy ? "running" : "idle";
+      const crons = Array.isArray(input.session_crons) && input.session_crons.length > 0;
+      const armed = helpers !== undefined || crons || prWakes(pr) || wakeAt !== undefined || watches.length > 0;
+      state = armed ? "running" : "waiting";
       break;
     }
     case "Notification": {
@@ -368,9 +372,11 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     }
     case "SessionEnd":
       // A project thread's session stops between wakes (reason "other") and resumes on the next
-      // message, so it pauses: an open decision card stays waiting, and anything else is idle.
+      // wake. Watches, crons and helpers end with the session; a reminder and a PR subscription
+      // live on the server and still wake it. With neither, only the user can.
+      watches = [];
       if (project && input?.reason === "other") {
-        if (state !== "waiting" && state !== "done") state = "idle";
+        if (state === "running" && wakeAt === undefined && !prWakes(pr)) state = "waiting";
       } else {
         state = "ended";
       }
@@ -395,6 +401,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     need !== list.need ||
     resolved !== (list.resolved ?? false) ||
     wakeAt !== list.wakeAt ||
+    JSON.stringify(watches) !== JSON.stringify(list.watches ?? []) ||
     helpers !== list.helpers ||
     JSON.stringify(pr) !== JSON.stringify(list.pr) ||
     JSON.stringify(link) !== JSON.stringify(list.link) ||
@@ -403,7 +410,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   if (!changed) return null;
   const {
-    need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt,
+    need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches,
     helpers: _helpers, usage: _usage, resolved: _resolved, ...rest
   } = list;
   return {
@@ -422,6 +429,7 @@ export function applyHook(list: SessionList, body: unknown, now: string): Sessio
     ...(pr ? { pr } : {}),
     ...(link ? { link } : {}),
     ...(wakeAt ? { wakeAt } : {}),
+    ...(watches.length ? { watches } : {}),
     ...(helpers ? { helpers } : {}),
     ...(usage ? { usage } : {}),
     ...(resolved ? { resolved } : {}),
