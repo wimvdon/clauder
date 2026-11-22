@@ -50,6 +50,12 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 | `Notification` | Only `notification_type` `permission_prompt` or `elicitation_dialog` counts as "Waiting for you" |
 | `SessionEnd` | The session closed (a project thread that stops between wakes only pauses) |
 
+Claude Code loads these settings once, at session start. The hook command and the HTTP hooks'
+headers carry the installer version (`X-Clauder-Hooks-Loaded`), so the Worker knows which hooks a
+session really runs. A session on older settings can't report every wake source, so after its turn
+it shows Idle instead of Waiting for you. `hooks/settings.json` doesn't carry the version, so
+sessions that use it also show Idle.
+
 `SessionStart` is left out on purpose: Claude Code does not send HTTP hooks for it.
 
 `CLAUDE_CODE_REMOTE_SESSION_ID` is set by Claude Code itself in cloud sessions. The hook sends it in

@@ -65,11 +65,11 @@ export class SpikeLog extends DurableObject<Env> {
 
 /** One instance per Claude session: its task list, and a short debounce before each push. */
 export class Session extends DurableObject<Env> {
-  async apply(key: string, url: string | null, body: unknown): Promise<SessionList | null> {
+  async apply(key: string, url: string | null, body: unknown, hooksCurrent?: boolean): Promise<SessionList | null> {
     const now = new Date().toISOString();
     const stored = (await this.ctx.storage.get<SessionList>("list")) ?? emptyList(key, url, now);
     const base = url && !stored.url ? { ...stored, url } : stored;
-    const next = applyHook(base, body, now);
+    const next = applyHook(base, body, now, hooksCurrent);
     if (!next) {
       if (base !== stored) await this.ctx.storage.put("list", base);
       return null;
@@ -257,8 +257,11 @@ export default {
       const log = env.SPIKE_LOG.get(env.SPIKE_LOG.idFromName("spike"));
       ctx.waitUntil(log.append(entry));
       const key = sessionKey(remoteSessionId, body);
+      // Which hook settings the session loaded at its start; older settings don't say.
+      const loaded = request.headers.get("x-clauder-hooks-loaded");
       if (key) {
-        await env.SESSION.get(env.SESSION.idFromName(key)).apply(key, entry.sessionUrl, body);
+        const current = loaded === null ? undefined : loaded === HOOKS_VERSION;
+        await env.SESSION.get(env.SESSION.idFromName(key)).apply(key, entry.sessionUrl, body, current);
       }
       // An empty JSON object tells Claude Code to carry on as normal. The prompt hook sends its
       // installer version; an old one is told to install the hooks again.

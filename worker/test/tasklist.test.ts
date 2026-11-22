@@ -14,9 +14,10 @@ import {
 const NOW = "2026-11-22T10:00:00.000Z";
 const CWD = "/home/user/clauder";
 
-function run(events: unknown[], start: SessionList = emptyList("cse_abc", null, NOW)): SessionList {
+/** Runs hook events from a session with the current hook settings, unless [hooks] says otherwise. */
+function run(events: unknown[], start: SessionList = emptyList("cse_abc", null, NOW), hooks: boolean | undefined = true): SessionList {
   let list = start;
-  for (const event of events) list = applyHook(list, event, NOW) ?? list;
+  for (const event of events) list = applyHook(list, event, NOW, hooks) ?? list;
   return list;
 }
 
@@ -83,6 +84,23 @@ test("a turn that ends with nothing set up to wake it waits on the user", () => 
   assert.equal(marked.state, "waiting");
   const steps = run([checklist("Fix crash\n\n✓ Find it\n✱ Merge when CI is green"), { hook_event_name: "Stop", cwd: "/home/user" }]);
   assert.equal(steps.state, "waiting");
+});
+
+test("a session on older hook settings can't be told apart, so it shows idle instead of waiting", () => {
+  // Settings load at session start: such a session may follow a PR the Worker never hears of.
+  const old = run([checklist("Ship\n\n✓ Fix\n✱ Merge when the checks pass"), { hook_event_name: "Stop" }], undefined, false);
+  assert.equal(old.state, "idle");
+  assert.equal(old.hooksCurrent, undefined);
+  // Hook events that don't say which settings they come from keep what the session last said.
+  const later = applyHook(old, { hook_event_name: "Stop" }, NOW, undefined) ?? old;
+  assert.equal(later.state, "idle");
+  const prompt = { hook_event_name: "UserPromptSubmit", clauder: { project: "P", thread: "T" } };
+  const paused = run([prompt, { hook_event_name: "SessionEnd", reason: "other" }], old, false);
+  assert.equal(paused.state, "idle");
+  // A session on the current settings that has nothing armed waits on the user.
+  const current = run([{ hook_event_name: "Stop" }], old, true);
+  assert.equal(current.state, "waiting");
+  assert.equal(current.hooksCurrent, true);
 });
 
 test("an in-session cron keeps the session running", () => {

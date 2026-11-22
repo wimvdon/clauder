@@ -29,8 +29,13 @@ Clauder shows the task list of every running Claude Code session on the phone.
   A project thread's session stops between wakes (`SessionEnd` reason "other") and pauses:
   watches, crons and helpers end with the session, while a reminder and a PR subscription live on
   the server, so without those the thread waits on the user. Every wake (a message, a CI event, a
-  reminder) is a new prompt and makes the session Running again. **Idle** is only used by the
-  phone: it shows a Running session that has been silent for 12 hours as Idle (`TaskList.shown`).
+  reminder) is a new prompt and makes the session Running again. **Idle** means nothing known is
+  armed but the Worker can't tell: Claude Code loads hook settings once, at session start, so a
+  session started before the installer last changed may set up a wake the Worker never hears of.
+  The hooks say which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's
+  argument and the HTTP hooks' headers); only a session on the current version can be Waiting for
+  you this way. The phone also shows a Running session that has been silent for 12 hours as Idle
+  (`TaskList.shown`).
   A session that ended with open steps reads "Ended early".
 - **What a session waits on, and what it made** (`worker/src/extras.ts`): the hooks also match
   the GitHub tools (create, read, merge and update a pull request), `subscribe_pr_activity`,

@@ -252,3 +252,12 @@ the widget a surface-coloured groove (1.76:1 against the card, primary 8.22:1 ag
 Also added "Alert when Claude waits" (on by default). The Claude app already notifies Wim when a
 project thread needs him, so with it off Clauder keeps showing progress and the waiting state but
 no longer makes its own sound or pop-up.
+
+## 2026-11-22: Sessions on older hook settings show Idle, not Waiting for you
+Right after the wake-source rule shipped, a thread waiting on CI showed "Waiting for you". Its
+session had loaded the hook settings from before PR #27 at its start, so its PR subscription
+never reached the Worker; the installer had already replaced the script file, which is why the
+script's own version looked current. The hooks now say which settings the session loaded (the
+version is part of the hook command and the HTTP hooks' headers), and a session on older
+settings with nothing known armed shows Idle: the Worker can't tell whether it waits on CI or on
+the user.
