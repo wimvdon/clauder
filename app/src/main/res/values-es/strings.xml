@@ -139,4 +139,8 @@
     <string name="link_tester_failed">No se pudo abrir: %1$s</string>
     <string name="link_tester_activities">Pantallas que otras apps pueden abrir</string>
     <string name="action_back">Atrás</string>
+    <string name="link_tester_save_app">Guardar la app de Claude</string>
+    <string name="link_tester_save_app_summary">Guarda el archivo de la app para poder consultar los enlaces de sus widgets.</string>
+    <string name="link_tester_saved">Guardado</string>
+    <string name="link_tester_save_failed">No se pudo guardar el archivo</string>
 </resources>

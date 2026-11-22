@@ -136,4 +136,8 @@
     <string name="link_tester_failed">Öffnen fehlgeschlagen: %1$s</string>
     <string name="link_tester_activities">Bildschirme, die andere Apps öffnen können</string>
     <string name="action_back">Zurück</string>
+    <string name="link_tester_save_app">Claude-App speichern</string>
+    <string name="link_tester_save_app_summary">Speichert die App-Datei, damit sich die Links ihrer Widgets nachschlagen lassen.</string>
+    <string name="link_tester_saved">Gespeichert</string>
+    <string name="link_tester_save_failed">Datei konnte nicht gespeichert werden</string>
 </resources>
