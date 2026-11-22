@@ -123,4 +123,20 @@
     <string name="action_change_alert">Change alert</string>
     <string name="tasks_section_active">Active</string>
     <string name="tasks_section_finished">Recently finished</string>
+    <string name="link_tester_title">Link tester</string>
+    <string name="link_tester_summary">Try ways to open the Claude app. Only in test builds.</string>
+    <string name="section_test_build">Test build</string>
+    <string name="link_tester_custom">Your own link</string>
+    <string name="link_tester_claude_only">Only the Claude app</string>
+    <string name="action_try">Try</string>
+    <string name="link_tester_copy">Copy results</string>
+    <string name="link_tester_app_version">Claude app %1$s</string>
+    <string name="link_tester_not_installed">The Claude app isn\'t installed</string>
+    <string name="link_tester_opens">Opens %1$s</string>
+    <string name="link_tester_opens_closed">%1$s, closed to other apps</string>
+    <string name="link_tester_no_match">No app opens this</string>
+    <string name="link_tester_started">Opened</string>
+    <string name="link_tester_failed">Couldn\'t open: %1$s</string>
+    <string name="link_tester_activities">Screens other apps can open</string>
+    <string name="action_back">Back</string>
 </resources>

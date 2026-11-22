@@ -44,6 +44,10 @@
 
         <!-- Opens a claude.ai link in the Claude app, or the browser. Exported for the app icon
              shortcuts, which the launcher starts; it opens https claude.ai links only. -->
+        <!-- Test builds only open it (Settings → Test build); nothing outside the app can. -->
+        <activity
+            android:name=".ui.linktester.LinkTesterActivity"
+            android:exported="false" />
         <activity
             android:name=".links.OpenLinkActivity"
             android:excludeFromRecents="true"
