@@ -143,4 +143,6 @@
     <string name="link_tester_save_app_summary">Salva il file dell\'app, per poter ricostruire i link dei suoi widget.</string>
     <string name="link_tester_saved">Salvato</string>
     <string name="link_tester_save_failed">Impossibile salvare il file</string>
+    <string name="state_idle">Inattivo</string>
+    <string name="tasks_section_other">Altre sessioni</string>
 </resources>

@@ -83,6 +83,7 @@ object TaskNotifier {
         val text = when (update.status) {
             LiveUpdate.Status.Done -> context.getString(R.string.state_done)
             LiveUpdate.Status.Waiting -> context.getString(R.string.state_waiting)
+            LiveUpdate.Status.Idle -> context.getString(R.string.state_idle)
             LiveUpdate.Status.Tasks -> update.currentTask?.let { context.getString(R.string.notification_now, it) } ?: counts
         }
         val next = update.nextTask
@@ -112,6 +113,7 @@ object TaskNotifier {
                 else context.getString(R.string.notification_short, update.done, update.total),
             )
             .setRequestPromotedOngoing(update.requestPromotion)
+        update.group?.let { builder.setSortKey(it) }
         update.timeoutMs?.let { builder.setTimeoutAfter(it) }
         if (update.status != LiveUpdate.Status.Done) {
             val mute = PendingIntent.getBroadcast(
@@ -129,9 +131,10 @@ object TaskNotifier {
                 .setProgressSegments(List(update.segmentCount) { NotificationCompat.ProgressStyle.Segment(LiveUpdate.SEGMENT_LENGTH) })
                 .setProgress(update.progress)
             update.pointPosition?.let { style.addProgressPoint(NotificationCompat.ProgressStyle.Point(it)) }
-            builder.setStyle(style).setSubText(counts)
+            builder.setStyle(style).setSubText(update.group?.let { "$it · $counts" } ?: counts)
             if (next != null) builder.setContentText("$text\n$next")
         } else {
+            update.group?.let { builder.setSubText(it) }
             builder.setProgress(update.max, update.progress, false)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
         }

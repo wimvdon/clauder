@@ -21,6 +21,14 @@ object SessionBoard {
 
     const val MAX_KEPT = 20
 
+    /** Sessions per project (or repository), in the order the first of each appears; sessions
+     * without either come last, under a null name. */
+    fun groups(lists: List<TaskList>): List<Pair<String?, List<TaskList>>> {
+        val named = lists.filter { it.group != null }.groupBy { it.group }.toList()
+        val rest = lists.filter { it.group == null }
+        return if (rest.isEmpty()) named else named + (null to rest)
+    }
+
     /** Sessions without steps or tasks (a session that only stopped or ended) are left out. */
     fun sort(lists: List<TaskList>): List<TaskList> =
         lists.filter { it.items.isNotEmpty() && it.key != "demo" }.sortedByDescending { it.updatedAt }

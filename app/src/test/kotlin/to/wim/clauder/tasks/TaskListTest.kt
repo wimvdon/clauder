@@ -107,7 +107,23 @@ class TaskListTest {
             url = null,
             state = SessionState.Ended,
             steps = listOf(TaskItem("plan:1", "Plan", TaskStatus.Completed)),
+            project = "Clauder",
+            projectId = "chan_1",
+            repo = "clauder",
         )
         assertEquals(listOf(list, noUrl), TaskList.listFromJson(TaskList.listToJson(listOf(list, noUrl))))
+    }
+
+    @Test
+    fun `a push names the project and the repository, and idle is its own state`() {
+        val list = TaskList.fromPushData(push(state = "idle") + mapOf("project" to "Clauder", "projectId" to "chan_1", "repo" to "clauder"))!!
+        assertEquals(SessionState.Idle, list.state)
+        assertEquals("Clauder", list.project)
+        assertEquals("chan_1", list.projectId)
+        assertEquals("Clauder", list.group)
+        val noProject = TaskList.fromPushData(push() + mapOf("project" to "", "repo" to "clauder"))!!
+        assertNull(noProject.project)
+        assertEquals("clauder", noProject.group)
+        assertNull(TaskList.fromPushData(push())!!.group)
     }
 }

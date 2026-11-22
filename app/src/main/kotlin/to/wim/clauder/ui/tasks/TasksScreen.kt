@@ -149,13 +149,19 @@ private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: 
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (active.isNotEmpty()) {
-            item(key = "active") { SectionHeader(stringResource(R.string.tasks_section_active)) }
-            items(active, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute) }
+        // Active sessions under their project's (or repository's) name.
+        val groups = SessionBoard.groups(active)
+        groups.forEach { (group, lists) ->
+            item(key = "group:${group.orEmpty()}") {
+                SectionHeader(
+                    group ?: stringResource(if (groups.size == 1) R.string.tasks_section_active else R.string.tasks_section_other),
+                )
+            }
+            items(lists, key = { it.key }) { SessionCard(it, it.key in muted, onUnmute, showGroup = false) }
         }
         if (finished.isNotEmpty()) {
             item(key = "finished") { SectionHeader(stringResource(R.string.tasks_section_finished)) }
-            items(finished, key = { it.key }) { SessionCard(it, muted = false, onUnmute) }
+            items(finished, key = { it.key }) { SessionCard(it, muted = false, onUnmute, showGroup = true) }
         }
     }
 }
@@ -174,7 +180,7 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit) {
+private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit, showGroup: Boolean) {
     val context = LocalContext.current
     val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
     val openLabel = stringResource(R.string.session_open)
@@ -187,6 +193,9 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            list.group?.takeIf { showGroup }?.let {
+                Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     list.title,
@@ -246,6 +255,7 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
 private fun stateLabel(state: SessionState): String = stringResource(
     when (state) {
         SessionState.Running -> R.string.state_running
+        SessionState.Idle -> R.string.state_idle
         SessionState.Waiting -> R.string.state_waiting
         SessionState.Done -> R.string.state_done
         SessionState.Ended -> R.string.state_ended

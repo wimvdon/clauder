@@ -140,4 +140,6 @@
     <string name="link_tester_save_app_summary">Bewaart het bestand van de app, zodat de links van de widgets op te zoeken zijn.</string>
     <string name="link_tester_saved">Bewaard</string>
     <string name="link_tester_save_failed">Kon het bestand niet bewaren</string>
+    <string name="state_idle">Inactief</string>
+    <string name="tasks_section_other">Andere sessies</string>
 </resources>

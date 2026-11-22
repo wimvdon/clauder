@@ -72,4 +72,19 @@ class LiveUpdateTest {
         assertEquals(1, update.done)
         assertEquals("Two", update.currentTask)
     }
+
+    @Test
+    fun `an idle session stays in the shade without being pinned or promoted`() {
+        val update = LiveUpdate.from(list(SessionState.Idle, TaskStatus.Completed, TaskStatus.Pending))!!
+        assertEquals(LiveUpdate.Status.Idle, update.status)
+        assertFalse(update.ongoing)
+        assertFalse(update.requestPromotion)
+        assertNull(update.timeoutMs)
+    }
+
+    @Test
+    fun `the notification names the session's project`() {
+        assertEquals("Clauder", LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending).copy(project = "Clauder"))!!.group)
+        assertNull(LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending))!!.group)
+    }
 }

@@ -143,4 +143,6 @@
     <string name="link_tester_save_app_summary">Guarda el archivo de la app para poder consultar los enlaces de sus widgets.</string>
     <string name="link_tester_saved">Guardado</string>
     <string name="link_tester_save_failed">No se pudo guardar el archivo</string>
+    <string name="state_idle">Inactivo</string>
+    <string name="tasks_section_other">Otras sesiones</string>
 </resources>

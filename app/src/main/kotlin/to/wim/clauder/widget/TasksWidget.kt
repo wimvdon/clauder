@@ -78,7 +78,7 @@ class TasksWidget : GlanceAppWidget() {
                 modifier = GlanceModifier.clickable(actionStartActivity<MainActivity>()),
             )
             Spacer(GlanceModifier.height(8.dp))
-            val sessions = active.ifEmpty { finished.take(1) }
+            val sessions = SessionBoard.groups(active).flatMap { it.second }.ifEmpty { finished.take(1) }
             when {
                 !connected -> Message(context.getString(R.string.widget_connect))
                 sessions.isEmpty() -> Message(context.getString(R.string.widget_no_sessions))
@@ -104,6 +104,7 @@ class TasksWidget : GlanceAppWidget() {
         val state = context.getString(
             when (list.state) {
                 SessionState.Running -> R.string.state_running
+                SessionState.Idle -> R.string.state_idle
                 SessionState.Waiting -> R.string.state_waiting
                 SessionState.Done -> R.string.state_done
                 SessionState.Ended -> R.string.state_ended
@@ -122,6 +123,9 @@ class TasksWidget : GlanceAppWidget() {
                 .padding(vertical = 6.dp)
                 .clickable(startIntent(ClaudeApp.openIntent(context, url))),
         ) {
+            list.group?.let {
+                Text(it, style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp), maxLines = 1)
+            }
             Text(list.title, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 15.sp), maxLines = 1)
             Text(
                 line,

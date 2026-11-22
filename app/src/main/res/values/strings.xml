@@ -143,4 +143,6 @@
     <string name="link_tester_save_app_summary">Saves the app\'s file, so the links its widgets use can be looked up.</string>
     <string name="link_tester_saved">Saved</string>
     <string name="link_tester_save_failed">Couldn\'t save the file</string>
+    <string name="state_idle">Idle</string>
+    <string name="tasks_section_other">Other sessions</string>
 </resources>

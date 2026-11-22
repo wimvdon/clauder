@@ -124,3 +124,12 @@ Without a `LICENSE` file the legal default is already all rights reserved, but t
 - Home screen widgets use Jetpack Glance (`glance-appwidget`, `glance-material3` 1.2.0), the
   AndroidX library for Compose-style widgets, asked for by Wim. The widgets take Clauder's own
   colours, or the wallpaper's when Dynamic color is on.
+
+## 2026-11-22: "Waiting for you" only when Claude asks, project names from the transcript
+- Stop ends every turn, so it now means Idle, not Waiting. Waiting comes from a decision card
+  (`request_decision`, until the next prompt or `close_decision`) or a permission prompt.
+- Hooks don't carry the project, so a small command hook on UserPromptSubmit reads the project
+  and thread names from the session's transcript (the session-context block) and adds them to the
+  event. Rejected: asking claude.ai for them (the Worker has no sign-in there, and the app must
+  never talk to Claude directly).
+

@@ -49,4 +49,17 @@ class SessionBoardTest {
         assertEquals("s25", kept.first().key)
         assertEquals("s6", kept.last().key)
     }
+
+    @Test
+    fun `groups keep the order sessions come in, with ungrouped ones last`() {
+        val a = list("a", 1, "3").copy(project = "Clauder")
+        val b = list("b", 1, "2").copy(repo = "noter")
+        val c = list("c", 1, "1")
+        val d = list("d", 1, "0").copy(project = "Clauder", repo = "clauder")
+        assertEquals(
+            listOf("Clauder" to listOf(a, d), "noter" to listOf(b), null to listOf(c)),
+            SessionBoard.groups(listOf(a, b, c, d)),
+        )
+        assertEquals(listOf("Clauder" to listOf(a)), SessionBoard.groups(listOf(a)))
+    }
 }

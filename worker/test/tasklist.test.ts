@@ -73,11 +73,54 @@ test("a new task after done goes back to running", () => {
   assert.equal(list.state, "running");
 });
 
-test("Stop with open tasks means waiting, a new prompt resumes", () => {
-  const waiting = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD }]);
+test("Stop with open tasks means idle, a new prompt resumes", () => {
+  const idle = run([created("1", "a"), { hook_event_name: "Stop", cwd: CWD }]);
+  assert.equal(idle.state, "idle");
+  assert.equal(run([{ hook_event_name: "UserPromptSubmit" }], idle).state, "running");
+  assert.equal(run([update("1", "pending", "in_progress")], idle).state, "running");
+});
+
+test("Stop while background work runs keeps the session running", () => {
+  const list = run([
+    created("1", "a"),
+    { hook_event_name: "Stop", background_tasks: [{ id: "x", type: "subagent", status: "running" }] },
+  ]);
+  assert.equal(list.state, "running");
+});
+
+test("only a decision card or a permission prompt means waiting", () => {
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: {}, tool_response: {} };
+  const waiting = run([created("1", "a"), decision, { hook_event_name: "Stop" }]);
   assert.equal(waiting.state, "waiting");
   assert.equal(run([{ hook_event_name: "UserPromptSubmit" }], waiting).state, "running");
-  assert.equal(run([update("1", "pending", "in_progress")], waiting).state, "running");
+  const closed = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__close_decision", tool_input: {}, tool_response: {} };
+  assert.equal(run([closed], waiting).state, "running");
+
+  const base = run([created("1", "a")]);
+  assert.equal(run([{ hook_event_name: "Notification", notification_type: "permission_prompt", message: "Claude needs your permission" }], base).state, "waiting");
+  assert.equal(applyHook(base, { hook_event_name: "Notification", notification_type: "idle_prompt", message: "Claude is waiting for your input" }, NOW), null);
+});
+
+test("the prompt hook names the project, the thread and the repo", () => {
+  const prompt = {
+    hook_event_name: "UserPromptSubmit",
+    cwd: "/home/user/clauder",
+    clauder: { project: "Clauder", projectId: "chan_01Abc", thread: "Build Claude companion Android app" },
+  };
+  const list = run([prompt]);
+  assert.equal(list.project, "Clauder");
+  assert.equal(list.projectId, "chan_01Abc");
+  assert.equal(list.repo, "clauder");
+  assert.equal(list.title, "Build Claude companion Android app");
+  const later = run([created("1", "a")], list);
+  assert.equal(later.title, "Build Claude companion Android app");
+  const planned = run([{ hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__update_progress_checklist", tool_input: { text: "Plan\n\n○ one" }, tool_response: {} }], later);
+  assert.equal(planned.title, "Plan");
+  const data = toPushData(planned);
+  assert.equal(data.project, "Clauder");
+  assert.equal(data.projectId, "chan_01Abc");
+  assert.equal(data.repo, "clauder");
+  assert.equal(run([{ ...prompt, clauder: { projectId: "not-a-channel" } }]).projectId, undefined);
 });
 
 test("Stop without a task list is ignored", () => {

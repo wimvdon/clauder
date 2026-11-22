@@ -5,9 +5,10 @@ import org.json.JSONObject
 
 enum class TaskStatus { Pending, InProgress, Completed }
 
-/** Running: Claude is working. Waiting: Claude stopped and waits for you. Done: every task is
- * completed. Ended: the session closed. */
-enum class SessionState { Running, Waiting, Done, Ended }
+/** Running: Claude is working. Idle: Claude finished its turn and nothing runs. Waiting: Claude
+ * asked you something (a decision or a permission). Done: every task is completed. Ended: the
+ * session closed. */
+enum class SessionState { Running, Idle, Waiting, Done, Ended }
 
 data class TaskItem(val id: String, val subject: String, val status: TaskStatus)
 
@@ -22,7 +23,14 @@ data class TaskList(
     val updatedAt: String,
     val tasks: List<TaskItem>,
     val steps: List<TaskItem> = emptyList(),
+    /** The claude.ai project of a project thread, and the repository folder Claude works in. */
+    val project: String? = null,
+    val projectId: String? = null,
+    val repo: String? = null,
 ) {
+    /** What sessions are grouped by: the project's name, else the repository's. */
+    val group: String? get() = project ?: repo
+
     val hasSteps: Boolean get() = steps.isNotEmpty()
 
     /** What progress is counted on: the steps when there are any, else the tasks. */
@@ -47,6 +55,9 @@ data class TaskList(
         .put("updatedAt", updatedAt)
         .put("tasks", itemsToJson(tasks))
         .put("steps", itemsToJson(steps))
+        .put("project", project ?: "")
+        .put("projectId", projectId ?: "")
+        .put("repo", repo ?: "")
 
     private fun itemsToJson(items: List<TaskItem>) = JSONArray(
         items.map {
@@ -69,6 +80,7 @@ data class TaskList(
         }
 
         private fun state(value: String?): SessionState = when (value) {
+            "idle" -> SessionState.Idle
             "waiting" -> SessionState.Waiting
             "done" -> SessionState.Done
             "ended" -> SessionState.Ended
@@ -100,6 +112,9 @@ data class TaskList(
                 updatedAt = data["updatedAt"].orEmpty(),
                 tasks = tasks,
                 steps = steps,
+                project = data["project"]?.takeIf { it.isNotBlank() },
+                projectId = data["projectId"]?.takeIf { it.isNotBlank() },
+                repo = data["repo"]?.takeIf { it.isNotBlank() },
             )
         }
 
@@ -122,6 +137,9 @@ data class TaskList(
                 updatedAt = json.optString("updatedAt"),
                 tasks = items("tasks"),
                 steps = items("steps"),
+                project = json.optString("project").takeIf { it.isNotBlank() },
+                projectId = json.optString("projectId").takeIf { it.isNotBlank() },
+                repo = json.optString("repo").takeIf { it.isNotBlank() },
             )
         }
 

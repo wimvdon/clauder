@@ -10,7 +10,7 @@ Worker that you (the owner) run, and to Firebase Cloud Messaging to receive upda
 - **To your Worker:** the token you enter, this phone's Firebase Cloud Messaging token and its
   model name (so the Worker knows where to push), and requests for the current task lists.
 - **From your Worker, through Firebase Cloud Messaging:** each session's title (the heading of a project thread's
-  checklist, or else the folder name), its steps and task subjects with their states, and a link to the session on claude.ai. Google's FCM service carries
+  checklist, the thread's title, or else the folder name), its project and repository names, its steps and task subjects with their states, and a link to the session on claude.ai. Google's FCM service carries
   these messages to the phone.
 - The app has no analytics, advertising or crash reporting.
 
@@ -18,7 +18,9 @@ Worker that you (the owner) run, and to Firebase Cloud Messaging to receive upda
 
 The Worker receives the raw Claude Code hook events of your sessions: task text, the progress
 checklist of project threads, the working
-folder, the transcript path and, when Claude stops, its last message. It keeps each session's task
+folder, the transcript path and, when Claude stops, its last message. When you send a prompt, a
+small script on the session's machine adds the names and ids of the claude.ai project and thread,
+read from the session's own transcript; the prompt's text is left out. It keeps each session's task
 list for a day after its last change, and the last 500 raw events for debugging. It runs in your
 own Cloudflare account; nobody else has access.
 

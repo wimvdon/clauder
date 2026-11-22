@@ -143,4 +143,6 @@
     <string name="link_tester_save_app_summary">Enregistre le fichier de l\'app, pour retrouver les liens de ses widgets.</string>
     <string name="link_tester_saved">Enregistré</string>
     <string name="link_tester_save_failed">Impossible d\'enregistrer le fichier</string>
+    <string name="state_idle">Inactif</string>
+    <string name="tasks_section_other">Autres sessions</string>
 </resources>
