@@ -12,7 +12,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
-import { installScript } from "./install";
+import { HOOKS_VERSION, installScript } from "./install";
 import { applyHook, emptyList, sessionKey, toPushData, type SessionList } from "./tasklist";
 
 export interface Env {
@@ -260,8 +260,12 @@ export default {
       if (key) {
         await env.SESSION.get(env.SESSION.idFromName(key)).apply(key, entry.sessionUrl, body);
       }
-      // An empty JSON object tells Claude Code to carry on as normal.
-      return json({});
+      // An empty JSON object tells Claude Code to carry on as normal. The prompt hook sends its
+      // installer version; an old one is told to install the hooks again.
+      const hooks = request.headers.get("x-clauder-hooks");
+      const response = json({});
+      if (hooks !== null && hooks !== HOOKS_VERSION) response.headers.set("x-clauder-update", "1");
+      return response;
     }
 
     if (route === "POST /devices") {

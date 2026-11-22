@@ -7,7 +7,7 @@ import android.os.Bundle
 class OpenLinkActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ClaudeApp.safeUrl(intent?.dataString)?.let { ClaudeApp.open(this, it) }
+        ClaudeApp.openAny(this, intent?.dataString)
         finish()
     }
 }

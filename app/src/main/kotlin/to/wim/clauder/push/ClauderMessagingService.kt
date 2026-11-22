@@ -9,6 +9,7 @@ import to.wim.clauder.ClauderApp
 import to.wim.clauder.tasks.MuteList
 import to.wim.clauder.tasks.TaskList
 import to.wim.clauder.tasks.TaskNotifier
+import to.wim.clauder.tile.ClauderTileService
 import to.wim.clauder.widget.Widgets
 
 /** Receives the Worker's task-list pushes and turns each into a Live Update. */
@@ -23,10 +24,12 @@ class ClauderMessagingService : FirebaseMessagingService() {
         runBlocking {
             Push.record(app.store, listOf(list))
             val muted = app.store.muted.first()
-            if (list.key in muted) TaskNotifier.cancel(app, list.key) else TaskNotifier.show(app, list)
+            val summaryMode = app.store.current().summaryNotification
+            TaskNotifier.apply(app, list, app.store.cachedSessions(), muted, summaryMode)
             val after = MuteList.afterPush(muted, list)
             if (after != muted) app.store.setMuted(after)
             Widgets.updateTasks(app)
+            ClauderTileService.refresh(app)
         }
     }
 

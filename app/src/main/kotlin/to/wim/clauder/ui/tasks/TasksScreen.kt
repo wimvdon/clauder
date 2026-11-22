@@ -22,6 +22,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,14 +60,18 @@ import to.wim.clauder.links.ClaudeApp
 import to.wim.clauder.push.Push
 import to.wim.clauder.push.WorkerClient
 import to.wim.clauder.settings.Settings
+import to.wim.clauder.tasks.CiState
 import to.wim.clauder.tasks.LiveUpdate
 import to.wim.clauder.tasks.MuteList
+import to.wim.clauder.tasks.PrState
+import to.wim.clauder.tasks.PullRequest
 import to.wim.clauder.tasks.SessionBoard
 import to.wim.clauder.tasks.SessionState
 import to.wim.clauder.tasks.TaskItem
 import to.wim.clauder.tasks.TaskList
 import to.wim.clauder.tasks.TaskNotifier
 import to.wim.clauder.tasks.TaskStatus
+import to.wim.clauder.tasks.Usage
 import to.wim.clauder.ui.theme.EmptyState
 import to.wim.clauder.ui.theme.readableWidth
 import to.wim.clauder.widget.Widgets
@@ -124,8 +129,9 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
                 when {
                     sessions.isNotEmpty() -> SessionList(sessions, muted) { list ->
                         scope.launch {
-                            app.store.setMuted(MuteList.unmute(muted, list.key))
-                            TaskNotifier.show(app, list)
+                            val after = MuteList.unmute(muted, list.key)
+                            app.store.setMuted(after)
+                            TaskNotifier.apply(app, list, sessions, after, app.store.current().summaryNotification)
                         }
                     }
                     load == Load.Failed -> EmptyState(
@@ -232,6 +238,7 @@ private fun InactiveRow(list: TaskList, muted: Boolean) {
     val line = listOfNotNull(
         stringResource(stateLabelRes(list)),
         countsLabel(list),
+        usageLabel(list),
         stringResource(R.string.session_muted).takeIf { muted },
     ).joinToString(" · ")
     ListItem(
@@ -254,6 +261,59 @@ private fun InactiveRow(list: TaskList, muted: Boolean) {
             },
     )
 }
+
+/** The pull request and its CI, a reminder, helpers and the cost, with buttons for the pull
+ * request and the page Claude attached. Shows nothing when there is none of these. */
+@Composable
+private fun SessionExtras(list: TaskList) {
+    val context = LocalContext.current
+    val now = System.currentTimeMillis()
+    val update = LiveUpdate.from(list, now)
+    val line = listOfNotNull(
+        list.pr?.let { prLabel(it) },
+        update?.holding?.takeIf { it != LiveUpdate.Holding.Ci }?.let { TaskNotifier.holdingText(context, update) },
+        usageLabel(list),
+    )
+    if (line.isNotEmpty()) {
+        Text(
+            line.joinToString(" · "),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (list.pr?.ci == CiState.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (list.link != null || list.pr != null) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            list.link?.let { url ->
+                OutlinedButton(onClick = { ClaudeApp.openAny(context, url) }) {
+                    Text(
+                        list.linkTitle?.let { stringResource(R.string.action_open_named, it) } ?: stringResource(R.string.action_open_link),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            list.pr?.let { pr ->
+                OutlinedButton(onClick = { ClaudeApp.openAny(context, pr.url) }) {
+                    Text(stringResource(R.string.action_open_pr, pr.number), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun prLabel(pr: PullRequest): String = when {
+    pr.state == PrState.Merged -> stringResource(R.string.pr_merged, pr.number)
+    pr.state == PrState.Closed -> stringResource(R.string.pr_closed, pr.number)
+    pr.ci == CiState.Running -> stringResource(R.string.pr_ci_running, pr.number)
+    pr.ci == CiState.Passed -> stringResource(R.string.pr_ci_passed, pr.number)
+    pr.ci == CiState.Failed -> stringResource(R.string.pr_ci_failed, pr.number)
+    else -> stringResource(R.string.pr_open, pr.number)
+}
+
+@Composable
+private fun usageLabel(list: TaskList): String? =
+    if (list.tokens > 0) stringResource(R.string.usage_line, Usage.tokens(list.tokens), Usage.dollars(list.cost)) else null
 
 @Composable
 private fun countsLabel(list: TaskList): String = pluralStringResource(
@@ -300,6 +360,7 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
             list.need?.takeIf { list.state == SessionState.Waiting }?.let {
                 Text(it, style = MaterialTheme.typography.bodyLarge)
             }
+            SessionExtras(list)
             LinearProgressIndicator(
                 progress = { if (list.items.isEmpty()) 0f else list.doneCount.toFloat() / list.items.size },
                 modifier = Modifier.fillMaxWidth(),

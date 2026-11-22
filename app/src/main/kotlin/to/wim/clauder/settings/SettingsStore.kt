@@ -14,7 +14,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import to.wim.clauder.tasks.TaskList
 
-/** Backed up by Android (see res/xml/data_extraction_rules.xml): theme and Worker address. */
+/** Backed up by Android (see res/xml/data_extraction_rules.xml): theme, notification style and
+ * Worker address. */
 private val Context.backedUp: DataStore<Preferences> by preferencesDataStore(name = "backed_up_settings")
 
 /** Never backed up: the Worker token, FCM registration and the cached sessions. */
@@ -27,6 +28,7 @@ class SettingsStore(context: Context) {
     private object Keys {
         val theme = stringPreferencesKey("theme")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
+        val summaryNotification = booleanPreferencesKey("summary_notification")
         val workerUrl = stringPreferencesKey("worker_url")
         val token = stringPreferencesKey("token")
         val registeredFcmToken = stringPreferencesKey("registered_fcm_token")
@@ -40,6 +42,7 @@ class SettingsStore(context: Context) {
         Settings(
             themeMode = b[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.System,
             dynamicColor = b[Keys.dynamicColor] ?: false,
+            summaryNotification = b[Keys.summaryNotification] ?: false,
             workerUrl = b[Keys.workerUrl].orEmpty(),
             token = d[Keys.token].orEmpty(),
             registeredFcmToken = d[Keys.registeredFcmToken].orEmpty(),
@@ -50,6 +53,7 @@ class SettingsStore(context: Context) {
 
     suspend fun setTheme(mode: ThemeMode) = backedUp.edit { it[Keys.theme] = mode.name }
     suspend fun setDynamicColor(on: Boolean) = backedUp.edit { it[Keys.dynamicColor] = on }
+    suspend fun setSummaryNotification(on: Boolean) = backedUp.edit { it[Keys.summaryNotification] = on }
 
     suspend fun setConnection(workerUrl: String, token: String) {
         backedUp.edit { it[Keys.workerUrl] = workerUrl }

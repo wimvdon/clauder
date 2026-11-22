@@ -12,6 +12,13 @@ enum class SessionState { Running, Idle, Waiting, Done, Ended }
 
 data class TaskItem(val id: String, val subject: String, val status: TaskStatus)
 
+enum class PrState { Open, Merged, Closed }
+
+enum class CiState { Running, Passed, Failed }
+
+/** The pull request a session works on, and how its CI is doing (null: not known yet). */
+data class PullRequest(val number: Int, val url: String, val state: PrState, val ci: CiState?)
+
 /** One Claude session, as the Worker sends it. A project thread has steps (its progress
  * checklist, the plan the user follows); Claude Code also keeps tasks (its own work list). */
 data class TaskList(
@@ -29,6 +36,17 @@ data class TaskList(
     val repo: String? = null,
     /** While waiting: what Claude asks, such as a decision's question or the permission it needs. */
     val need: String? = null,
+    val pr: PullRequest? = null,
+    /** A page Claude's last reply attached that the phone can open, such as a mockup. */
+    val link: String? = null,
+    val linkTitle: String? = null,
+    /** When a reminder Claude set brings it back (ISO time), if that is still ahead. */
+    val wakeAt: String? = null,
+    /** Background helpers (subagents, shells) still running when Claude's turn ended. */
+    val helpers: Int = 0,
+    /** Tokens used so far, and what they would cost on the Claude API in US dollars. */
+    val tokens: Long = 0,
+    val cost: Double = 0.0,
 ) {
     /** What sessions are grouped by: the project's name, else the repository's. */
     val group: String? get() = project ?: repo
@@ -66,11 +84,10 @@ data class TaskList(
         return if (next == state) this else copy(state = next)
     }
 
-    private fun updatedMillis(): Long? = try {
-        java.time.Instant.parse(updatedAt).toEpochMilli()
-    } catch (e: java.time.format.DateTimeParseException) {
-        null
-    }
+    private fun updatedMillis(): Long? = parseMillis(updatedAt)
+
+    /** When the reminder fires, if it is still ahead at [nowMillis]. */
+    fun wakeAtMillis(nowMillis: Long): Long? = wakeAt?.let(::parseMillis)?.takeIf { it > nowMillis }
 
     /** The Worker's GET /sessions format, so [fromJson] reads it back (used for the cache). */
     fun toJson(): JSONObject = JSONObject()
@@ -86,6 +103,19 @@ data class TaskList(
         .put("projectId", projectId ?: "")
         .put("repo", repo ?: "")
         .put("need", need ?: "")
+        .apply {
+            pr?.let {
+                put(
+                    "pr",
+                    JSONObject().put("number", it.number).put("url", it.url).put("state", it.state.name.lowercase())
+                        .put("ci", it.ci?.name?.lowercase() ?: ""),
+                )
+            }
+            link?.let { put("link", JSONObject().put("url", it).put("title", linkTitle ?: "")) }
+            wakeAt?.let { put("wakeAt", it) }
+            if (helpers > 0) put("helpers", helpers)
+            if (tokens > 0) put("usage", JSONObject().put("tokens", tokens).put("cost", cost))
+        }
 
     private fun itemsToJson(items: List<TaskItem>) = JSONArray(
         items.map {
@@ -104,6 +134,33 @@ data class TaskList(
         /** How long a session may stay silent before it counts as idle: long enough for a slow CI
          * run or a reminder later in the day. */
         const val STALE_MS = 12 * 60 * 60 * 1000L
+
+        private fun parseMillis(text: String): Long? = try {
+            java.time.Instant.parse(text).toEpochMilli()
+        } catch (e: java.time.format.DateTimeParseException) {
+            null
+        }
+
+        private fun prState(value: String?): PrState = when (value) {
+            "merged" -> PrState.Merged
+            "closed" -> PrState.Closed
+            else -> PrState.Open
+        }
+
+        private fun ciState(value: String?): CiState? = when (value) {
+            "running" -> CiState.Running
+            "passed" -> CiState.Passed
+            "failed" -> CiState.Failed
+            else -> null
+        }
+
+        /** Only https pull request links on GitHub. */
+        private fun pullRequest(number: Int, url: String, state: String?, ci: String?): PullRequest? {
+            if (number <= 0 || !url.startsWith("https://github.com/")) return null
+            return PullRequest(number, url, prState(state), ciState(ci))
+        }
+
+        private fun httpsOrNull(url: String?): String? = url?.trim()?.takeIf { it.startsWith("https://") && ' ' !in it }
 
         private fun status(value: String?): TaskStatus = when (value) {
             "in_progress" -> TaskStatus.InProgress
@@ -148,6 +205,20 @@ data class TaskList(
                 projectId = data["projectId"]?.takeIf { it.isNotBlank() },
                 repo = data["repo"]?.takeIf { it.isNotBlank() },
                 need = data["need"]?.takeIf { it.isNotBlank() },
+                pr = data["pr"]?.takeIf { it.isNotBlank() }?.let { text ->
+                    try {
+                        val o = JSONObject(text)
+                        pullRequest(o.optInt("n"), o.optString("u"), o.optString("s"), o.optString("c"))
+                    } catch (e: org.json.JSONException) {
+                        null
+                    }
+                },
+                link = httpsOrNull(data["link"]),
+                linkTitle = data["linkTitle"]?.takeIf { it.isNotBlank() },
+                wakeAt = data["wakeAt"]?.takeIf { it.isNotBlank() },
+                helpers = data["helpers"]?.toIntOrNull() ?: 0,
+                tokens = data["tokens"]?.toLongOrNull() ?: 0,
+                cost = data["cost"]?.toDoubleOrNull() ?: 0.0,
             )
         }
 
@@ -174,6 +245,15 @@ data class TaskList(
                 projectId = json.optString("projectId").takeIf { it.isNotBlank() },
                 repo = json.optString("repo").takeIf { it.isNotBlank() },
                 need = json.optString("need").takeIf { it.isNotBlank() },
+                pr = json.optJSONObject("pr")?.let {
+                    pullRequest(it.optInt("number"), it.optString("url"), it.optString("state"), it.optString("ci"))
+                },
+                link = httpsOrNull(json.optJSONObject("link")?.optString("url")),
+                linkTitle = json.optJSONObject("link")?.optString("title")?.takeIf { it.isNotBlank() },
+                wakeAt = json.optString("wakeAt").takeIf { it.isNotBlank() },
+                helpers = json.optInt("helpers"),
+                tokens = json.optJSONObject("usage")?.optLong("tokens") ?: 0,
+                cost = json.optJSONObject("usage")?.optDouble("cost")?.takeIf { !it.isNaN() } ?: 0.0,
             )
         }
 

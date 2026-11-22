@@ -4,11 +4,14 @@ import java.net.URI
 
 enum class ThemeMode { System, Light, Dark }
 
-/** Everything the app stores. Theme and Worker address are backed up; the token, the FCM token
+/** Everything the app stores. Theme, notification style and Worker address are backed up; the token, the FCM token
  * and the pinned shortcuts stay on this phone. */
 data class Settings(
     val themeMode: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = false,
+    /** One notification for all sessions instead of one each; a session that waits for you is
+     * still posted on its own. */
+    val summaryNotification: Boolean = false,
     val workerUrl: String = "",
     val token: String = "",
     val registeredFcmToken: String = "",

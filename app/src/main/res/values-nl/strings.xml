@@ -102,4 +102,35 @@
     </plurals>
     <string name="state_waiting_need">Wacht op jou: %1$s</string>
     <string name="shortcuts_removed">Clauder heeft geen snelkoppelingen meer. Verwijder deze van je startscherm.</string>
+    <string name="summary_nothing">Niets bezig</string>
+    <string name="summary_line">%1$s: %2$s</string>
+    <string name="holding_ci">Wacht op CI voor PR #%d</string>
+    <string name="holding_reminder">Terug om %s</string>
+    <string name="action_open_named">%s openen</string>
+    <string name="action_open_link">Link openen</string>
+    <string name="action_open_pr">PR #%d openen</string>
+    <string name="summary_setting">Eén melding voor alle sessies</string>
+    <string name="summary_setting_summary">Sessies die op je wachten, krijgen nog altijd een eigen melding</string>
+    <string name="tile_setting">Tegel in Snelle instellingen</string>
+    <string name="tile_setting_body">Toont waar Claude mee bezig is als je van boven naar beneden veegt.</string>
+    <string name="action_add_tile">Tegel toevoegen</string>
+    <string name="pr_ci_running">PR #%d · CI loopt</string>
+    <string name="pr_ci_passed">PR #%d · CI geslaagd</string>
+    <string name="pr_ci_failed">PR #%d · CI mislukt</string>
+    <string name="pr_open">PR #%d open</string>
+    <string name="pr_merged">PR #%d samengevoegd</string>
+    <string name="pr_closed">PR #%d gesloten</string>
+    <string name="usage_line">%1$s tokens · ≈ %2$s</string>
+    <plurals name="summary_working">
+        <item quantity="one">%d bezig</item>
+        <item quantity="other">%d bezig</item>
+    </plurals>
+    <plurals name="summary_waiting">
+        <item quantity="one">%d wacht op jou</item>
+        <item quantity="other">%d wachten op jou</item>
+    </plurals>
+    <plurals name="holding_helpers">
+        <item quantity="one">%d helper bezig</item>
+        <item quantity="other">%d helpers bezig</item>
+    </plurals>
 </resources>

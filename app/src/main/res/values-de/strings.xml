@@ -102,4 +102,35 @@
     </plurals>
     <string name="state_waiting_need">Wartet auf dich: %1$s</string>
     <string name="shortcuts_removed">Clauder hat keine Verknüpfungen mehr. Entferne diese vom Startbildschirm.</string>
+    <string name="summary_nothing">Nichts läuft</string>
+    <string name="summary_line">%1$s: %2$s</string>
+    <string name="holding_ci">Wartet auf CI für PR #%d</string>
+    <string name="holding_reminder">Zurück um %s</string>
+    <string name="action_open_named">%s öffnen</string>
+    <string name="action_open_link">Link öffnen</string>
+    <string name="action_open_pr">PR #%d öffnen</string>
+    <string name="summary_setting">Eine Benachrichtigung für alle Sitzungen</string>
+    <string name="summary_setting_summary">Sitzungen, die auf dich warten, bekommen weiterhin eine eigene Benachrichtigung</string>
+    <string name="tile_setting">Kachel in den Schnelleinstellungen</string>
+    <string name="tile_setting_body">Zeigt, woran Claude arbeitet, wenn du vom oberen Bildschirmrand nach unten wischst.</string>
+    <string name="action_add_tile">Kachel hinzufügen</string>
+    <string name="pr_ci_running">PR #%d · CI läuft</string>
+    <string name="pr_ci_passed">PR #%d · CI bestanden</string>
+    <string name="pr_ci_failed">PR #%d · CI fehlgeschlagen</string>
+    <string name="pr_open">PR #%d offen</string>
+    <string name="pr_merged">PR #%d zusammengeführt</string>
+    <string name="pr_closed">PR #%d geschlossen</string>
+    <string name="usage_line">%1$s Tokens · ≈ %2$s</string>
+    <plurals name="summary_working">
+        <item quantity="one">%d arbeitet</item>
+        <item quantity="other">%d arbeiten</item>
+    </plurals>
+    <plurals name="summary_waiting">
+        <item quantity="one">%d wartet auf dich</item>
+        <item quantity="other">%d warten auf dich</item>
+    </plurals>
+    <plurals name="holding_helpers">
+        <item quantity="one">%d Helfer arbeitet</item>
+        <item quantity="other">%d Helfer arbeiten</item>
+    </plurals>
 </resources>

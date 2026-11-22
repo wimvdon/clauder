@@ -42,11 +42,13 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 | `PostToolUse` on `TodoWrite` and the checklist tool | To-dos, and a project thread's checklist (its steps) |
 | `PostToolUse` on `request_decision`, `close_decision` | A project thread asks you to choose: "Waiting for you" |
 | `PostToolUse` on `post_message` | A project thread replies: a question to you in the turn's last reply means "Waiting for you" |
+| `PostToolUse` on the GitHub PR tools, `subscribe_pr_activity`, `ReadNotifications` | The pull request Claude works on and its CI: waiting on CI counts as working |
+| `PostToolUse` on `send_later`, `set_thread_resolved` | A reminder Claude set (working until then), and a resolved thread (done) |
 | `TaskCompleted` | A task was marked done |
 | `UserPromptSubmit` (user-level install only) | Claude starts working again. This is a small script (`~/.claude/clauder-prompt.py`) that also reads the project's and the thread's name from the session transcript and sends them along |
-| `Stop` | Claude finished its turn: "Idle", or "Running" while background work goes on |
+| `Stop` (user-level install: the same script as the prompt hook) | Claude finished its turn: "Idle", or "Running" while background work, CI or a reminder goes on. The script adds the tokens used per model, read from the transcript |
 | `Notification` | Only a permission prompt or a question form counts as "Waiting for you" |
-| `SessionEnd` | The session closed |
+| `SessionEnd` | The session closed (a project thread that stops between wakes only pauses) |
 
 `SessionStart` is left out on purpose: Claude Code does not send HTTP hooks for it.
 
@@ -61,3 +63,11 @@ The hook input is sent as-is. Besides task text it includes the working director
 path and, for `Stop`, Claude's last message. The prompt script adds the project's and thread's
 names and ids and leaves out the prompt's text. The repository-level `settings.json` has no
 `UserPromptSubmit` hook, so prompts are never sent. It goes only to your own Worker.
+
+## Keeping the hooks current
+
+Cloud environments keep the result of their setup script, so a session can start with hooks from
+an older installer. The prompt hook sends its installer version in `X-Clauder-Hooks`; when the
+Worker answers `X-Clauder-Update: 1`, the hook runs `/install.sh` again in the background. Claude
+Code reads hooks when a session starts, so the new ones apply from the next start (in a project
+thread, the next wake).

@@ -106,4 +106,38 @@
     </plurals>
     <string name="state_waiting_need">Te está esperando: %1$s</string>
     <string name="shortcuts_removed">Clauder ya no tiene accesos directos. Quita este de tu pantalla de inicio.</string>
+    <string name="summary_nothing">Nada en marcha</string>
+    <string name="summary_line">%1$s: %2$s</string>
+    <string name="holding_ci">Esperando la CI de la PR #%d</string>
+    <string name="holding_reminder">Vuelve a las %s</string>
+    <string name="action_open_named">Abrir %s</string>
+    <string name="action_open_link">Abrir enlace</string>
+    <string name="action_open_pr">Abrir PR #%d</string>
+    <string name="summary_setting">Una notificación para todas las sesiones</string>
+    <string name="summary_setting_summary">Las sesiones que te esperan siguen teniendo su propia notificación</string>
+    <string name="tile_setting">Icono de ajustes rápidos</string>
+    <string name="tile_setting_body">Muestra qué está haciendo Claude cuando deslizas hacia abajo desde arriba.</string>
+    <string name="action_add_tile">Añadir icono</string>
+    <string name="pr_ci_running">PR #%d · CI en curso</string>
+    <string name="pr_ci_passed">PR #%d · CI superada</string>
+    <string name="pr_ci_failed">PR #%d · CI fallida</string>
+    <string name="pr_open">PR #%d abierta</string>
+    <string name="pr_merged">PR #%d fusionada</string>
+    <string name="pr_closed">PR #%d cerrada</string>
+    <string name="usage_line">%1$s tokens · ≈ %2$s</string>
+    <plurals name="summary_working">
+        <item quantity="one">%d trabajando</item>
+        <item quantity="other">%d trabajando</item>
+        <item quantity="many">%d trabajando</item>
+    </plurals>
+    <plurals name="summary_waiting">
+        <item quantity="one">%d te espera</item>
+        <item quantity="other">%d te esperan</item>
+        <item quantity="many">%d te esperan</item>
+    </plurals>
+    <plurals name="holding_helpers">
+        <item quantity="one">%d ayudante trabajando</item>
+        <item quantity="other">%d ayudantes trabajando</item>
+        <item quantity="many">%d ayudantes trabajando</item>
+    </plurals>
 </resources>
