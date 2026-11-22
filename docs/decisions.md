@@ -359,3 +359,12 @@ session marked resolved, like the Mark resolved button. The prompt tells the mod
 when unsure or when the user still has something to review, approve or pick, so a wrong fold is
 rarer than a missed one; the person's next message reopens it either way. Still one call per turn,
 within the free tier; when the model fails, nothing changes.
+
+## 2026-11-22: The status bar chip says what is going on
+
+Wim's Pixel Watch showed the summary Live Update as "Clauder" with just "1". Wear OS 7 shows a
+bridged Live Update in its tray as the app name plus the status bar chip, and the phone and watch
+share that one text, so the chip now uses words: "1 waiting" when any session waits for you, else
+"2 working" (it was "3 · 1?"). A session's own chip stays "3/5" while working and says "Waiting"
+when it waits. With one active session, the summary's line says what that session is doing
+instead of only its project, which is also what the watch shows when the Live Update is opened.

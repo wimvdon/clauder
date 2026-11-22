@@ -109,7 +109,7 @@ object TaskNotifier {
             .setSilent(true)
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            .setShortCriticalText(summaryChip(context, summary))
+            .setShortCriticalText(chipText(context, Chip.forSummary(summary)))
             .setRequestPromotedOngoing(true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             // One block per session, coloured by state, with a dot at how far each one is. The
@@ -121,9 +121,10 @@ object TaskNotifier {
                 .setProgressPoints(bar.points.map { NotificationCompat.ProgressStyle.Point(it).setColor(context.getColor(R.color.summary_point)) })
                 .setProgress(bar.max)
             // Collapsed is all a Live Update shows: the projects by name, in the blocks' order, and
-            // the steps done across them.
+            // the steps done across them. A single session says what it is doing instead, which is
+            // also what a watch shows when the Live Update is opened there.
             notification.setStyle(style)
-                .setContentText(summary.names.joinToString(" · "))
+                .setContentText(if (summary.active.size == 1) lines.first() else summary.names.joinToString(" · "))
                 .setSubText(context.resources.getQuantityString(R.plurals.step_counts, summary.total, summary.done, summary.total))
         }
         try {
@@ -133,10 +134,14 @@ object TaskNotifier {
         }
     }
 
-    /** The status bar chip: how many sessions are active, and how many wait for you ("3 · 1?"). */
-    fun summaryChip(context: Context, summary: Summary): String =
-        if (summary.waiting > 0) context.getString(R.string.summary_chip_waiting, summary.active.size, summary.waiting)
-        else summary.active.size.toString()
+    /** The status bar chip, which is also what a watch shows of the Live Update in its tray. */
+    fun chipText(context: Context, chip: Chip): String = when (chip) {
+        is Chip.Waiting -> context.resources.getQuantityString(R.plurals.chip_waiting, chip.count, chip.count)
+        is Chip.Working -> context.resources.getQuantityString(R.plurals.chip_working, chip.count, chip.count)
+        Chip.WaitsForYou -> context.getString(R.string.chip_waits_for_you)
+        is Chip.Steps -> context.getString(R.string.notification_short, chip.done, chip.total)
+        Chip.Done -> context.getString(R.string.state_done)
+    }
 
     private fun blockColor(context: Context, kind: SummaryBar.Kind): Int = context.getColor(
         when (kind) {
@@ -290,10 +295,7 @@ object TaskNotifier {
             .setCategory(if (update.plain) NotificationCompat.CATEGORY_REMINDER else NotificationCompat.CATEGORY_PROGRESS)
             .setRequestPromotedOngoing(update.requestPromotion)
         if (!update.plain) {
-            builder.setShortCriticalText(
-                if (update.status == LiveUpdate.Status.Done) context.getString(R.string.state_done)
-                else context.getString(R.string.notification_short, update.done, update.total),
-            )
+            builder.setShortCriticalText(chipText(context, Chip.forSession(update)))
         }
         update.group?.let { builder.setSortKey(it) }
         update.bundle?.let { builder.setGroup(it) }

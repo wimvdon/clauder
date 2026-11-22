@@ -139,4 +139,14 @@
     <string name="old_hooks_note">Dieser Thread nutzt alte Hooks, daher erkennt Clauder nicht immer, ob er auf dich wartet. Füge die Nachricht unten einmal in den Thread ein, um sie zu aktualisieren.</string>
     <string name="old_hooks_copy">Lösung kopieren</string>
     <string name="old_hooks_message">Führe dies einmal aus, um die Clauder-Hooks in diesem Container zu aktualisieren, und mach dann weiter: %1$s</string>
+    <!-- Status bar chip; a watch shows it next to the app name. Keep it short. -->
+    <string name="chip_waits_for_you">Wartet</string>
+    <plurals name="chip_waiting">
+        <item quantity="one">%d wartet</item>
+        <item quantity="other">%d warten</item>
+    </plurals>
+    <plurals name="chip_working">
+        <item quantity="one">%d aktiv</item>
+        <item quantity="other">%d aktiv</item>
+    </plurals>
 </resources>

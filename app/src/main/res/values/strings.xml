@@ -13,7 +13,6 @@
     <string name="task_pending">To do</string>
     <string name="notification_short" translatable="false">%1$d/%2$d</string>
     <!-- Status bar chip of the summary notification: active sessions · sessions waiting for you. -->
-    <string name="summary_chip_waiting" translatable="false">%1$d · %2$d?</string>
     <string name="notification_now">Now: %s</string>
     <string name="notification_next">Next: %s</string>
     <string name="channel_progress">Task progress</string>
@@ -144,4 +143,14 @@
     <string name="old_hooks_note">This thread runs old hooks, so Clauder can\'t always tell whether it waits for you. Paste the message below into the thread once to update them.</string>
     <string name="old_hooks_copy">Copy the fix</string>
     <string name="old_hooks_message">Please run this once to update the Clauder hooks in this container, then carry on: %1$s</string>
+    <!-- Status bar chip; a watch shows it next to the app name. Keep it short. -->
+    <string name="chip_waits_for_you">Waiting</string>
+    <plurals name="chip_waiting">
+        <item quantity="one">%d waiting</item>
+        <item quantity="other">%d waiting</item>
+    </plurals>
+    <plurals name="chip_working">
+        <item quantity="one">%d working</item>
+        <item quantity="other">%d working</item>
+    </plurals>
 </resources>

@@ -94,10 +94,14 @@ Clauder shows the task list of every running Claude Code session on the phone.
   only in the summary) (`NotifyPrefs`, `NotificationPlan.alerts`). On Android 16 the summary's progress bar has one
   block per session (`SummaryBar`): waiting for you, working, or holding on CI, a reminder or
   helpers, each in its own colour (`res/values*/colors.xml`), with a dot at how far that session is.
-  Its status bar chip reads "3 · 1?" (active sessions · waiting for you). A Live Update can't be
+  Its status bar chip (`Chip`) reads "1 waiting" when any session waits for you, else "2 working";
+  a session's own Live Update chip reads "3/5", "Waiting" or "Done". A Wear OS watch (Wear OS 7
+  and later) shows a bridged Live Update in its tray as the app name plus this chip, so the chip
+  says what is going on instead of a bare count. A Live Update can't be
   expanded, so its one collapsed line carries what matters: for a session, what Claude is on or
   asks plus what it waits on; for the summary, the sessions' projects (else repository, else thread title) in the
-  blocks' order, each once with "×2" when it has several sessions, with the steps done as sub text. A notification offers buttons for the attached page
+  blocks' order, each once with "×2" when it has several sessions (or, with one session, what that
+  session is doing), with the steps done as sub text. A notification offers buttons for the attached page
   and the pull request (opened through `OpenLinkActivity`: claude.ai in the Claude app, other https
   links in their own app). Done is always silent.
 - **Quick Settings tile** (`tile/ClauderTileService`): shows the same summary line when Quick

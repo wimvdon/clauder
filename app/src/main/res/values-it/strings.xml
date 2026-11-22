@@ -146,4 +146,16 @@
     <string name="old_hooks_note">Questo thread usa hook vecchi, quindi Clauder non sa sempre se ti sta aspettando. Incolla una volta il messaggio qui sotto nel thread per aggiornarli.</string>
     <string name="old_hooks_copy">Copia la soluzione</string>
     <string name="old_hooks_message">Esegui questo una volta per aggiornare gli hook di Clauder in questo container, poi continua: %1$s</string>
+    <!-- Status bar chip; a watch shows it next to the app name. Keep it short. -->
+    <string name="chip_waits_for_you">Attende</string>
+    <plurals name="chip_waiting">
+        <item quantity="one">%d attende</item>
+        <item quantity="other">%d attendono</item>
+        <item quantity="many">%d attendono</item>
+    </plurals>
+    <plurals name="chip_working">
+        <item quantity="one">%d attiva</item>
+        <item quantity="other">%d attive</item>
+        <item quantity="many">%d attive</item>
+    </plurals>
 </resources>
