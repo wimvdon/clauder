@@ -22,7 +22,7 @@ for name, matcher in events.items():
     entry = {"hooks": [h]}
     if matcher:
         entry["matcher"] = matcher
-    keep = [x for x in hooks.get(name, []) if "clauder.wim-d57" not in json.dumps(x)]
+    keep = [x for x in hooks.get(name, []) if "clauder.wim-d57.workers.dev" not in json.dumps(x)]
     hooks[name] = keep + [entry]
 json.dump(d, open(p, "w"), indent=1)
 PY

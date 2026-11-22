@@ -9,7 +9,7 @@ plugins {
 // App identity: the ONE place to change the package / application ID.
 // (Also move the Kotlin sources in app/src/*/kotlin/ to the matching folder.)
 // ---------------------------------------------------------------------------
-val appId = "com.example.template"
+val appId = "to.wim.clauder"
 
 // ---------------------------------------------------------------------------
 // Versioning
@@ -76,6 +76,16 @@ android {
         targetSdk = 37
         versionCode = appVersion.code
         versionName = appVersion.name
+
+        // Firebase Cloud Messaging. The API key comes from the FIREBASE_API_KEY environment
+        // variable (a GitHub secret in CI) or the clauderFirebaseApiKey Gradle property, never from
+        // the repository. Without it the app builds and runs, but can't receive pushes.
+        val firebaseApiKey = providers.environmentVariable("FIREBASE_API_KEY")
+            .orElse(providers.gradleProperty("clauderFirebaseApiKey"))
+            .getOrElse("")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"$firebaseApiKey\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"clauder-wim\"")
+        buildConfigField("String", "FIREBASE_SENDER_ID", "\"345596061675\"")
     }
 
     signingConfigs {
@@ -93,12 +103,14 @@ android {
         debug {
             // Lets a pull request's debug APK be installed next to the released app.
             applicationIdSuffix = ".debug"
+            buildConfigField("String", "FIREBASE_APP_ID", "\"1:345596061675:android:99e2d912796181a2679bae\"")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
+            buildConfigField("String", "FIREBASE_APP_ID", "\"1:345596061675:android:7681e83c93b5a4b2679bae\"")
         }
     }
 
@@ -109,6 +121,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     androidResources {
@@ -135,9 +148,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    testImplementation(libs.org.json)
 }
 
 // Used by the workflows to name the APK <app>-<version>.apk: ./gradlew -q :app:printApkBaseName

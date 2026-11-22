@@ -226,5 +226,12 @@ app apart from their package (and `R` import) lines. Copy a change to the other 
 
 ## This app
 
-Each app replaces this section with its own rules: the seed colour of its theme and its
-signature element.
+- **Icon:** a speech bubble (a Claude conversation) with a white check (a finished task), on the
+  gradient `#E8956E` → `#D97757` → `#B5532F`.
+- **Colour:** a full Material 3 scheme around the terracotta `#B0502C` (dark: `#F0A487`) on cream
+  `#FAF9F5` (dark: warm charcoal `#1F1E1D`), in the spirit of Claude's own colours
+  (`ui/theme/Color.kt`). Every text and container pair meets WCAG AA.
+- **Type:** the system serif for display, headline and Title Large (session titles, empty-state
+  titles, app bar titles), Material's sans serif for everything else (`ui/theme/Type.kt`).
+- **Signature element:** each session as a card with its serif title, a progress bar and the task
+  list with check, active and open markers, matching the segmented Live Update notification.
