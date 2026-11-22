@@ -40,7 +40,9 @@ Clauder shows the task list of every running Claude Code session on the phone.
   (`ui/linktester/LinkTesterActivity`) tries ways to open the Claude app: `claude://` and https
   links, the app's own activities by name, or any typed link or `intent:` URI. Each row shows what
   Android would open and the intent filter that matched; the copy button puts a report on the
-  clipboard. The list and the report are plain Kotlin (`links/LinkProbe.kt`).
+  clipboard. "Save the Claude app" copies its APK to a file the user picks (nothing is sent
+  anywhere), so the links its own widgets use can be looked up. The list and the report are plain
+  Kotlin (`links/LinkProbe.kt`).
 - **Screens:** Tasks (the sessions from the Worker's `GET /sessions`, kept up to date by pushes,
   in "Active" and "Recently finished" sections,
   `tasks/SessionBoard`), Shortcuts and Settings (connection, notifications, the setup block for cloud

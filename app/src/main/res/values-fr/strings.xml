@@ -139,4 +139,8 @@
     <string name="link_tester_failed">Ouverture impossible : %1$s</string>
     <string name="link_tester_activities">Écrans que d\'autres apps peuvent ouvrir</string>
     <string name="action_back">Retour</string>
+    <string name="link_tester_save_app">Enregistrer l\'app Claude</string>
+    <string name="link_tester_save_app_summary">Enregistre le fichier de l\'app, pour retrouver les liens de ses widgets.</string>
+    <string name="link_tester_saved">Enregistré</string>
+    <string name="link_tester_save_failed">Impossible d\'enregistrer le fichier</string>
 </resources>

@@ -9,6 +9,16 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.os.Build
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.rememberCoroutineScope
+import java.io.File
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -85,7 +95,7 @@ class LinkTesterActivity : ComponentActivity() {
     }
 }
 
-private class ClaudeAppInfo(val version: String?, val activities: List<String>)
+private class ClaudeAppInfo(val version: String?, val activities: List<String>, val apk: String? = null)
 
 private fun claudeAppInfo(context: Context): ClaudeAppInfo = try {
     val pm = context.packageManager
@@ -96,9 +106,20 @@ private fun claudeAppInfo(context: Context): ClaudeAppInfo = try {
         pm.getPackageInfo(ClaudeApp.PACKAGE, PackageManager.GET_ACTIVITIES)
     }
     val activities = info.activities.orEmpty().filter { it.exported }.map { it.name.removePrefix(ClaudeApp.PACKAGE) }
-    ClaudeAppInfo(info.versionName ?: "?", activities)
+    ClaudeAppInfo(info.versionName ?: "?", activities, info.applicationInfo?.sourceDir)
 } catch (e: PackageManager.NameNotFoundException) {
     ClaudeAppInfo(null, emptyList())
+}
+
+/** Copies the Claude app's own APK to a file the user picked, so its widgets' links can be looked up. */
+private fun saveApk(context: Context, apk: String, target: Uri): Boolean = try {
+    val out = context.contentResolver.openOutputStream(target) ?: throw IOException("no output")
+    out.use { File(apk).inputStream().use { input -> input.copyTo(it) } }
+    true
+} catch (e: IOException) {
+    false
+} catch (e: SecurityException) {
+    false
 }
 
 private fun LinkProbe.toIntent(context: Context): Intent? {
@@ -168,6 +189,15 @@ private fun LinkTesterScreen(onBack: () -> Unit) {
     val probes = customProbes.value + LinkProbes.all
     val resolutions = remember(probes) { probes.associateWith { resolve(context, it) } }
 
+    val scope = rememberCoroutineScope()
+    var saved by remember { mutableStateOf<Boolean?>(null) }
+    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")) { target ->
+        val apk = info.apk
+        if (target != null && apk != null) {
+            scope.launch { saved = withContext(Dispatchers.IO) { saveApk(context, apk, target) } }
+        }
+    }
+
     fun tryProbe(probe: LinkProbe) {
         outcomes[probe] = fire(context, probe)
     }
@@ -206,6 +236,20 @@ private fun LinkTesterScreen(onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (info.apk != null) {
+                        Text(stringResource(R.string.link_tester_save_app_summary), style = MaterialTheme.typography.bodyMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(onClick = { save.launch("claude-${info.version}.apk") }) {
+                                Text(stringResource(R.string.link_tester_save_app))
+                            }
+                            saved?.let {
+                                Text(
+                                    stringResource(if (it) R.string.link_tester_saved else R.string.link_tester_save_failed),
+                                    color = if (it) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = custom,
                         onValueChange = { custom = it },

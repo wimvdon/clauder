@@ -136,4 +136,8 @@
     <string name="link_tester_failed">Kon niet openen: %1$s</string>
     <string name="link_tester_activities">Schermen die andere apps kunnen openen</string>
     <string name="action_back">Terug</string>
+    <string name="link_tester_save_app">Claude-app bewaren</string>
+    <string name="link_tester_save_app_summary">Bewaart het bestand van de app, zodat de links van de widgets op te zoeken zijn.</string>
+    <string name="link_tester_saved">Bewaard</string>
+    <string name="link_tester_save_failed">Kon het bestand niet bewaren</string>
 </resources>

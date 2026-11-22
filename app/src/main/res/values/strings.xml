@@ -139,4 +139,8 @@
     <string name="link_tester_failed">Couldn\'t open: %1$s</string>
     <string name="link_tester_activities">Screens other apps can open</string>
     <string name="action_back">Back</string>
+    <string name="link_tester_save_app">Save the Claude app</string>
+    <string name="link_tester_save_app_summary">Saves the app\'s file, so the links its widgets use can be looked up.</string>
+    <string name="link_tester_saved">Saved</string>
+    <string name="link_tester_save_failed">Couldn\'t save the file</string>
 </resources>
