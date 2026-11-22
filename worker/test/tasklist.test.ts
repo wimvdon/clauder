@@ -384,7 +384,7 @@ test("older hooks: the session's last message is read too", () => {
   assert.equal(old.askCheck, "Shall I merge it?");
 });
 
-const read = (question: string, summary = "") => ({ question, summary });
+const read = (question: string, summary = "", finished = false) => ({ question, summary, finished });
 
 test("the model's question marks a working thread waiting, only for the turn it read", () => {
   const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
@@ -429,6 +429,35 @@ test("a summary alone is pushed; a waiting thread gets the question, a resolved 
   const after = applyAsk(resolved, resolved.askCheck!, read("Anything else?", "Merged and released"), NOW);
   assert.equal(after?.state, "done");
   assert.equal(after?.summary, "Merged and released");
+});
+
+test("a finished turn marks a thread that only the person could wake resolved", () => {
+  const done = read("", "PR merged, 0.2.11 released", true);
+  const idle = run([checklist(PLAN_DONE_BUT_ONE), reply("Merged and released 0.2.11."), { hook_event_name: "Stop" }]);
+  assert.equal(idle.state, "waiting");
+  const resolved = applyAsk(idle, idle.askCheck!, done, NOW)!;
+  assert.equal(resolved.state, "done");
+  assert.equal(resolved.resolved, true);
+  assert.equal(resolved.summary, "PR merged, 0.2.11 released");
+  assert.equal(resolved.seq, idle.seq + 1);
+  assert.equal(toPushData(resolved).state, "done");
+  // A CI event doesn't reopen it; the person's message does.
+  const wake = (source: string) => ({ hook_event_name: "UserPromptSubmit", clauder: { source } });
+  assert.equal(run([wake("notification"), { hook_event_name: "Stop" }], resolved).state, "done");
+  const reopened = run([wake("wake:mention")], resolved);
+  assert.equal(reopened.state, "running");
+  assert.equal(reopened.resolved, undefined);
+  // Not when something will still wake it, a card or question is open, or the hooks are older.
+  const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
+  const armed = run([checklist(PLAN_DONE_BUT_ONE), reply("Done."), later, { hook_event_name: "Stop" }]);
+  assert.equal(applyAsk(armed, armed.askCheck!, done, NOW)?.state, "running");
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Which colour?" }, tool_response: {} };
+  const card = run([checklist(PLAN_DONE_BUT_ONE), decision, reply("Done."), { hook_event_name: "Stop" }]);
+  assert.equal(applyAsk(card, card.askCheck!, done, NOW)?.state, "waiting");
+  const old = run([checklist(PLAN_DONE_BUT_ONE), { hook_event_name: "Stop", last_assistant_message: "Done." }], undefined, false);
+  assert.equal(applyAsk(old, old.askCheck!, done, NOW)?.state, "idle");
+  // Not finished: the thread keeps waiting.
+  assert.equal(applyAsk(idle, idle.askCheck!, read("", "Draft ready for review"), NOW)?.state, "waiting");
 });
 
 test("only a permission prompt or a question form notification means waiting", () => {
@@ -559,7 +588,7 @@ test("a CI or reminder wake keeps an open decision card or question waiting", ()
 
   // A question the model read in the last reply is kept the same way.
   const asked = run([checklist(PLAN_DONE_BUT_ONE), reply("Shall I release?"), stop]);
-  const question = applyAsk(asked, asked.askCheck!, { question: "Shall I release?", summary: "" }, NOW)!;
+  const question = applyAsk(asked, asked.askCheck!, { question: "Shall I release?", summary: "", finished: false }, NOW)!;
   assert.equal(question.needKind, "question");
   const later = run([wake("notification"), checklist("Plan\n\n✓ One\n✱ Two"), stop], question);
   assert.equal(later.state, "waiting");

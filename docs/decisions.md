@@ -347,3 +347,15 @@ other shell commands out), one retry, and a level instead of the installer's has
 edit no longer makes every live session Idle. Threads on hooks from before the self-update show a
 message to paste into the thread; the Worker doesn't inject instructions into Claude's context
 itself.
+
+## 2026-11-22: The reply check also marks finished threads Done
+
+Wim asked whether the Workers AI call could close finished threads. It can't resolve them in the
+Claude app (the Worker has no access there), but it can mark them Done in Clauder. The same model
+call that writes the summary line now also answers whether the reply says the work is finished
+with nothing left for the user. Only then, and only when nothing will wake the thread but the
+person (no CI, reminder, watched URL or helpers, no open card or question, current hooks), is the
+session marked resolved, like the Mark resolved button. The prompt tells the model to answer false
+when unsure or when the user still has something to review, approve or pick, so a wrong fold is
+rarer than a missed one; the person's next message reopens it either way. Still one call per turn,
+within the free tier; when the model fails, nothing changes.
