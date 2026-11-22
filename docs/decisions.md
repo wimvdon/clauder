@@ -282,3 +282,14 @@ sessions by project; every idle and finished session sits in one "Inactive" list
 folded by default, with the project or repository as a small label above each title. A project
 with only inactive sessions no longer gets a header. The widget no longer shows inactive sessions
 at all (Wim: "they don't need to be shown at all").
+
+## 2026-11-22: A language model checks unclear turn endings for a question
+A thread asked Wim to pick between three mockups while CI ran on another of its PRs, so Clauder
+kept it Working: hook data can't tell "waiting on CI" from "waiting on CI and on you". Wim asked
+for a reliable middle ground. Hook data still decides first (decision card, permission prompt,
+nothing armed). Only when a turn ends with a wake source armed, or on older hooks, the Worker asks
+a small model on Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) whether the
+turn's last reply waits on the user. Wim chose Workers AI over Claude Haiku (needs an API key and
+a new library) and over the old keyword list (missed "Pick one: …"). It runs in Wim's Cloudflare
+account on the free tier and needs no new dependency.
+

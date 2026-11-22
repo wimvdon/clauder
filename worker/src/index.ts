@@ -13,7 +13,8 @@ import { DurableObject } from "cloudflare:workers";
 import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
 import { HOOKS_VERSION, installScript } from "./install";
-import { applyHook, emptyList, sessionKey, toPushData, type SessionList } from "./tasklist";
+import { findAsk, type AskModel } from "./ask";
+import { applyAsk, applyHook, emptyList, sessionKey, toPushData, type SessionList } from "./tasklist";
 
 export interface Env {
   HOOK_TOKEN: string;
@@ -21,6 +22,8 @@ export interface Env {
   SPIKE_LOG: DurableObjectNamespace<SpikeLog>;
   SESSION: DurableObjectNamespace<Session>;
   HUB: DurableObjectNamespace<Hub>;
+  /** Workers AI: reads whether a turn's last reply asks the user something (see ask.ts). */
+  AI?: Ai;
 }
 
 const MAX_LOG_ENTRIES = 500;
@@ -75,12 +78,30 @@ export class Session extends DurableObject<Env> {
       return null;
     }
     await this.ctx.storage.put("list", next);
+    // A change only to what the phone doesn't see (the reply, a pending check) isn't pushed.
+    if (next.seq !== base.seq) await this.schedulePush();
+    if (next.askCheck !== undefined && this.env.AI) this.ctx.waitUntil(this.checkAsk(next.seq, next.askCheck));
+    return next;
+  }
+
+  /** Has the model read the turn's last reply, then marks the thread waiting if it asks the user. */
+  private async checkAsk(seq: number, reply: string): Promise<void> {
+    if (!this.env.AI) return;
+    const question = await findAsk(this.env.AI as unknown as AskModel, reply);
+    const list = await this.ctx.storage.get<SessionList>("list");
+    if (!list) return;
+    const next = applyAsk(list, seq, question, new Date().toISOString());
+    if (!next) return;
+    await this.ctx.storage.put("list", next);
+    if (next.seq !== list.seq) await this.schedulePush();
+  }
+
+  private async schedulePush(): Promise<void> {
     await this.ctx.storage.put("pushPending", true);
     const alarm = await this.ctx.storage.getAlarm();
     if (alarm === null || alarm > Date.now() + PUSH_DEBOUNCE_MS) {
       await this.ctx.storage.setAlarm(Date.now() + PUSH_DEBOUNCE_MS);
     }
-    return next;
   }
 
   async alarm(): Promise<void> {
@@ -88,7 +109,9 @@ export class Session extends DurableObject<Env> {
     if (!list) return;
     if (await this.ctx.storage.get<boolean>("pushPending")) {
       await this.ctx.storage.put("pushPending", false);
-      await hub(this.env).publish(list);
+      // The reply text stays here; the phone and /sessions get only what they show.
+      const { reply: _reply, askCheck: _askCheck, ...shown } = list;
+      await hub(this.env).publish(shown);
       await this.ctx.storage.setAlarm(Date.now() + SESSION_TTL_MS);
       return;
     }

@@ -1,6 +1,7 @@
 // Pure task-list logic: turns raw Claude Code hook payloads into one session's task list.
 // No Worker types, so it runs under plain Node tests.
 
+import { MAX_REPLY_CHARS } from "./ask.ts";
 import {
   applyPrTool,
   linkFromOutputs,
@@ -31,8 +32,9 @@ export interface Task {
  * itself, or the user. So after Stop: running while a wake source is armed (a reminder still
  * ahead, an in-session cron, a PR subscription whose CI still runs, a watched URL, or background
  * helpers and shells). done: the thread was resolved, or, during a turn, every step is completed.
- * waiting: nothing Claude set up will wake it, so only the user can (also an open decision card
- * or a permission prompt). idle: nothing known is armed, but the session runs older hook settings
+ * waiting: nothing Claude set up will wake it, so only the user can (also an open decision card,
+ * a permission prompt, or a turn whose last reply a language model read as asking the user; see
+ * ask.ts). idle: nothing known is armed, but the session runs older hook settings
  * that don't report every wake source, so it can't be told apart; the phone also shows a session
  * silent for hours as idle.
  * ended: the session closed. */
@@ -60,7 +62,7 @@ export interface SessionList {
   need?: string;
   /** What the wait is for. A decision card stays open across turns; a permission prompt or a
    * question form (Notification) is answered before the turn ends. */
-  needKind?: "decision" | "permission";
+  needKind?: "decision" | "permission" | "question";
   /** The pull request the session works on (the newest it opened or follows), with its CI. */
   pr?: PullRequest;
   /** A link the last reply attached that the phone can open, such as a mockup or a page. */
@@ -79,6 +81,12 @@ export interface SessionList {
   usage?: Usage;
   /** The thread was marked resolved: finished, even with steps left open. */
   resolved?: boolean;
+  /** The turn's last reply to the user (a project thread's post_message), kept only until the turn
+   * ends. Not sent to the phone. */
+  reply?: string;
+  /** Set when a turn ended while something Claude set up will still wake the thread: the reply
+   * to check for a question to the user (see ask.ts and [applyAsk]). Not sent to the phone. */
+  askCheck?: string;
   /** Bumped on every change, so the phone can drop out-of-order pushes. */
   seq: number;
   updatedAt: string;
@@ -257,6 +265,8 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   let helpers = list.helpers;
   let usage = list.usage;
   let resolved = list.resolved ?? false;
+  let reply = list.reply;
+  let askCheck: string | undefined;
   // An open decision card keeps the session waiting while Claude goes on with the work.
   const deciding = state === "waiting" && needKind === "decision";
   const working: SessionState = deciding ? "waiting" : "running";
@@ -330,6 +340,8 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       } else if (tool === REPLY_TOOL) {
         const attached = linkFromOutputs(toolInput?.attached_outputs);
         if (attached) link = attached;
+        const text = str(toolInput?.text);
+        if (text) reply = text.slice(-MAX_REPLY_CHARS);
       } else if (tool === RESOLVE_TOOL) {
         resolved = toolInput?.resolved !== false;
       } else if (tool === REMINDER_TOOL) {
@@ -361,6 +373,11 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       const crons = Array.isArray(input.session_crons) && input.session_crons.length > 0;
       const armed = helpers !== undefined || crons || prWakes(pr) || wakeAt !== undefined || watches.length > 0;
       state = armed ? "running" : hooksCurrent ? "waiting" : "idle";
+      // When something will still wake the thread, or older hooks can't tell, the hook data
+      // doesn't say whether the reply also asks the user something: a model reads it next.
+      const said = reply ?? str(input.last_assistant_message)?.slice(-MAX_REPLY_CHARS);
+      if (state !== "waiting" && !resolved && said) askCheck = said;
+      reply = undefined;
       break;
     }
     case "Notification": {
@@ -374,6 +391,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     }
     case "UserPromptSubmit": {
       state = "running";
+      reply = undefined;
       // A person's message, a decision tap or a coordinator message reopens a resolved thread;
       // background events such as CI results don't. Older hook scripts don't say, so any prompt
       // reopens.
@@ -424,11 +442,15 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     JSON.stringify(usage) !== JSON.stringify(list.usage) ||
     JSON.stringify(tasks) !== JSON.stringify(list.tasks) ||
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
-  if (!changed) return null;
   const {
     need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches, hooksCurrent: _hooksCurrent,
-    helpers: _helpers, usage: _usage, resolved: _resolved, ...rest
+    helpers: _helpers, usage: _usage, resolved: _resolved, reply: _reply, askCheck: _askCheck, ...rest
   } = list;
+  if (!changed) {
+    // Nothing the phone shows changed; keep the reply or the check without a push (same seq).
+    if (reply === list.reply && askCheck === list.askCheck) return null;
+    return { ...rest, ...pick(list), ...(reply ? { reply } : {}), ...(askCheck ? { askCheck } : {}) };
+  }
   return {
     ...rest,
     title,
@@ -450,9 +472,33 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     ...(helpers ? { helpers } : {}),
     ...(usage ? { usage } : {}),
     ...(resolved ? { resolved } : {}),
+    ...(reply ? { reply } : {}),
+    ...(askCheck ? { askCheck } : {}),
     seq: list.seq + 1,
     updatedAt: now,
   };
+}
+
+/** The optional fields of a list that stay as they are. */
+function pick(list: SessionList): Partial<SessionList> {
+  const { need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, resolved } = list;
+  return Object.fromEntries(
+    Object.entries({ need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, resolved })
+      .filter(([, v]) => v !== undefined),
+  ) as Partial<SessionList>;
+}
+
+/**
+ * Applies what the model read in the reply of the turn that ended at [seq]: a question makes the
+ * thread wait on the user; "" (asks nothing) keeps the state. Ignored when anything happened since
+ * that turn ended (seq moved on) or the check was already done. Returns null when nothing changes.
+ */
+export function applyAsk(list: SessionList, seq: number, question: string | null, now: string): SessionList | null {
+  if (list.seq !== seq || list.askCheck === undefined) return null;
+  const { askCheck: _askCheck, ...rest } = list;
+  // A finished checklist doesn't end an unresolved thread that asks something; a resolved one does.
+  if (!question || list.resolved || list.state === "ended" || list.state === "waiting") return rest;
+  return { ...rest, state: "waiting", need: clip(question, MAX_NEED), needKind: "question", seq: list.seq + 1, updatedAt: now };
 }
 
 export interface Progress {

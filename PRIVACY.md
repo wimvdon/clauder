@@ -19,8 +19,12 @@ Worker that you (the owner) run, and to Firebase Cloud Messaging to receive upda
 The Worker receives the raw Claude Code hook events of your sessions: task text, the progress
 checklist of project threads, the working
 folder, the transcript path, the replies Claude posts in a project thread and, when Claude stops,
-its last message. Of the replies it keeps only the first web link or Artifact the reply attached;
-the text of replies and messages is not kept or read. It also receives the pull requests Claude
+its last message. Of the replies it keeps the first web link or Artifact the reply attached, and
+the text of the turn's last reply until that turn ends. When a turn ends while something Claude
+set up (such as CI on a pull request or a reminder) will still wake the session, the Worker has
+the end of that last reply read by a language model on Cloudflare Workers AI, in your own
+Cloudflare account, to see whether Claude asks you something. Only the answer (the question, in a
+few words) is kept and shown on the phone; the reply text is then dropped. It also receives the pull requests Claude
 opens, reads or merges and their CI results, the reminders Claude sets, and, at the end of each
 turn, how many tokens the session used per model (counted on the session's machine from its
 transcript; no text from the transcript is sent for this). When you send a prompt, a

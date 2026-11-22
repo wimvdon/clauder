@@ -13,8 +13,9 @@ Clauder shows the task list of every running Claude Code session on the phone.
   older TodoWrite) are its **tasks**. The Worker keeps both apart; progress, the notification and
   the widget count the steps when there are any, else the tasks (`TaskList.items`). The Tasks
   screen shows the steps and folds the tasks away under them.
-- **States:** Every state comes from raw hook data (event names, `notification_type`, tool
-  inputs and results); text is never read. A turn that ends can only go on when something wakes
+- **States:** States come from raw hook data (event names, `notification_type`, tool inputs
+  and results) first. Reply text is read only in the one case hook data can't settle (see "Reply
+  check" below), and never with keyword rules. A turn that ends can only go on when something wakes
   the session: something Claude set up itself, or the user. So after Stop
   (`worker/src/tasklist.ts`):
   - **Running** while a wake source is armed: a `send_later` reminder still ahead, an in-session
@@ -34,7 +35,16 @@ Clauder shows the task list of every running Claude Code session on the phone.
   session started before the installer last changed may set up a wake the Worker never hears of.
   The hooks say which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's
   argument and the HTTP hooks' headers); only a session on the current version can be Waiting for
-  you this way. The phone also shows a Running session that has been silent for 12 hours as Idle
+  you this way.
+  **Reply check:** a turn can end both waiting on CI (or a reminder, a watched URL, helpers) and
+  asking the user something, such as "Pick one: T1, T2 or T3". When a turn ends Running or Idle,
+  the Worker sends the end of the turn's last reply (the last `post_message` text, else Stop's
+  `last_assistant_message`) to Cloudflare Workers AI (`worker/src/ask.ts`, binding `AI`). If the
+  model answers that the reply waits on the user, the session becomes Waiting for you with the
+  question as `need`. The answer only counts for the turn it read (the list's `seq` must not have
+  moved on); if the model fails, nothing changes. The reply text is kept in the Durable Object only
+  until the turn ends and never goes to the phone or `/sessions`.
+  The phone also shows a Running session that has been silent for 12 hours as Idle
   (`TaskList.shown`).
   A resolved thread stays Done until a person's message, a decision tap or a coordinator message
   wakes it: the prompt hook sends which kind of envelope the platform wrapped around the prompt
