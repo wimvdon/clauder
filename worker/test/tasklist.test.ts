@@ -155,3 +155,63 @@ test("push data is strings only and stays under the FCM limit", () => {
   assert.equal(tasks.length, 50);
   assert.equal(data.type, "tasklist");
 });
+
+const checklist = (text: string) => ({
+  hook_event_name: "PostToolUse", cwd: "/home/user", tool_name: "mcp__hearthbot__update_progress_checklist",
+  tool_input: { text }, tool_response: {},
+});
+
+test("a project thread's checklist becomes the steps, and its header the title", () => {
+  const list = run([
+    created("1", "Read the code"),
+    checklist("Widgets en extra's\n\n✓ Snelkoppelingen gemerged\n✱ Worker opnieuw uitrollen\n○ Widgets bouwen"),
+  ]);
+  assert.equal(list.title, "Widgets en extra's");
+  assert.deepEqual(list.steps?.map((s) => [s.subject, s.status]), [
+    ["Snelkoppelingen gemerged", "completed"],
+    ["Worker opnieuw uitrollen", "in_progress"],
+    ["Widgets bouwen", "pending"],
+  ]);
+  assert.equal(list.tasks.length, 1, "the task list stays apart");
+  assert.equal(progress(list).total, 3, "progress counts the steps");
+  assert.equal(progress(list).current?.subject, "Worker opnieuw uitrollen");
+});
+
+test("a later checklist replaces the steps, and all steps done means done", () => {
+  const list = run([
+    checklist("Plan\n\n✱ One\n○ Two"),
+    checklist("Plan\n\n✓ One\n✓ Two"),
+    created("1", "A task still open"),
+  ]);
+  assert.equal(list.steps?.length, 2);
+  assert.equal(list.state, "done");
+});
+
+test("the title from a checklist is kept when no folder name applies", () => {
+  const list = run([checklist("Fix Safari export\n\n○ Look"), created("1", "x")]);
+  assert.equal(list.title, "Fix Safari export");
+});
+
+test("TodoWrite to-dos join the tasks and replace the previous to-dos", () => {
+  const todos = (items: [string, string][]) => ({
+    hook_event_name: "PostToolUse", cwd: CWD, tool_name: "TodoWrite",
+    tool_input: { todos: items.map(([content, status]) => ({ content, status, activeForm: content })) },
+  });
+  const list = run([
+    created("1", "Task"),
+    todos([["Write test", "in_progress"], ["Fix bug", "pending"]]),
+    todos([["Write test", "completed"], ["Fix bug", "in_progress"]]),
+  ]);
+  assert.deepEqual(list.tasks.map((t) => [t.subject, t.status]), [
+    ["Task", "pending"],
+    ["Write test", "completed"],
+    ["Fix bug", "in_progress"],
+  ]);
+});
+
+test("the push carries the steps separately", () => {
+  const list = run([checklist("Plan\n\n✓ One"), created("1", "Task")]);
+  const data = toPushData(list);
+  assert.deepEqual(JSON.parse(data.steps), [{ i: "plan:1", s: "One", t: "completed" }]);
+  assert.equal(JSON.parse(data.tasks).length, 1);
+});

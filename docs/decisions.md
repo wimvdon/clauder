@@ -113,3 +113,9 @@ Without a `LICENSE` file the legal default is already all rights reserved, but t
 - **No lint baseline:** the template has zero lint issues.
 - **Play Store upload** is prepared but commented out in `release.yml` until a Play Console app and
   service account exist.
+
+## 2026-11-22: steps and tasks
+- Project threads track their plan with a progress checklist, not with Claude Code's task tools.
+  Wim follows that checklist, so it is the main list ("steps"), and its heading names the session.
+  Claude Code's tasks and to-dos stay visible as folded detail. The hooks match the checklist tool
+  (`mcp__hearthbot__update_progress_checklist`) and `TodoWrite` in addition to the task tools.

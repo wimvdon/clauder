@@ -7,7 +7,7 @@
       { "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
     ],
     "PostToolUse": [
-      { "matcher": "TaskCreate|TaskUpdate", "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
+      { "matcher": "TaskCreate|TaskUpdate|TodoWrite|mcp__hearthbot__update_progress_checklist", "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }
     ],
     "Stop": [
       { "hooks": [{ "type": "http", "url": "https://clauder.wim-d57.workers.dev/hook", "headers": { "Authorization": "Bearer $CLAUDER_HOOK_TOKEN", "X-Claude-Remote-Session": "$CLAUDE_CODE_REMOTE_SESSION_ID" }, "allowedEnvVars": ["CLAUDER_HOOK_TOKEN", "CLAUDE_CODE_REMOTE_SESSION_ID"], "timeout": 5 }] }

@@ -103,4 +103,10 @@
     <string name="shortcut_code_long">Claude Code</string>
     <string name="shortcut_projects">Progetti</string>
     <string name="shortcut_artifacts">Artifacts</string>
+    <plurals name="step_counts">
+        <item quantity="one">%1$d/%2$d passaggio</item>
+        <item quantity="many">%1$d/%2$d passaggi</item>
+        <item quantity="other">%1$d/%2$d passaggi</item>
+    </plurals>
+    <string name="tasks_toggle">Attività (%1$d/%2$d)</string>
 </resources>

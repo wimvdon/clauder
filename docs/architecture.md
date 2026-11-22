@@ -7,9 +7,15 @@ Clauder shows the task list of every running Claude Code session on the phone.
   each session's list and pushes every change to the registered phones as an FCM data message.
   `push/ClauderMessagingService` parses it (`tasks/TaskList.fromPushData`), drops pushes older
   than the last one per session (`SeqGate`) and shows it (`tasks/TaskNotifier`).
+- **Steps and tasks:** a project thread keeps a progress checklist (`update_progress_checklist`:
+  a heading, then ✓/✱/○ lines). Those are its **steps**, the plan the user follows, and the
+  heading is the session's title. Claude Code's own work list (TaskCreate/TaskUpdate, and the
+  older TodoWrite) are its **tasks**. The Worker keeps both apart; progress, the notification and
+  the widget count the steps when there are any, else the tasks (`TaskList.items`). The Tasks
+  screen shows the steps and folds the tasks away under them.
 - **Notification:** one per session (id from the session key). `tasks/LiveUpdate` works out what it
-  shows: one progress segment per task, done tasks filled, a point on the active task, the
-  current and next task, "Waiting for you" when Claude stopped, and "Done" that dismisses itself
+  shows: one progress segment per step (or task), done ones filled, a point on the active one, the
+  current and next one, "Waiting for you" when Claude stopped, and "Done" that dismisses itself
   after 3 minutes. Android 16 shows it as a Live Update (`ProgressStyle`, promoted ongoing);
   older versions get a standard progress notification. A tap opens the session on claude.ai.
 - **Shortcuts:** long-pressing the app icon shows New chat, Code, Projects and Artifacts

@@ -13,7 +13,7 @@ object SessionBoard {
     fun mergeAll(current: List<TaskList>, fetched: List<TaskList>): List<TaskList> =
         fetched.fold(current) { board, list -> merge(board, list) }
 
-    /** Sessions without tasks (a session that only stopped or ended) are left out. */
+    /** Sessions without steps or tasks (a session that only stopped or ended) are left out. */
     fun sort(lists: List<TaskList>): List<TaskList> =
-        lists.filter { it.tasks.isNotEmpty() && it.key != "demo" }.sortedByDescending { it.updatedAt }
+        lists.filter { it.items.isNotEmpty() && it.key != "demo" }.sortedByDescending { it.updatedAt }
 }

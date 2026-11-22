@@ -71,4 +71,24 @@ class TaskListTest {
     companion object {
         const val TASKS = """[{"i":"1","s":"Read the code","t":"completed"},{"i":"2","s":"Write tests","t":"in_progress"},{"i":"3","s":"Open the PR","t":"pending"}]"""
     }
+
+    @Test
+    fun `a project thread's steps come apart from its tasks and drive the progress`() {
+        val steps = """[{"i":"plan:1","s":"Shortcuts merged","t":"completed"},{"i":"plan:2","s":"Build widgets","t":"in_progress"}]"""
+        val list = TaskList.fromPushData(push() + ("steps" to steps))!!
+        assertTrue(list.hasSteps)
+        assertEquals(listOf("Shortcuts merged", "Build widgets"), list.steps.map { it.subject })
+        assertEquals(3, list.tasks.size)
+        assertEquals(list.steps, list.items)
+        assertEquals(1, list.doneCount)
+        assertEquals("Build widgets", list.current?.subject)
+        assertNull(list.next)
+    }
+
+    @Test
+    fun `without steps the tasks drive the progress`() {
+        val list = TaskList.fromPushData(push())!!
+        assertFalse(list.hasSteps)
+        assertEquals(list.tasks, list.items)
+    }
 }

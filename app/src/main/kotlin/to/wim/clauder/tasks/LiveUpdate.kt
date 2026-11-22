@@ -4,6 +4,8 @@ package to.wim.clauder.tasks
 data class LiveUpdate(
     val title: String,
     val status: Status,
+    /** True when [done] and [total] count a project thread's steps rather than tasks. */
+    val steps: Boolean,
     val done: Int,
     val total: Int,
     /** Expanded view: the task Claude is on, then the next one. */
@@ -32,11 +34,12 @@ data class LiveUpdate(
         /** Null when there is nothing to show: no tasks yet, or the session closed with open
          * tasks (then the notification goes away). */
         fun from(list: TaskList): LiveUpdate? {
-            if (list.tasks.isEmpty()) return null
-            if (list.state == SessionState.Ended && list.doneCount < list.tasks.size) return null
-            val total = list.tasks.size
+            val items = list.items
+            if (items.isEmpty()) return null
+            if (list.state == SessionState.Ended && list.doneCount < items.size) return null
+            val total = items.size
             val done = list.doneCount
-            val currentIndex = list.tasks.indexOfFirst { it.status == TaskStatus.InProgress }
+            val currentIndex = items.indexOfFirst { it.status == TaskStatus.InProgress }
             val status = when (list.state) {
                 SessionState.Done, SessionState.Ended -> Status.Done
                 SessionState.Waiting -> Status.Waiting
@@ -46,6 +49,7 @@ data class LiveUpdate(
             return LiveUpdate(
                 title = list.title,
                 status = status,
+                steps = list.hasSteps,
                 done = done,
                 total = total,
                 currentTask = list.current?.subject,
