@@ -29,6 +29,23 @@ object SessionBoard {
         return if (rest.isEmpty()) named else named + (null to rest)
     }
 
+    /** One project (or repository) on the Tasks screen: what is working or waiting, and what is idle or finished. */
+    data class Section(val group: String?, val active: List<TaskList>, val inactive: List<TaskList>)
+
+    /** [groups] split into active and inactive sessions. Projects with something active come
+     * first; sessions without a project stay last. */
+    fun sections(lists: List<TaskList>): List<Section> {
+        val all = groups(lists).map { (group, members) ->
+            val (inactive, active) = members.partition { isInactive(it) }
+            Section(group, active, inactive)
+        }
+        val (named, rest) = all.partition { it.group != null }
+        return named.sortedBy { it.active.isEmpty() } + rest
+    }
+
+    /** Idle (nothing for you, nothing running) or finished. */
+    fun isInactive(list: TaskList): Boolean = list.isFinished || list.state == SessionState.Idle
+
     /** Sessions without steps or tasks (a session that only stopped or ended) are left out. */
     fun sort(lists: List<TaskList>): List<TaskList> =
         lists.filter { it.items.isNotEmpty() && it.key != "demo" }.sortedByDescending { it.updatedAt }

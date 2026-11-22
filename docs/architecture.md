@@ -18,9 +18,12 @@ Clauder shows the task list of every running Claude Code session on the phone.
   Done, Ended. Stop alone means Idle, because it ends every turn (`worker/src/tasklist.ts`).
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
-  prompt event (without the prompt's text). The Tasks screen groups active sessions under the
-  project's name, else the repository's (`SessionBoard.groups`); the widget and the notification
-  show that name too. claude.ai doesn't give the project's icon or colour to the session.
+  prompt event (without the prompt's text). The Tasks screen groups sessions under the
+  project's name, else the repository's (`SessionBoard.sections`). A group folds shut by tapping
+  its header, and its idle and finished sessions sit under an "N inactive sessions" row that starts
+  folded. In the shade, idle and finished sessions are bundled per project with a summary
+  notification (`LiveUpdate.bundle`, `TaskNotifier.refreshBundles`); working and waiting sessions
+  stay on their own so they keep their Live Update. The widget shows the name too. claude.ai doesn't give the project's icon or colour to the session.
 - **Notification:** one per session (id from the session key). `tasks/LiveUpdate` works out what it
   shows: one progress segment per step (or task), done ones filled, a point on the active one, the
   current and next one, "Waiting for you" when Claude stopped, and "Done" that dismisses itself
@@ -52,7 +55,7 @@ Clauder shows the task list of every running Claude Code session on the phone.
   anywhere), so the links its own widgets use can be looked up. The list and the report are plain
   Kotlin (`links/LinkProbe.kt`).
 - **Screens:** Tasks (the sessions from the Worker's `GET /sessions`, kept up to date by pushes,
-  in "Active" and "Recently finished" sections,
+  grouped per project,
   `tasks/SessionBoard`), Shortcuts and Settings (connection, notifications, the setup block for cloud
   environments, appearance).
 - **Stored data:** theme, Dynamic color and the Worker address in `backed_up_settings`; the

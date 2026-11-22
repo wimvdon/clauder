@@ -87,4 +87,12 @@ class LiveUpdateTest {
         assertEquals("Clauder", LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending).copy(project = "Clauder"))!!.group)
         assertNull(LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending))!!.group)
     }
+
+    @Test
+    fun `idle and done sessions are bundled per project, live ones stand alone`() {
+        assertEquals("inactive:Clauder", LiveUpdate.from(list(SessionState.Idle, TaskStatus.Pending).copy(project = "Clauder"))!!.bundle)
+        assertEquals("inactive:", LiveUpdate.from(list(SessionState.Done, TaskStatus.Completed))!!.bundle)
+        assertNull(LiveUpdate.from(list(SessionState.Running, TaskStatus.Pending).copy(project = "Clauder"))!!.bundle)
+        assertNull(LiveUpdate.from(list(SessionState.Waiting, TaskStatus.Pending))!!.bundle)
+    }
 }

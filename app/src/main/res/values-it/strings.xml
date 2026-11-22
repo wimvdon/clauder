@@ -121,8 +121,6 @@
     <string name="waiting_alert">Avviso quando Claude aspetta</string>
     <string name="waiting_alert_body">Scegli suono, vibrazione e pop-up per «Ti sta aspettando».</string>
     <string name="action_change_alert">Modifica avviso</string>
-    <string name="tasks_section_active">Attive</string>
-    <string name="tasks_section_finished">Terminate di recente</string>
     <string name="link_tester_title">Tester dei link</string>
     <string name="link_tester_summary">Prova modi per aprire l\'app Claude. Solo nelle versioni di prova.</string>
     <string name="section_test_build">Versione di prova</string>
@@ -145,4 +143,9 @@
     <string name="link_tester_save_failed">Impossibile salvare il file</string>
     <string name="state_idle">Inattivo</string>
     <string name="tasks_section_other">Altre sessioni</string>
+    <plurals name="notification_inactive">
+        <item quantity="one">%d sessione inattiva</item>
+        <item quantity="other">%d sessioni inattive</item>
+        <item quantity="many">%d sessioni inattive</item>
+    </plurals>
 </resources>

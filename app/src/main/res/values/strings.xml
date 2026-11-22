@@ -121,8 +121,6 @@
     <string name="waiting_alert">Alert when Claude waits</string>
     <string name="waiting_alert_body">Choose the sound, vibration and pop-up for “Waiting for you”.</string>
     <string name="action_change_alert">Change alert</string>
-    <string name="tasks_section_active">Active</string>
-    <string name="tasks_section_finished">Recently finished</string>
     <string name="link_tester_title">Link tester</string>
     <string name="link_tester_summary">Try ways to open the Claude app. Only in test builds.</string>
     <string name="section_test_build">Test build</string>
@@ -145,4 +143,8 @@
     <string name="link_tester_save_failed">Couldn\'t save the file</string>
     <string name="state_idle">Idle</string>
     <string name="tasks_section_other">Other sessions</string>
+    <plurals name="notification_inactive">
+        <item quantity="one">%d inactive session</item>
+        <item quantity="other">%d inactive sessions</item>
+    </plurals>
 </resources>

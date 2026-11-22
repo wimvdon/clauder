@@ -118,8 +118,6 @@
     <string name="waiting_alert">Melding als Claude wacht</string>
     <string name="waiting_alert_body">Kies het geluid, de trilling en de pop-up voor ‘Wacht op jou’.</string>
     <string name="action_change_alert">Melding aanpassen</string>
-    <string name="tasks_section_active">Actief</string>
-    <string name="tasks_section_finished">Onlangs afgerond</string>
     <string name="link_tester_title">Linktester</string>
     <string name="link_tester_summary">Probeer manieren om de Claude-app te openen. Alleen in testversies.</string>
     <string name="section_test_build">Testversie</string>
@@ -142,4 +140,8 @@
     <string name="link_tester_save_failed">Kon het bestand niet bewaren</string>
     <string name="state_idle">Inactief</string>
     <string name="tasks_section_other">Andere sessies</string>
+    <plurals name="notification_inactive">
+        <item quantity="one">%d inactieve sessie</item>
+        <item quantity="other">%d inactieve sessies</item>
+    </plurals>
 </resources>

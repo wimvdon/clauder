@@ -28,10 +28,15 @@ data class LiveUpdate(
 
     val max: Int get() = segmentCount * SEGMENT_LENGTH
 
+    /** Idle and finished sessions are bundled per project in the shade, so the bundle can be
+     * folded away; live ones stay on their own to keep their progress bar. Null: not bundled. */
+    val bundle: String? get() = if (ongoing) null else BUNDLE_PREFIX + group.orEmpty()
+
     companion object {
         const val SEGMENT_LENGTH = 100
         const val DONE_TIMEOUT_MS = 3 * 60 * 1000L
         const val CODE_URL = "https://claude.ai/code"
+        const val BUNDLE_PREFIX = "inactive:"
 
         /** Null when there is nothing to show: no tasks yet, or the session closed with open
          * tasks (then the notification goes away). */
