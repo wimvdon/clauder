@@ -56,6 +56,11 @@
             android:name=".tasks.MuteReceiver"
             android:exported="false" />
 
+        <!-- The Resolved button on a session that waits for you. -->
+        <receiver
+            android:name=".tasks.ResolveReceiver"
+            android:exported="false" />
+
         <!-- The Quick Settings tile. BIND_QUICK_SETTINGS_TILE only lets the system bind to it; it
              is not a permission the app asks for. -->
         <service

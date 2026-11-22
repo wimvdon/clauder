@@ -39,6 +39,9 @@ data class LiveUpdate(
     val linkTitle: String? = null,
     /** Finished sessions never make a sound. */
     val silent: Boolean = false,
+    /** A plain alert without a progress bar or status bar chip, so it can't pass for a Live Update:
+     * a session that waits for you while the summary is the one Live Update. */
+    val plain: Boolean = false,
 ) {
     enum class Holding { Ci, Reminder, Helpers }
 
@@ -82,7 +85,8 @@ data class LiveUpdate(
             }
             val finished = status == Status.Done
             // An idle session stays in the shade but isn't pinned as ongoing or promoted.
-            val live = !finished && status != Status.Idle && !(summaryMode && status == Status.Waiting)
+            val plain = summaryMode && status == Status.Waiting
+            val live = !finished && status != Status.Idle && !plain
             return LiveUpdate(
                 title = list.title,
                 group = list.group,
@@ -109,6 +113,7 @@ data class LiveUpdate(
                 linkUrl = list.link,
                 linkTitle = list.linkTitle,
                 silent = finished,
+                plain = plain,
             )
         }
 

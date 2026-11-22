@@ -1,5 +1,6 @@
 package to.wim.clauder.ui.tasks
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -85,6 +87,9 @@ import to.wim.clauder.widget.Widgets
 
 private enum class Load { Loading, Ready, Failed }
 
+/** After Mark resolved, reload the list once the Worker has pushed the change. */
+private const val RESOLVE_REFRESH_MS = 1_500L
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
@@ -143,13 +148,30 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
                 modifier = inner.fillMaxSize(),
             ) {
                 when {
-                    sessions.isNotEmpty() -> SessionList(sessions, muted) { list ->
-                        scope.launch {
-                            val after = MuteList.unmute(muted, list.key)
-                            app.store.setMuted(after)
-                            TaskNotifier.apply(app, list, sessions, after, app.store.current().notify)
-                        }
-                    }
+                    sessions.isNotEmpty() -> SessionList(
+                        sessions,
+                        muted,
+                        onUnmute = { list ->
+                            scope.launch {
+                                val after = MuteList.unmute(muted, list.key)
+                                app.store.setMuted(after)
+                                TaskNotifier.apply(app, list, sessions, after, app.store.current().notify)
+                            }
+                        },
+                        onResolve = { list ->
+                            scope.launch {
+                                val result = WorkerClient(settings.workerUrl, settings.token).resolve(list.key)
+                                if (result is WorkerClient.Result.Ok) {
+                                    TaskNotifier.cancel(app, list.key)
+                                    // The Worker pushes the change; this also catches it when the push is late.
+                                    delay(RESOLVE_REFRESH_MS)
+                                    fetch()
+                                } else {
+                                    Toast.makeText(app, R.string.resolve_failed, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                    )
                     load == Load.Failed -> EmptyState(
                         icon = R.drawable.ic_cloud_off,
                         title = stringResource(R.string.tasks_error_title),
@@ -170,7 +192,7 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
 }
 
 @Composable
-private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: (TaskList) -> Unit) {
+private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: (TaskList) -> Unit, onResolve: (TaskList) -> Unit) {
     // The shown state depends on the time (a long silence makes a session idle), so re-read it
     // every minute.
     val now by produceState(System.currentTimeMillis()) {
@@ -206,7 +228,7 @@ private fun SessionList(sessions: List<TaskList>, muted: Set<String>, onUnmute: 
                     open = row.open,
                     onToggle = { folded[row.group.orEmpty()] = row.open },
                 )
-                is SessionBoard.Row.Active -> SessionCard(row.list, row.list.key in muted, onUnmute)
+                is SessionBoard.Row.Active -> SessionCard(row.list, row.list.key in muted, onUnmute, onResolve)
                 is SessionBoard.Row.InactiveHeader -> InactiveHeader(row.count, row.open) { inactiveOpen = !row.open }
                 is SessionBoard.Row.Inactive -> InactiveRow(row.list, row.list.key in muted)
             }
@@ -383,7 +405,7 @@ private fun countsLabel(list: TaskList): String = pluralStringResource(
 )
 
 @Composable
-private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit) {
+private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> Unit, onResolve: (TaskList) -> Unit) {
     val context = LocalContext.current
     val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
     val openLabel = stringResource(R.string.session_open)
@@ -422,6 +444,14 @@ private fun SessionCard(list: TaskList, muted: Boolean, onUnmute: (TaskList) -> 
             // Where the work stands after Claude's last turn, in one line.
             list.summary?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // Resolving the thread in the Claude app doesn't reach Clauder, so it can be done here.
+            if (list.state == SessionState.Waiting) {
+                FilledTonalButton(onClick = { onResolve(list) }) {
+                    Icon(painterResource(R.drawable.ic_check_circle), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_resolve))
+                }
             }
             SessionExtras(list)
             SegmentedProgress(list)

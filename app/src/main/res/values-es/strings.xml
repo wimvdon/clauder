@@ -92,6 +92,8 @@
     <string name="widget_no_sessions">No hay sesiones ahora</string>
     <string name="session_muted">Silenciada</string>
     <string name="action_mute">Silenciar</string>
+    <string name="action_resolve">Marcar resuelto</string>
+    <string name="resolve_failed">No se pudo contactar con el Worker. Inténtalo de nuevo.</string>
     <string name="action_unmute">Activar sonido</string>
     <string name="waiting_alert">Aviso cuando Claude espera</string>
     <string name="waiting_alert_body">Elige el sonido, la vibración y la ventana emergente de «Te está esperando».</string>

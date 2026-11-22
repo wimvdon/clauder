@@ -67,7 +67,8 @@ Clauder shows the task list of every running Claude Code session on the phone.
   (`Summary`, `TaskNotifier.showSummary`) and only the sessions that wait for you get their own,
   alerting, notification (`NotificationPlan`). The summary is then the only Live Update: those
   "Waiting for you" notifications are plain ones, not ongoing or promoted, so they can be swiped
-  away (`LiveUpdate.from(summaryMode = true)`).
+  away (`LiveUpdate.from(summaryMode = true)`). They also have no progress bar and no status bar
+  chip (`LiveUpdate.plain`), so on Android 16 they don't look like a second Live Update.
   "Alert when Claude waits" (`Settings.waitingAlerts`, backed up, on by default) can be turned off
   for people who rely on the Claude app's own notifications: a session that waits for you then
   goes on the quiet progress channel, still saying "Waiting for you" (or, in summary mode, shows
@@ -112,6 +113,10 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **Mute:** a session's notification has a Mute button (`tasks/MuteReceiver`). A muted session
   stays on the Tasks screen and in the widget, with Unmute on its card, but gets no notification;
   it is forgotten once it ends (`tasks/MuteList`).
+- **Mark resolved:** a session that waits for you has a Mark resolved button on its notification
+  (`tasks/ResolveReceiver`) and on its card on the Tasks screen. Resolving a thread by hand in the Claude app sends no hook event, so
+  the button tells the Worker (`POST /sessions/resolve`, `resolveByUser` in `worker/src/tasklist.ts`):
+  the thread is Done until the person writes in it again, exactly as after `set_thread_resolved`.
 - **Waiting alert:** "Waiting for you" uses its own channel (`waiting`, default importance), so it
   can alert while progress stays quiet. Settings opens that channel's system settings.
 - **Session cache:** `push/Push.record` merges every push and fetch into the newest 20 sessions

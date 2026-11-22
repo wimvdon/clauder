@@ -300,3 +300,14 @@ a small model on Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fas
 turn's last reply waits on the user. Wim chose Workers AI over Claude Haiku (needs an API key and
 a new library) and over the old keyword list (missed "Pick one: …"). It runs in Wim's Cloudflare
 account on the free tier and needs no new dependency.
+
+## 2026-11-22: A Mark resolved button, and plain "Waiting for you" alerts in summary mode
+
+Wim resolved a thread by hand in the Claude app and its "Waiting for you" alert stayed. The hook
+log shows why: resolving by hand sends no hook event at all (the session got the same SessionEnd
+"other" as any pause between wakes), and the session record the Worker could read has no resolved
+field either. Rather than guessing, the alert now has a Mark resolved button that tells the Worker;
+the thread is then Done until the person writes again, like `set_thread_resolved`. In summary mode
+the alert also drops its segmented progress bar and status bar chip: it was already not ongoing or
+promoted, but on Android 16 it still looked like a Live Update.
+
