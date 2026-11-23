@@ -1,6 +1,7 @@
 package to.wim.clauder.ui.tasks
 
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -40,7 +41,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -213,113 +213,100 @@ private fun SessionList(
         }
     }
     val board = SessionBoard.board(sessions, now)
-    // Projects the user folded (every project starts open), and whether the user opened the list of
-    // idle and finished sessions (it starts folded).
-    val folded = remember { mutableStateMapOf<String, Boolean>() }
+    // The Inactive section starts folded; the user opens it by tapping its header.
     var inactiveOpen by rememberSaveable { mutableStateOf(false) }
-    val rows = SessionBoard.rows(board, foldedGroups = folded.filterValues { it }.keys, inactiveOpen = inactiveOpen)
+    val rows = SessionBoard.rows(board, inactiveOpen = inactiveOpen)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        items(rows, key = { row ->
+        items(rows, key = SessionBoard::key) { row ->
             when (row) {
-                is SessionBoard.Row.Header -> "group:${row.group.orEmpty()}"
-                is SessionBoard.Row.Active -> row.list.key
-                is SessionBoard.Row.InactiveHeader -> "inactive"
-                is SessionBoard.Row.Inactive -> row.list.key
-            }
-        }) { row ->
-            when (row) {
-                is SessionBoard.Row.Header -> GroupHeader(
-                    row.group ?: stringResource(R.string.tasks_section_other),
+                is SessionBoard.Row.StatusHeader -> StatusHeader(
+                    row.status,
                     count = row.count,
                     open = row.open,
-                    onToggle = { folded[row.group.orEmpty()] = row.open },
+                    onToggle = { inactiveOpen = !row.open },
+                    first = row == rows.first(),
                 )
-                is SessionBoard.Row.Active -> SessionCard(row.list, row.list.key in muted, hookFix, onUnmute, onResolve)
-                is SessionBoard.Row.InactiveHeader -> InactiveHeader(row.count, row.open) { inactiveOpen = !row.open }
-                is SessionBoard.Row.Inactive -> InactiveRow(row.list, row.list.key in muted, hookFix)
+                is SessionBoard.Row.ProjectHeader -> ProjectHeader(row.group ?: stringResource(R.string.tasks_section_other))
+                is SessionBoard.Row.Session ->
+                    if (row.status == SessionBoard.Status.Inactive) {
+                        InactiveRow(row.list, row.list.key in muted, hookFix)
+                    } else {
+                        SessionCard(row.list, row.list.key in muted, hookFix, onUnmute, onResolve)
+                    }
             }
         }
     }
 }
 
-/** "Inactive" with a count and a chevron, below every project, set off by a line: shows or hides
- * every idle and finished session. */
+@StringRes
+private fun statusTitleRes(status: SessionBoard.Status): Int = when (status) {
+    SessionBoard.Status.NeedsInput -> R.string.tasks_section_needs_input
+    SessionBoard.Status.Running -> R.string.tasks_section_running
+    SessionBoard.Status.Inactive -> R.string.tasks_section_inactive
+}
+
+/** A status section's title in the serif face, with its count. Every section but the first is set
+ * off by a line. Only Inactive folds: it gets a chevron and opens or closes on a tap. */
 @Composable
-private fun InactiveHeader(count: Int, open: Boolean, onToggle: () -> Unit) {
+private fun StatusHeader(status: SessionBoard.Status, count: Int, open: Boolean, onToggle: () -> Unit, first: Boolean) {
+    val folds = status == SessionBoard.Status.Inactive
     Column(Modifier.readableWidth()) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (!first) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(bottom = 4.dp))
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
-                .clickable(role = Role.Button, onClick = onToggle)
+                .then(if (folds) Modifier.clickable(role = Role.Button, onClick = onToggle) else Modifier)
                 .padding(horizontal = 4.dp)
                 .semantics(mergeDescendants = true) { heading() },
         ) {
             Text(
-                stringResource(R.string.tasks_section_inactive),
-                style = MaterialTheme.typography.titleSmall,
+                stringResource(statusTitleRes(status)),
+                style = MaterialTheme.typography.headlineSmall,
+                color = if (status == SessionBoard.Status.NeedsInput) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
             Text(
                 "$count",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                painterResource(R.drawable.ic_expand_more),
-                contentDescription = stringResource(if (open) R.string.section_expanded else R.string.section_collapsed),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp).rotate(if (open) 180f else 0f),
-            )
+            if (folds) {
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    painterResource(R.drawable.ic_expand_more),
+                    contentDescription = stringResource(if (open) R.string.section_expanded else R.string.section_collapsed),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp).rotate(if (open) 180f else 0f),
+                )
+            }
         }
     }
 }
 
+/** A project's (or repository's) name above its sessions inside a status section. It doesn't fold. */
 @Composable
-private fun GroupHeader(text: String, count: Int, open: Boolean, onToggle: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+private fun ProjectHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .readableWidth()
-            .heightIn(min = 48.dp)
-            .clickable(role = Role.Button, onClick = onToggle)
-            .padding(horizontal = 4.dp)
-            .semantics(mergeDescendants = true) { heading() },
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (!open) {
-            Text(
-                "$count",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.width(8.dp))
-        }
-        Icon(
-            painterResource(R.drawable.ic_expand_more),
-            contentDescription = stringResource(if (open) R.string.section_expanded else R.string.section_collapsed),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp).rotate(if (open) 180f else 0f),
-        )
-    }
+            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .semantics { heading() },
+    )
 }
 
-/** An idle or finished session: its project or repository, title and state, without the steps. */
+/** An idle or finished session: its title and state, without the steps (its project is the header above). */
 @Composable
 private fun InactiveRow(list: TaskList, muted: Boolean, hookFix: String) {
     val context = LocalContext.current
@@ -331,9 +318,6 @@ private fun InactiveRow(list: TaskList, muted: Boolean, hookFix: String) {
         stringResource(R.string.session_muted).takeIf { muted },
     ).joinToString(" · ")
     ListItem(
-        overlineContent = list.group?.let { group ->
-            { Text(group, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        },
         headlineContent = { Text(list.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             Column {

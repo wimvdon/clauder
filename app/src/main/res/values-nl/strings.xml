@@ -99,6 +99,8 @@
     <string name="state_idle">Inactief</string>
     <string name="tasks_section_other">Andere sessies</string>
     <string name="tasks_section_inactive">Inactief</string>
+    <string name="tasks_section_needs_input">Input nodig</string>
+    <string name="tasks_section_running">Bezig</string>
     <plurals name="notification_inactive">
         <item quantity="one">%d inactieve sessie</item>
         <item quantity="other">%d inactieve sessies</item>

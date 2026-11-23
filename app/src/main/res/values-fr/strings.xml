@@ -102,6 +102,8 @@
     <string name="state_idle">Inactif</string>
     <string name="tasks_section_other">Autres sessions</string>
     <string name="tasks_section_inactive">Inactives</string>
+    <string name="tasks_section_needs_input">Action requise</string>
+    <string name="tasks_section_running">En cours</string>
     <plurals name="notification_inactive">
         <item quantity="one">%d session inactive</item>
         <item quantity="other">%d sessions inactives</item>

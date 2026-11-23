@@ -36,8 +36,12 @@ const SYSTEM = [
   "Count: a direct question to the user, a list of options to pick from, a request for approval",
   "or a go-ahead, a request for information only the user has.",
   "Don't count: a report of finished or ongoing work, a note that it waits for CI, a reminder",
-  "or another process, an optional offer such as \"let me know if you want more\", a question it",
-  "answers itself, a question quoted from someone else.",
+  "or another process, a next step the assistant will take itself (such as \"I'll merge it once",
+  "CI passes\"), test steps or instructions the user can follow later (such as \"the PR lists",
+  "the steps to try it on your phone\"), an optional offer such as \"let me know if you want",
+  "more\", a question it answers itself, a question quoted from someone else.",
+  "When waiting is true, the question field must say what the user must answer; if you can't",
+  "name it, waiting is false.",
   "Also write a summary: one line of at most 12 words, in the language of the message, saying",
   "where the work stands for the user, such as \"Snoozer CI running; mockups ready, pick T1-T3\".",
   "No greeting, no \"Claude\", no full stop at the end.",
@@ -94,7 +98,8 @@ export function parseTurn(output: unknown): TurnRead | null {
     waiting?: unknown; question?: unknown; summary?: unknown; finished?: unknown;
   };
   if (typeof waiting !== "boolean") return null;
-  const asked = waiting ? oneLine(question, MAX_QUESTION_CHARS) || "Claude asks you something" : "";
+  // A question the model can't name isn't one: it said "waiting" for test steps or a CI wait.
+  const asked = waiting ? oneLine(question, MAX_QUESTION_CHARS) : "";
   // Only a clear true counts, and a reply that asks something isn't finished.
   return { question: asked, summary: oneLine(summary, MAX_SUMMARY_CHARS), finished: finished === true && !waiting };
 }
