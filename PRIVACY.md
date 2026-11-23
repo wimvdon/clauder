@@ -8,9 +8,11 @@ Worker that you (the owner) run, and to Firebase Cloud Messaging to receive upda
 ## What the app sends and receives
 
 - **To your Worker:** the token you enter, this phone's Firebase Cloud Messaging token and its
-  model name (so the Worker knows where to push), and requests for the current task lists.
+  model name (so the Worker knows where to push), and requests for the current task lists and for
+  when the last hook event arrived (the setup check in Settings).
 - **From your Worker, through Firebase Cloud Messaging:** each session's title (the heading of a project thread's
-  checklist, the thread's title, or else the folder name), its project and repository names, its steps and task subjects with their states, and a link to the session on claude.ai. Google's FCM service carries
+  checklist, the thread's title, or else the folder name), its project and repository names, its steps and task subjects with their states, the tool Claude runs now with its short detail,
+  the counts of files and lines it changed, and a link to the session on claude.ai. Google's FCM service carries
   these messages to the phone.
 - The app has no analytics, advertising or crash reporting.
 
@@ -28,7 +30,12 @@ few words) is kept and shown on the phone; the reply text is then dropped. It al
 opens, reads or merges and their CI results, the `git push` commands Claude runs (with their
 output; no other shell commands are sent), the reminders Claude sets, and, at the end of each
 turn, how many tokens the session used per model (counted on the session's machine from its
-transcript; no text from the transcript is sent for this). When you send a prompt, a
+transcript; no text from the transcript is sent for this). At the end of each turn the same
+script also sends how many files Claude edited and how many lines it added and removed since your
+last message (only the counts, no file names or content). While Claude works it sends, at most
+every 10 seconds, the name of the tool Claude runs and one short detail: the description Claude
+gave a shell command (or only the program's name), a file's name, a search pattern, a web
+address's host or a search query. No other tool input is sent. When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,
 read from the session's own transcript, and what kind of event woke the session (a message, a
 coordinator note or a background event such as CI); the prompt's text is left out. If you connect GitHub (Settings in Clauder), GitHub also sends the Worker webhooks from a

@@ -59,7 +59,7 @@
     <string name="env_step_script">Setup script: pega esto al final, antes de un exit 0 final si lo hay.</string>
     <string name="env_step_variable">Environment variables: añade esta línea.</string>
     <string name="env_step_domain">Network access: añade este dominio a los dominios permitidos.</string>
-    <string name="env_step_new">Los hooks funcionan en las sesiones e hilos iniciados después del cambio.</string>
+    <string name="env_step_new">Los hooks funcionan en las sesiones e hilos iniciados después del cambio. La comprobación de arriba muestra cuándo llega el primer evento.</string>
     <string name="action_copy">Copiar</string>
     <string name="section_appearance">Apariencia</string>
     <string name="theme">Tema</string>
@@ -159,5 +159,31 @@
         <item quantity="one">%d activa</item>
         <item quantity="other">%d activas</item>
         <item quantity="many">%d activas</item>
+    </plurals>
+    <string name="setup_check_running">Comprobando los hooks…</string>
+    <string name="setup_check_ok">Los hooks funcionan. Último evento: %1$s.</string>
+    <string name="setup_check_old">Llegan eventos (el último %1$s), pero esa sesión usa hooks antiguos. Las sesiones e hilos que inicies a partir de ahora recibirán los nuevos.</string>
+    <string name="setup_check_none">Aún no hay eventos de tus sesiones. Sigue los pasos de abajo y luego inicia un hilo nuevo.</string>
+    <string name="setup_check_failed">No se pudieron comprobar los hooks (%1$s).</string>
+    <string name="action_check_again">Comprobar de nuevo</string>
+    <string name="activity_shell">Shell: %1$s</string>
+    <string name="activity_edit">Editando %1$s</string>
+    <string name="activity_read">Leyendo %1$s</string>
+    <string name="activity_search">Buscando %1$s</string>
+    <string name="activity_fetch">Abriendo %1$s</string>
+    <string name="activity_web_search">Buscando en la web: %1$s</string>
+    <string name="activity_helper">Ayudante: %1$s</string>
+    <string name="activity_tool">Usando %1$s</string>
+    <string name="receipt_under_minute">menos de un minuto</string>
+    <string name="receipt_hours">%1$d h %2$d min</string>
+    <plurals name="receipt_files">
+        <item quantity="one">%d archivo</item>
+        <item quantity="many">%d archivos</item>
+        <item quantity="other">%d archivos</item>
+    </plurals>
+    <plurals name="receipt_minutes">
+        <item quantity="one">%d min</item>
+        <item quantity="many">%d min</item>
+        <item quantity="other">%d min</item>
     </plurals>
 </resources>

@@ -410,3 +410,15 @@ waiting and a working thread shows up in both sections. Only Inactive folds (it 
 and the widget shows the same two active sections without it. Project folding is gone: with the
 status split, a long project no longer pushes waiting threads out of view. Inactive rows lost the
 project line above their title, since the project header now says it.
+## 2026-11-23: Ideas taken from Claude Code Notifier, without its code
+
+Wim asked what Clauder could take from Claude Code Notifier (`touch-tap/ccn`). Its licence
+(PolyForm Shield 1.0.0) forbids using the code for a competing product, free ones included, so
+only ideas were taken and written from scratch. Taken: a receipt when the work ends (time, files,
+lines), a setup check that shows hook events reach the Worker, a shared "Worker is down" note so
+hooks don't wait on each call, a settings backup, and the tool Claude runs while it works. Not
+taken: answering Claude from the phone, which depends on holding a local terminal's hooks open.
+The receipt counts from the transcript's own edit results (raw data, no guessing), on the
+session's machine, so only counts leave it. The tool hook is a command hook rather than an HTTP
+hook, so it can skip calls (at most one per 10 seconds) and send only a short detail instead of
+the whole tool input.

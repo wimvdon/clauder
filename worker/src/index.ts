@@ -8,6 +8,7 @@
 //   GET    /sessions         task lists of sessions changed in the last day, newest first
 //   POST   /sessions/resolve {"key": "cse_…"} the person marked the thread resolved on the phone
 //   POST   /test             sends a demo task list to every phone
+//   GET    /status           when the last hook event arrived and whether its hooks are current
 //   GET    /log, DELETE /log raw hook payloads, for debugging (last 500)
 //   GET    /github           whether GitHub is connected (see github.ts)
 //   POST   /github/connect   a one-time link that creates the GitHub App and connects it
@@ -20,8 +21,8 @@
 import { DurableObject } from "cloudflare:workers";
 import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
-import { HOOKS_VERSION, installScript } from "./install";
-import { loadedIsCurrent } from "./hooks";
+import { HOOKS_LEVEL, HOOKS_VERSION, installScript } from "./install";
+import { loadedIsCurrent, statusFrom } from "./hooks";
 import { readTurn, type AskModel } from "./ask";
 import { applyAsk, applyHook, applyPrUpdate, emptyList, resolveByUser, sessionKey, toPushData, type SessionList } from "./tasklist";
 import {
@@ -496,6 +497,13 @@ export default {
     if (route === "POST /test") {
       const result = await hub(env).publish(demoList(new Date().toISOString()), false);
       return json(result, result.error && result.sent === 0 ? 502 : 200);
+    }
+
+    if (route === "GET /status") {
+      const log = env.SPIKE_LOG.get(env.SPIKE_LOG.idFromName("spike"));
+      // The RPC stub can't type `body: unknown`, so the entries come back untyped.
+      const entries = (await log.recent(1)) as unknown as LogEntry[];
+      return json(statusFrom(entries[0] ?? null, HOOKS_VERSION, HOOKS_LEVEL));
     }
 
     if (route === "GET /log") {

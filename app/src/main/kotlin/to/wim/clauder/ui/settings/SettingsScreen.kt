@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.text.format.DateUtils
 import android.os.Build
 import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -46,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +75,7 @@ import to.wim.clauder.push.ConnectOutcome
 import to.wim.clauder.push.Push
 import to.wim.clauder.push.WorkerClient
 import to.wim.clauder.settings.HookSetup
+import to.wim.clauder.settings.SetupCheck
 import to.wim.clauder.settings.Settings
 import to.wim.clauder.settings.ThemeMode
 import to.wim.clauder.settings.WorkerUrl
@@ -364,6 +367,7 @@ private fun promotionSettings(context: Context): Intent =
 private fun EnvironmentSection(settings: Settings) {
     val host = WorkerUrl.host(settings.workerUrl).ifBlank { DEFAULT_WORKER }
     SettingsSection(stringResource(R.string.section_environments)) {
+        if (settings.isConnected) SetupCheckBlock(settings)
         ExpandableSetting(
             title = stringResource(R.string.env_steps_title),
             summary = stringResource(R.string.env_steps_summary),
@@ -383,6 +387,43 @@ private fun EnvironmentSection(settings: Settings) {
                     modifier = Modifier.padding(top = 12.dp),
                 )
             }
+        }
+    }
+}
+
+/** Whether hook events reach the Worker: when the last one came, and from current hooks or not. */
+@Composable
+private fun SetupCheckBlock(settings: Settings) {
+    val scope = rememberCoroutineScope()
+    val res = LocalResources.current
+    var result by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
+    suspend fun check() {
+        checking = true
+        result = when (val r = WorkerClient(settings.workerUrl, settings.token).status()) {
+            is WorkerClient.Result.Ok -> {
+                val now = System.currentTimeMillis()
+                fun ago(at: Long) = DateUtils.getRelativeTimeSpanString(minOf(at, now), now, DateUtils.MINUTE_IN_MILLIS).toString()
+                when (val c = SetupCheck.from(r.value)) {
+                    SetupCheck.NoEvents -> res.getString(R.string.setup_check_none)
+                    is SetupCheck.Working -> res.getString(R.string.setup_check_ok, ago(c.atMillis))
+                    is SetupCheck.OldHooks -> res.getString(R.string.setup_check_old, ago(c.atMillis))
+                }
+            }
+            WorkerClient.Result.Unauthorized -> res.getString(R.string.connect_wrong_token)
+            is WorkerClient.Result.Failed -> res.getString(R.string.setup_check_failed, r.message)
+        }
+        checking = false
+    }
+    LaunchedEffect(settings.workerUrl, settings.token) { check() }
+    SettingsBlock {
+        Text(
+            result ?: stringResource(R.string.setup_check_running),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = { scope.launch { check() } }, enabled = !checking) {
+            Text(stringResource(R.string.action_check_again))
         }
     }
 }

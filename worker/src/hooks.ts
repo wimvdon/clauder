@@ -16,3 +16,29 @@ export function loadedIsCurrent(loaded: string | null): boolean | undefined {
   const m = /^L(\d{1,4})$/.exec(loaded.trim());
   return m !== null && Number(m[1]) >= MIN_HOOKS_LEVEL;
 }
+
+/** The parts of a logged hook event the setup check needs. */
+export interface LastEvent {
+  receivedAt: string;
+  event: string | null;
+  hooks?: string | null;
+  hooksLoaded?: string | null;
+}
+
+/** What the app's setup check shows (GET /status): when the last hook event arrived, and whether
+ * the session that sent it runs the current hook script ([version]) and settings. Null for either
+ * when its hooks don't say. */
+export function statusFrom(last: LastEvent | null, version: string, level: string): Record<string, unknown> {
+  return {
+    hooksVersion: version,
+    hooksLevel: level,
+    lastEvent: last
+      ? {
+          at: last.receivedAt,
+          event: last.event,
+          scriptCurrent: last.hooks == null ? null : last.hooks === version,
+          settingsCurrent: loadedIsCurrent(last.hooksLoaded ?? null) ?? null,
+        }
+      : null,
+  };
+}

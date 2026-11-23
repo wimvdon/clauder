@@ -19,8 +19,10 @@ import {
   type Usage,
 } from "./extras.ts";
 import { applyPrChange, type PrChange } from "./github.ts";
+import { doingFrom, workFrom, type Doing, type Work } from "./activity.ts";
 
 export type { Link, PullRequest, Usage } from "./extras.ts";
+export type { Doing, Work } from "./activity.ts";
 
 export type TaskStatus = "pending" | "in_progress" | "completed";
 
@@ -81,6 +83,11 @@ export interface SessionList {
   helpers?: number;
   /** Tokens used so far and what they would cost on the API (from the Stop hook script). */
   usage?: Usage;
+  /** The tool Claude is running now (PreToolUse), until the turn ends. */
+  doing?: Doing;
+  /** The files and lines Claude changed since the person last wrote (from the Stop hook script),
+   * until the person writes again. */
+  work?: Work;
   /** The thread was marked resolved: finished, even with steps left open. */
   resolved?: boolean;
   /** The turn's last reply to the user (a project thread's post_message), kept only until the turn
@@ -294,6 +301,8 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   const hooksCurrent = hooks ?? list.hooksCurrent ?? false;
   let helpers = list.helpers;
   let usage = list.usage;
+  let doing = list.doing;
+  let work = list.work;
   let resolved = list.resolved ?? false;
   let reply = list.reply;
   let summary = list.summary;
@@ -315,6 +324,13 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   const repo = repoFromCwd(str(input.cwd)) ?? list.repo;
 
   switch (event) {
+    case "PreToolUse": {
+      // The hook script sends this at most every 10 seconds, with the tool and a short detail only.
+      const next = doingFrom(obj(input.clauder)?.tool);
+      if (!next) return null;
+      doing = next;
+      break;
+    }
     case "TaskCreated": {
       const id = str(input.task_id);
       if (!id) return null;
@@ -404,6 +420,8 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     case "Stop": {
       if (list.tasks.length === 0 && steps.length === 0) return null;
       usage = usageFrom(obj(input.clauder)?.usage) ?? usage;
+      work = workFrom(obj(input.clauder)?.work, now) ?? work;
+      doing = undefined;
       helpers = runningWork(input) || undefined;
       // A model reads the turn's last reply next: a summary line for the phone, and whether it
       // asks the user something (which decides the state only when the hook data can't).
@@ -426,6 +444,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       state = "waiting";
       need = clip(message, MAX_NEED) || undefined;
       needKind = "permission";
+      doing = undefined;
       break;
     }
     case "UserPromptSubmit": {
@@ -444,8 +463,10 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       }
       // The summary says where the work stands until the person writes; a CI event or a reminder
       // keeps it, so a wait on CI still shows the line about it.
+      doing = undefined;
       if (fromPerson) {
         summary = undefined;
+        work = undefined;
         resolved = false;
         // A checklist that was already complete is the last request's; the new one is underway.
         staleFinish = allDone(steps.length > 0 ? steps : tasks);
@@ -462,6 +483,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       // wake. Watches, crons and helpers end with the session; a reminder and a PR subscription
       // live on the server and still wake it. With neither, only the user can.
       watches = [];
+      doing = undefined;
       if (project && input?.reason === "other") {
         if (state === "running" && wakeAt === undefined && !prWakes(pr)) state = hooksCurrent ? "waiting" : "idle";
       } else {
@@ -497,11 +519,13 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     JSON.stringify(pr) !== JSON.stringify(list.pr) ||
     JSON.stringify(link) !== JSON.stringify(list.link) ||
     JSON.stringify(usage) !== JSON.stringify(list.usage) ||
+    JSON.stringify(doing) !== JSON.stringify(list.doing) ||
+    JSON.stringify(work) !== JSON.stringify(list.work) ||
     JSON.stringify(tasks) !== JSON.stringify(list.tasks) ||
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   const {
     need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches, hooksCurrent: _hooksCurrent,
-    helpers: _helpers, usage: _usage, resolved: _resolved, reply: _reply, askCheck: _askCheck, summary: _summary,
+    helpers: _helpers, usage: _usage, doing: _doing, work: _work, resolved: _resolved, reply: _reply, askCheck: _askCheck, summary: _summary,
     staleFinish: _staleFinish, ...rest
   } = list;
   if (!changed) {
@@ -532,6 +556,8 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     ...(hooksCurrent ? { hooksCurrent } : {}),
     ...(helpers ? { helpers } : {}),
     ...(usage ? { usage } : {}),
+    ...(doing ? { doing } : {}),
+    ...(work ? { work } : {}),
     ...(resolved ? { resolved } : {}),
     ...(reply ? { reply } : {}),
     ...(askCheck ? { askCheck } : {}),
@@ -544,9 +570,9 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
 
 /** The optional fields of a list that stay as they are. */
 function pick(list: SessionList): Partial<SessionList> {
-  const { need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, resolved } = list;
+  const { need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, doing, work, resolved } = list;
   return Object.fromEntries(
-    Object.entries({ need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, resolved })
+    Object.entries({ need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, doing, work, resolved })
       .filter(([, v]) => v !== undefined),
   ) as Partial<SessionList>;
 }
@@ -644,6 +670,10 @@ export function toPushData(list: SessionList): Record<string, string> {
     helpers: String(list.helpers ?? 0),
     tokens: String(list.usage?.tokens ?? 0),
     cost: String(list.usage?.cost ?? 0),
+    doing: list.doing ? JSON.stringify({ t: list.doing.tool, d: list.doing.detail ?? "" }) : "",
+    work: list.work
+      ? JSON.stringify({ s: list.work.since, e: list.work.endedAt, f: list.work.files, a: list.work.added, r: list.work.removed })
+      : "",
     // "old" when the session runs hook settings from before the installer reported every wake
     // source: it can't update them itself, so the phone shows how to.
     hooks: list.hooksCurrent ? "" : "old",
