@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ASK_MODEL, askInput, MAX_REPLY_CHARS, parseSummary, parseTurn, readTurn, replyTail, SUMMARY_MODEL } from "../src/ask.ts";
+import { ASK_MODEL, askInput, parseRequest, readRequest, MAX_REPLY_CHARS, parseSummary, parseTurn, readTurn, replyTail, SUMMARY_MODEL } from "../src/ask.ts";
 
 test("the model's JSON answer is read, as text or as an object", () => {
   assert.deepEqual(
@@ -81,4 +81,24 @@ test("summary mode asks the small model for the line only", async () => {
   assert.equal(parseSummary({ response: "no json" }), null);
   assert.equal(parseSummary({ response: '{"summary": ""}' }), null);
   assert.equal((askInput("x", "summary").max_tokens as number) < (askInput("x").max_tokens as number), true);
+});
+
+test("the person's message is read by the small model for a Working on line and a title", async () => {
+  const calls: string[] = [];
+  const model = {
+    async run(m: string) {
+      calls.push(m);
+      return { response: '{"working": "Fixing the Safari export button.", "title": "Fix Safari export button"}', usage: { prompt_tokens: 250, completion_tokens: 20 } };
+    },
+  };
+  const result = await readRequest(model, "The export button does nothing on Safari. Can you look?");
+  assert.deepEqual(calls, [SUMMARY_MODEL]);
+  assert.deepEqual(result.read, { working: "Fixing the Safari export button", title: "Fix Safari export button" });
+  assert.ok(result.neurons < 2);
+  assert.deepEqual(parseRequest({ response: '{"working": "", "title": ""}' }), { working: "", title: "" });
+  assert.equal(parseRequest({ response: "no" }), null);
+  assert.equal(parseRequest({ response: '{"other": 1}' }), null);
+  assert.equal(parseRequest({ response: { working: "w", title: "t".repeat(100) } })?.title.length, 60);
+  const broken = { async run(): Promise<unknown> { throw new Error("3036: daily free allocation"); } };
+  assert.deepEqual(await readRequest(broken, "Hi"), { read: null, neurons: 0, allocationUsed: true });
 });

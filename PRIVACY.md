@@ -42,7 +42,11 @@ conversation is compacted (not its summary), and which model, effort level and p
 session uses. When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,
 read from the session's own transcript, and what kind of event woke the session (a message, a
-coordinator note or a background event such as CI); the prompt's text is left out. If you connect GitHub (Settings in Clauder), GitHub also sends the Worker webhooks from a
+coordinator note or a background event such as CI). Of the prompt's text it sends only the message
+you wrote yourself (at most 1,000 characters; coordinator notes and background events are left out).
+A smaller language model on Workers AI reads it once for a one-line "Working on" summary and, for a
+session outside a project, a short title; the message itself is then dropped and never logged.
+If you connect GitHub (Settings in Clauder), GitHub also sends the Worker webhooks from a
 GitHub App on your own account that can only read: check runs, check suites, workflow runs, pull
 requests and reviews of the repositories you install it on. The Worker keeps, per pull request,
 its head commit, its state, the result of each workflow or check suite and the latest review
