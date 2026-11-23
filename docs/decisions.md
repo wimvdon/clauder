@@ -379,3 +379,13 @@ Older hook scripts that don't send the source still end it on any prompt. The sa
 background notification injected into the running turn wiping the reply Claude had just sent, so
 the check at the turn's end had nothing to read: a background wake now keeps the reply and the
 pending check, and only the person's message clears them.
+
+## 2026-11-23: The Tasks screen and widget are split by status
+
+Wim asked for sections instead of one list of projects with an Inactive list below: Needs input
+(waiting for you), then Running (working, CI waits included), then Inactive. Inside each section,
+sessions are grouped by project under a plain header that doesn't fold, so a project with a
+waiting and a working thread shows up in both sections. Only Inactive folds (it starts folded),
+and the widget shows the same two active sections without it. Project folding is gone: with the
+status split, a long project no longer pushes waiting threads out of view. Inactive rows lost the
+project line above their title, since the project header now says it.

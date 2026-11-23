@@ -99,6 +99,8 @@
     <string name="state_idle">Inaktiv</string>
     <string name="tasks_section_other">Andere Sitzungen</string>
     <string name="tasks_section_inactive">Inaktiv</string>
+    <string name="tasks_section_needs_input">Eingabe nötig</string>
+    <string name="tasks_section_running">Läuft</string>
     <plurals name="notification_inactive">
         <item quantity="one">%d inaktive Sitzung</item>
         <item quantity="other">%d inaktive Sitzungen</item>
