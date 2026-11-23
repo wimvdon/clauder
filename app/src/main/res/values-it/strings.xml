@@ -197,6 +197,19 @@
     <string name="action_github_repos">Scegli i repository</string>
     <string name="pr_review_approved">Approvata</string>
     <string name="pr_review_changes">Modifiche richieste</string>
+
+    <!-- claude.ai sign-in (Settings) -->
+    <string name="claude_ai_intro">Accedi a claude.ai così Clauder vede lo stato di ogni thread, anche i thread senza hook e quelli che risolvi tu. Clauder conserva l’accesso cifrato su questo telefono. Non finisce mai nei backup e non viene mai inviato al tuo Worker.</string>
+    <string name="claude_ai_warning">L’accesso dà pieno controllo del tuo account claude.ai. Clauder usa endpoint privati di claude.ai: i termini di Anthropic non lo consentono e qualsiasi aggiornamento può romperlo.</string>
+    <string name="action_connect_claude_ai">Collegati a claude.ai</string>
+    <string name="claude_ai_login_title">Accedi a claude.ai</string>
+    <string name="claude_ai_login_help">Accedi con il codice che ricevi via email. L’accesso con Google potrebbe non funzionare qui.</string>
+    <string name="claude_ai_connected">Accesso a claude.ai eseguito</string>
+    <string name="action_test_claude_ai">Prova</string>
+    <string name="action_sign_out">Esci</string>
+    <string name="claude_ai_testing">Prova in corso, circa 20 secondi…</string>
+    <string name="claude_ai_unreadable">L’accesso non è più leggibile su questo telefono. Esci e collegati di nuovo.</string>
+    <string name="claude_ai_report_help">Copia questo resoconto nel thread di Claude che lo ha chiesto. Contiene solo nomi di campi, conteggi e codici di stato.</string>
     <string name="state_error">Interrotto da un errore</string>
     <string name="state_error_need">Interrotto da un errore: %1$s</string>
     <string name="activity_blocked">La modalità automatica ha bloccato un passaggio: %1$s</string>

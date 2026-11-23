@@ -197,6 +197,19 @@
     <string name="action_github_repos">Elegir repositorios</string>
     <string name="pr_review_approved">Aprobada</string>
     <string name="pr_review_changes">Cambios solicitados</string>
+
+    <!-- claude.ai sign-in (Settings) -->
+    <string name="claude_ai_intro">Inicia sesión en claude.ai para que Clauder vea el estado de cada hilo, también los hilos sin hooks y los que resuelves tú. Clauder guarda la sesión cifrada en este teléfono. Nunca se incluye en copias de seguridad ni se envía a tu Worker.</string>
+    <string name="claude_ai_warning">La sesión da acceso completo a tu cuenta de claude.ai. Clauder usa endpoints privados de claude.ai, algo que las condiciones de Anthropic no permiten y que cualquier actualización puede romper.</string>
+    <string name="action_connect_claude_ai">Conéctate a claude.ai</string>
+    <string name="claude_ai_login_title">Iniciar sesión en claude.ai</string>
+    <string name="claude_ai_login_help">Inicia sesión con el código que recibes por correo. Puede que el inicio de sesión con Google no funcione aquí.</string>
+    <string name="claude_ai_connected">Sesión iniciada en claude.ai</string>
+    <string name="action_test_claude_ai">Probar</string>
+    <string name="action_sign_out">Cerrar sesión</string>
+    <string name="claude_ai_testing">Probando, tarda unos 20 segundos…</string>
+    <string name="claude_ai_unreadable">La sesión ya no se puede leer en este teléfono. Cierra sesión y vuelve a conectarte.</string>
+    <string name="claude_ai_report_help">Copia este informe en el hilo de Claude que lo pidió. Solo contiene nombres de campos, recuentos y códigos de estado.</string>
     <string name="state_error">Detenido por un error</string>
     <string name="state_error_need">Detenido por un error: %1$s</string>
     <string name="activity_blocked">El modo automático bloqueó un paso: %1$s</string>

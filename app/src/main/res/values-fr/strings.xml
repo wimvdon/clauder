@@ -197,6 +197,19 @@
     <string name="action_github_repos">Choisir les dépôts</string>
     <string name="pr_review_approved">Approuvée</string>
     <string name="pr_review_changes">Modifications demandées</string>
+
+    <!-- claude.ai sign-in (Settings) -->
+    <string name="claude_ai_intro">Connectez-vous à claude.ai pour que Clauder voie l’état de chaque fil, y compris les fils sans hooks et ceux que vous marquez résolus vous-même. Clauder garde la connexion chiffrée sur ce téléphone. Elle n’est jamais sauvegardée ni envoyée à votre Worker.</string>
+    <string name="claude_ai_warning">La connexion donne un accès complet à votre compte claude.ai. Clauder utilise des points d’accès privés de claude.ai, ce que les conditions d’Anthropic n’autorisent pas et qu’une mise à jour peut casser.</string>
+    <string name="action_connect_claude_ai">Connexion à claude.ai</string>
+    <string name="claude_ai_login_title">Se connecter à claude.ai</string>
+    <string name="claude_ai_login_help">Connectez-vous avec le code reçu par e-mail. La connexion Google risque de ne pas fonctionner ici.</string>
+    <string name="claude_ai_connected">Connecté à claude.ai</string>
+    <string name="action_test_claude_ai">Tester</string>
+    <string name="action_sign_out">Se déconnecter</string>
+    <string name="claude_ai_testing">Test en cours, environ 20 secondes…</string>
+    <string name="claude_ai_unreadable">La connexion n’est plus lisible sur ce téléphone. Déconnectez-vous et connectez-vous à nouveau.</string>
+    <string name="claude_ai_report_help">Copiez ce rapport dans le fil Claude qui l’a demandé. Il ne contient que des noms de champs, des nombres et des codes d’état.</string>
     <string name="state_error">Arrêté par une erreur</string>
     <string name="state_error_need">Arrêté par une erreur : %1$s</string>
     <string name="activity_blocked">Le mode auto a bloqué une étape : %1$s</string>

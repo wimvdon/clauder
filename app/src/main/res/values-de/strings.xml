@@ -186,6 +186,19 @@
     <string name="action_github_repos">Repositories wählen</string>
     <string name="pr_review_approved">Genehmigt</string>
     <string name="pr_review_changes">Änderungen angefordert</string>
+
+    <!-- claude.ai sign-in (Settings) -->
+    <string name="claude_ai_intro">Melde dich bei claude.ai an, damit Clauder den Status jedes Threads sieht, auch von Threads ohne Hooks und von Threads, die du selbst erledigst. Clauder speichert die Anmeldung verschlüsselt auf diesem Telefon. Sie wird nie gesichert und nie an deinen Worker gesendet.</string>
+    <string name="claude_ai_warning">Die Anmeldung gibt vollen Zugriff auf dein claude.ai-Konto. Clauder nutzt private claude.ai-Endpunkte. Die Bedingungen von Anthropic erlauben das nicht, und jedes Update kann es kaputt machen.</string>
+    <string name="action_connect_claude_ai">Mit claude.ai verbinden</string>
+    <string name="claude_ai_login_title">Bei claude.ai anmelden</string>
+    <string name="claude_ai_login_help">Melde dich mit dem Code aus deiner E-Mail an. Die Anmeldung mit Google funktioniert hier vielleicht nicht.</string>
+    <string name="claude_ai_connected">Bei claude.ai angemeldet</string>
+    <string name="action_test_claude_ai">Testen</string>
+    <string name="action_sign_out">Abmelden</string>
+    <string name="claude_ai_testing">Wird getestet, das dauert etwa 20 Sekunden…</string>
+    <string name="claude_ai_unreadable">Die Anmeldung lässt sich auf diesem Telefon nicht mehr lesen. Melde dich ab und verbinde dich neu.</string>
+    <string name="claude_ai_report_help">Kopiere diesen Bericht in den Claude-Thread, der danach gefragt hat. Er enthält nur Feldnamen, Anzahlen und Statuscodes.</string>
     <string name="state_error">Durch einen Fehler gestoppt</string>
     <string name="state_error_need">Durch einen Fehler gestoppt: %1$s</string>
     <string name="activity_blocked">Der Automodus hat einen Schritt blockiert: %1$s</string>

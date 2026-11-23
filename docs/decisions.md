@@ -2,6 +2,23 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-23: Read thread state from claude.ai's private API, on the phone only
+
+Hooks can't see threads without hooks, threads Wim resolves by hand or project chat replies, but
+the Claude Android app reads all of them from private claude.ai endpoints (`v1/code/channels/…`,
+found by decompiling Claude for Android 1.261120.19; see `docs/spike-claude-ai-api.md`). Wim chose
+to use them, knowing the risks: the sign-in (`sessionKey` cookie) is a full claude.ai login, using
+these endpoints goes against Anthropic's terms, and any Claude update can break them. The calls
+run **on the phone**: claude.ai answers server traffic (this container, and most likely the
+Worker) with a Cloudflare bot check, and we don't try to get past it. Keeping the login on the
+phone also means it never reaches the Worker. It is stored AES-GCM encrypted with an Android
+Keystore key in its own DataStore file (`claude_ai_login`), not backed up; no new library. The
+sign-in is claude.ai's own page in a WebView; the app copies the cookie and clears the WebView.
+This first step only adds the sign-in and a test that reports field names and counts, to confirm
+the shapes live before the Tasks screen uses them. Rejected: the Worker calling claude.ai (bot
+check, and a full login on a server); pasting the cookie by hand (hard on a phone); a foreground
+service for instant background updates (an always-on notification and a new permission).
+
 ## 2026-11-23: CI results from GitHub webhooks, through a GitHub App made with the manifest flow
 
 The hook events and PR subscription wakes carry no CI result, so Clauder guessed "running" after a
@@ -449,3 +466,13 @@ seventh of the 70B model; the reads that decide Waiting for you and Done stay on
 picked this together with a "Working on" line from the person's message (a separate change).
 Ideas left out: an AI that decides Running or Done on its own, reads CI results or judges how
 urgent an alert is, because hook data decides those exactly or a wrong guess would hide an alert.
+
+## 2026-11-23: A "Working on" line from the person's message
+
+Wim picked this with the AI budget. Until now the phone showed nothing new between the person's
+message and the first checklist, and a session outside a project was titled after its folder.
+The prompt hook now sends the person's own message (never a coordinator note or a CI event), and
+the small model writes one line about what Claude now works on, plus a title for sessions outside
+a project. It is display only: no state depends on it. The message is dropped once read and never
+logged, so the hooks' rule "the prompt's text stays in the session" now has this one exception,
+which PRIVACY.md describes. No new hook events, so the hook level stays the same.

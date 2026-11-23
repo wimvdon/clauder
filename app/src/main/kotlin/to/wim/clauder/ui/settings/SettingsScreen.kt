@@ -89,7 +89,14 @@ const val DEFAULT_WORKER = "clauder.wim-d57.workers.dev"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(app: ClauderApp, settings: Settings, resumes: Int, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    app: ClauderApp,
+    settings: Settings,
+    resumes: Int,
+    onBack: () -> Unit,
+    onConnectClaudeAi: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -114,6 +121,7 @@ fun SettingsScreen(app: ClauderApp, settings: Settings, resumes: Int, onBack: ()
         ) {
             Column(Modifier.readableWidth().padding(bottom = 24.dp)) {
                 ConnectionSection(app, settings)
+                ClaudeAiSection(app, onConnect = onConnectClaudeAi)
                 NotificationSection(app, settings, resumes)
                 EnvironmentSection(settings)
                 if (settings.isConnected) GithubSection(settings)
@@ -510,7 +518,7 @@ private fun Step(number: Int, text: String) {
 
 /** Monospace text with a Copy button, for things to paste into the Claude app. */
 @Composable
-private fun CopyBlock(text: String) {
+internal fun CopyBlock(text: String, maxLines: Int = 8) {
     val context = LocalContext.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -522,7 +530,7 @@ private fun CopyBlock(text: String) {
                 text,
                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                 softWrap = false,
-                maxLines = 8,
+                maxLines = maxLines,
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
                     .padding(start = 16.dp, end = 16.dp, top = 12.dp),

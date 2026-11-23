@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import to.wim.clauder.claudeai.ClaudeAiLogin
 import to.wim.clauder.push.Push
 import to.wim.clauder.settings.SettingsStore
 import to.wim.clauder.tasks.SeqGate
@@ -20,6 +21,7 @@ import to.wim.clauder.widget.Widgets
 class ClauderApp : Application() {
     val store: SettingsStore by lazy { SettingsStore(this) }
     val seqGate = SeqGate()
+    val claudeAiLogin: ClaudeAiLogin by lazy { ClaudeAiLogin(this) }
 
     /** For work that outlives a screen, such as registering a new FCM token. */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

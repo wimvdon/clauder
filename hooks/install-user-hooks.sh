@@ -25,7 +25,7 @@ except Exception:
 # from an older installer. The Worker says so when the version below is out of date, and the
 # prompt hook then runs the installer again; the new hooks apply from the next session start.
 prompt = os.path.expanduser("~/.claude/clauder-prompt.py")
-open(prompt, "w").write(r'''import json, os, re, subprocess, sys, time, urllib.error, urllib.request
+open(prompt, "w").write(r'''import html, json, os, re, subprocess, sys, time, urllib.error, urllib.request
 VERSION = "__HOOKS_VERSION__"
 try:
     body = json.load(sys.stdin)
@@ -215,7 +215,21 @@ if isinstance(prompt, str):
     # The person (or the coordinator for them) asked for something: count the work from here.
     if info["source"] in ("wake:spawn", "wake:mention", "wake:decision-chosen", "relay", "other"):
         write(since_file, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + ".000Z")
-body.pop("prompt", None)  # the prompt text stays in the session
+    # The person's own message (not a coordinator note or a background event), for the one-line
+    # "Working on" the Worker has a small model write. In a project thread it is the triggering
+    # message the person wrote; elsewhere the prompt is what the person typed. The Worker drops it
+    # once read and never logs it.
+    ask = ""
+    if info["source"] in ("wake:mention", "wake:spawn"):
+        for m in re.finditer(r'<message\b([^>]*)>([\s\S]*?)</message>', head):
+            if 'trigger="true"' in m.group(1) and 'from="human"' in m.group(1):
+                ask = html.unescape(m.group(2))
+    elif info["source"] == "other" and not head.startswith("<"):
+        ask = head
+    ask = ask.strip()[:1000]
+    if ask:
+        info["ask"] = ask
+body.pop("prompt", None)  # the rest of the prompt stays in the session
 body["clauder"] = info
 req = urllib.request.Request("https://clauder.wim-d57.workers.dev/hook", data=json.dumps(body).encode(), method="POST", headers={
     "Authorization": "Bearer " + os.environ.get("CLAUDER_HOOK_TOKEN", ""),
