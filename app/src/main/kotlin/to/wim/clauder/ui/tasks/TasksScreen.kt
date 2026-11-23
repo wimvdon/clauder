@@ -175,9 +175,7 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
                         },
                         onResolve = { list ->
                             scope.launch {
-                                val result = WorkerClient(settings.workerUrl, settings.token).resolve(list.key)
-                                if (result is WorkerClient.Result.Ok) {
-                                    TaskNotifier.cancel(app, list.key)
+                                if (app.resolveThread(list.key)) {
                                     // The Worker pushes the change; this also catches it when the push is late.
                                     delay(RESOLVE_REFRESH_MS)
                                     fetch()
@@ -511,8 +509,8 @@ private fun SessionCard(list: TaskList, muted: Boolean, hookFix: String, onUnmut
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // Resolving the thread in the Claude app doesn't reach Clauder, so it can be done here.
-            if (list.state == SessionState.Waiting && !RemoteThreads.isRemoteOnly(list)) {
+            // Resolves the thread on claude.ai (when signed in there) and on the Worker.
+            if (list.state == SessionState.Waiting) {
                 FilledTonalButton(onClick = { onResolve(list) }) {
                     Icon(painterResource(R.drawable.ic_check_circle), contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))

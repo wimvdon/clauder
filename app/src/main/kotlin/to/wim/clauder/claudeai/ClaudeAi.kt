@@ -75,6 +75,8 @@ object ClaudeAi {
         fun threads(channelId: String, limit: Int) = "v1/code/channels/${encode(channelId)}/threads?limit=$limit"
         /** The project chat: top-level messages, newest first. */
         fun timeline(channelId: String, limit: Int) = "v1/code/channels/${encode(channelId)}/timeline?limit=$limit"
+        /** One thread; PATCH {"resolved": true} resolves it, as the Claude app's own Resolve does. */
+        fun thread(channelId: String, threadId: String) = "v1/code/channels/${encode(channelId)}/threads/${encode(threadId)}"
         const val NOTIFICATIONS_SUMMARY = "v1/code/notifications/summary"
 
         /** Live events for every thread in a project (server-sent events). */

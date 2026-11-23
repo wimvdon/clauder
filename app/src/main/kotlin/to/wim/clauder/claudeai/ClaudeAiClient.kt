@@ -23,6 +23,18 @@ class ClaudeAiClient(private val sessionKey: String) : ClaudeAiCalls {
         }
     }
 
+    override suspend fun patch(path: String, json: String): CallResult = withContext(Dispatchers.IO) {
+        request(path, accept = "application/json", readTimeout = 15_000) { connection ->
+            // Android's HttpURLConnection accepts PATCH (the plain JVM one doesn't).
+            connection.requestMethod = "PATCH"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.outputStream.use { it.write(json.toByteArray()) }
+            val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
+            CallResult(connection.responseCode, stream?.bufferedReader()?.use { it.readText() }.orEmpty())
+        }
+    }
+
     override suspend fun stream(path: String, millis: Long): CallResult = withContext(Dispatchers.IO) {
         request(path, accept = "text/event-stream", readTimeout = millis.toInt()) { connection ->
             val code = connection.responseCode

@@ -226,6 +226,27 @@ object RemoteThreads {
         .put("threadsMark", p.threadsMark ?: JSONObject.NULL)
         .put("hasUnread", p.hasUnread)
 
+    /**
+     * The claude.ai thread behind the row [key], from [snapshot]: the thread itself for a row only
+     * claude.ai knows, else the thread a hook session with that key is bound to. Null when claude.ai
+     * didn't list it.
+     */
+    fun threadFor(snapshot: RemoteSnapshot?, key: String): RemoteThread? {
+        val threads = snapshot?.threads ?: return null
+        if (key.startsWith(KEY_PREFIX)) return threads.firstOrNull { it.id == key.removePrefix(KEY_PREFIX) }
+        return threads.firstOrNull { t -> t.sessionIds.any { id(it) == id(key) } }
+    }
+
+    /** The body that resolves a thread on claude.ai (see [ClaudeAi.Paths.thread]). */
+    const val RESOLVE_BODY = "{\"resolved\":true}"
+
+    /** [snapshot] with [threadId] resolved, so the row shows Done before the next read confirms it. */
+    fun resolved(snapshot: RemoteSnapshot, threadId: String): RemoteSnapshot = snapshot.copy(
+        threads = snapshot.threads.map {
+            if (it.id == threadId) it.copy(status = "resolved", waitsOnPrompt = false, anyWorking = false) else it
+        },
+    )
+
     /** True for a row only claude.ai knows about. */
     fun isRemoteOnly(list: TaskList): Boolean = list.key.startsWith(KEY_PREFIX)
 
