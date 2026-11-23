@@ -52,6 +52,23 @@ Clauder shows the task list of every running Claude Code session on the phone.
   reach the Worker) and `mcp__github__push_files` set the followed open PR's CI back to running.
   Any `check_suite.*`, `check_run.*` or `workflow_run.*` event with a failed conclusion marks it
   failed.
+  **CI from GitHub webhooks** (`worker/src/github.ts`): when GitHub is connected, GitHub sends
+  `workflow_run`, `check_suite`, `check_run`, `pull_request` and `pull_request_review` webhooks to
+  `POST /github`, signed with the webhook secret (`X-Hub-Signature-256`, checked before anything
+  else). The Hub keeps a track per PR (`github_prs`): its head commit and one check group per
+  GitHub Actions workflow (`wf:<workflow id>`, a re-run's higher attempt replaces the run before
+  it) or per other app's check suite (`cs:<suite id>`; Actions' own check events are left to the
+  workflow, so CI doesn't pass while a later job is still to come). CI is failed when a group
+  failed, running while one runs, passed when all finished. A push (`synchronize`) or a run for a
+  newer commit starts the groups over; runs for older commits are ignored. Each change goes to the
+  sessions whose followed PR has that URL (`Session.applyPr`), and a session that starts to follow
+  a PR takes what the Hub already knows of it. Only the PR's CI, state and review change, never the
+  session's state: a PR subscription wakes Claude, and that turn's hooks decide. **Connecting:**
+  the app asks `POST /github/connect` for a one-time link (30 minutes). The link's page hands
+  GitHub an app manifest (GitHub's manifest flow): the person taps Create GitHub App, GitHub sends
+  them back to `/github/callback` with a code, the Worker trades it for the app's webhook secret
+  (kept in the Hub; the private key is dropped) and sends them on to install the app on their
+  repositories. `GET /github` says whether it is connected and when the last webhook came.
   **Reply check:** a turn can end both waiting on CI (or a reminder, a watched URL, helpers) and
   asking the user something, such as "Pick one: T1, T2 or T3". When a turn ends Running or Idle,
   the Worker sends the end of the turn's last reply (the last `post_message` text, else Stop's

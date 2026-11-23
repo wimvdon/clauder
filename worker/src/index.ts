@@ -11,6 +11,13 @@
 //   GET    /ai               today's Workers AI use in neurons (free allocation: 10,000 a day)
 //   GET    /status           when the last hook event arrived and whether its hooks are current
 //   GET    /log, DELETE /log raw hook payloads, for debugging (last 500)
+//   GET    /github           whether GitHub is connected (see github.ts)
+//   POST   /github/connect   a one-time link that creates the GitHub App and connects it
+//
+// GitHub's own calls carry no token; they are checked another way:
+//   POST   /github           webhooks, signed with the app's webhook secret
+//   GET    /github/start     the one-time link: hands the app manifest to GitHub
+//   GET    /github/callback  GitHub sends the new app here; the link's state must match
 
 import { DurableObject } from "cloudflare:workers";
 import { isAuthorized, parseLimit, sessionUrl } from "./auth";
@@ -19,7 +26,11 @@ import { HOOKS_LEVEL, HOOKS_VERSION, installScript } from "./install";
 import { loadedIsCurrent, statusFrom } from "./hooks";
 import { readRequest, readTurn, type AskModel } from "./ask";
 import { allows, current, spend, utcDay, type Budget, type Priority } from "./budget";
-import { applyAsk, applyHook, applyRequest, emptyList, needsStateRead, resolveByUser, sessionKey, toPushData, withoutAsk, type SessionList } from "./tasklist";
+import { applyAsk, applyHook, applyPrUpdate, applyRequest, emptyList, needsStateRead, resolveByUser, sessionKey, toPushData, withoutAsk, type SessionList } from "./tasklist";
+import {
+  appFromConversion, applyEvent, changeOf, emptyTrack, headOf, logSummary, messagePage, prUrlsOf, startPage, verifySignature,
+  type GithubApp, type PrChange, type PrTrack,
+} from "./github";
 
 export interface Env {
   HOOK_TOKEN: string;
@@ -37,6 +48,12 @@ const PUSH_DEBOUNCE_MS = 400;
 /** At a turn's end the push waits this long for the model's summary, so the phone gets one update. */
 const ASK_WAIT_MS = 5000;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+/** GitHub's check and workflow payloads run to tens of KB. */
+const MAX_GITHUB_BYTES = 2 * 1024 * 1024;
+/** A PR's webhook state is kept this long after its last event. */
+const PR_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+/** How long the one-time GitHub link works. */
+const CONNECT_TTL_MS = 30 * 60 * 1000;
 
 export interface LogEntry {
   receivedAt: string;
@@ -83,10 +100,15 @@ export class Session extends DurableObject<Env> {
     const now = new Date().toISOString();
     const stored = (await this.ctx.storage.get<SessionList>("list")) ?? emptyList(key, url, now);
     const base = url && !stored.url ? { ...stored, url } : stored;
-    const next = applyHook(base, body, now, hooksCurrent);
+    let next = applyHook(base, body, now, hooksCurrent);
     if (!next) {
       if (base !== stored) await this.ctx.storage.put("list", base);
       return null;
+    }
+    // A PR the session starts to follow may already have CI results from GitHub's webhooks.
+    if (next.pr && next.pr.url !== base.pr?.url) {
+      const known = await hub(this.env).prChange(next.pr.url);
+      if (known) next = applyPrUpdate(next, known, now) ?? next;
     }
     await this.ctx.storage.put("list", next);
     // A change only to what the phone doesn't see (the reply, a pending check) isn't pushed.
@@ -100,6 +122,17 @@ export class Session extends DurableObject<Env> {
       this.ctx.waitUntil(this.checkRequest(next.askRequest));
     }
     return next;
+  }
+
+  /** A GitHub webhook changed the PR this session follows. */
+  async applyPr(change: PrChange): Promise<boolean> {
+    const list = await this.ctx.storage.get<SessionList>("list");
+    if (!list) return false;
+    const next = applyPrUpdate(list, change, new Date().toISOString());
+    if (!next) return false;
+    await this.ctx.storage.put("list", next);
+    await this.schedulePush(PUSH_DEBOUNCE_MS);
+    return true;
   }
 
   /** Marks the thread resolved for the person (see [resolveByUser]). False when the session is
@@ -207,7 +240,8 @@ export class Hub extends DurableObject<Env> {
     super(ctx, env);
     ctx.storage.sql.exec(
       `CREATE TABLE IF NOT EXISTS devices (token TEXT PRIMARY KEY, name TEXT NOT NULL, added_at TEXT NOT NULL);
-       CREATE TABLE IF NOT EXISTS sessions (key TEXT PRIMARY KEY, list TEXT NOT NULL, updated_at INTEGER NOT NULL);`,
+       CREATE TABLE IF NOT EXISTS sessions (key TEXT PRIMARY KEY, list TEXT NOT NULL, updated_at INTEGER NOT NULL);
+       CREATE TABLE IF NOT EXISTS github_prs (url TEXT PRIMARY KEY, track TEXT NOT NULL, updated_at INTEGER NOT NULL);`,
     );
   }
 
@@ -241,6 +275,93 @@ export class Hub extends DurableObject<Env> {
       .exec<{ list: string }>("SELECT list FROM sessions ORDER BY updated_at DESC LIMIT 20")
       .toArray()
       .map((row) => JSON.parse(row.list) as SessionList);
+  }
+
+  // GitHub (see github.ts). The app and the one-time link states live in key-value storage.
+
+  async githubApp(): Promise<GithubApp | null> {
+    return (await this.ctx.storage.get<GithubApp>("githubApp")) ?? null;
+  }
+
+  async lastGithubEvent(): Promise<string | null> {
+    return (await this.ctx.storage.get<string>("githubEventAt")) ?? null;
+  }
+
+  /** A new one-time state for the link that creates the GitHub App. */
+  async newConnectState(): Promise<string> {
+    const bytes = crypto.getRandomValues(new Uint8Array(24));
+    const state = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    const states = await this.liveStates();
+    states[state] = Date.now() + CONNECT_TTL_MS;
+    await this.ctx.storage.put("githubStates", states);
+    return state;
+  }
+
+  /** True when [state] is a live link state. [consume] uses it up, after GitHub sent the app. */
+  async checkConnectState(state: string, consume: boolean): Promise<boolean> {
+    const states = await this.liveStates();
+    if (!(state in states)) return false;
+    if (consume) {
+      delete states[state];
+      await this.ctx.storage.put("githubStates", states);
+    }
+    return true;
+  }
+
+  private async liveStates(): Promise<Record<string, number>> {
+    const states = (await this.ctx.storage.get<Record<string, number>>("githubStates")) ?? {};
+    const now = Date.now();
+    return Object.fromEntries(Object.entries(states).filter(([, until]) => until > now));
+  }
+
+  async setGithubApp(app: GithubApp): Promise<void> {
+    await this.ctx.storage.put("githubApp", app);
+  }
+
+  /** What the Worker knows of a PR from GitHub, or null. */
+  prChange(url: string): PrChange | null {
+    const row = this.ctx.storage.sql.exec<{ track: string }>("SELECT track FROM github_prs WHERE url = ?", url).toArray()[0];
+    return row ? changeOf(JSON.parse(row.track) as PrTrack) : null;
+  }
+
+  /** Applies a webhook to the PRs it is about and to the sessions that follow them. Returns how
+   * many sessions changed. */
+  async githubEvent(event: string, payload: Record<string, unknown>): Promise<number> {
+    const sql = this.ctx.storage.sql;
+    const now = Date.now();
+    await this.ctx.storage.put("githubEventAt", new Date(now).toISOString());
+    sql.exec("DELETE FROM github_prs WHERE updated_at < ?", now - PR_TTL_MS);
+    // The stored tracks; a PR seen for the first time starts empty (and isn't stored yet).
+    const tracks = new Map<string, { track: PrTrack; stored: boolean }>();
+    for (const url of prUrlsOf(event, payload)) {
+      const row = sql.exec<{ track: string }>("SELECT track FROM github_prs WHERE url = ?", url).toArray()[0];
+      tracks.set(url, row ? { track: JSON.parse(row.track) as PrTrack, stored: true } : { track: emptyTrack(url), stored: false });
+    }
+    // A check event that names no PR (GitHub leaves it out at times) counts for the PRs whose head
+    // is that commit.
+    const head = headOf(event, payload);
+    const repo = (payload.repository as { full_name?: unknown } | undefined)?.full_name;
+    if (tracks.size === 0 && head && typeof repo === "string") {
+      for (const row of sql.exec<{ url: string; track: string }>("SELECT url, track FROM github_prs").toArray()) {
+        const track = JSON.parse(row.track) as PrTrack;
+        if (track.head === head && row.url.startsWith(`https://github.com/${repo}/pull/`)) tracks.set(row.url, { track, stored: true });
+      }
+    }
+    let changed = 0;
+    for (const [url, { track, stored }] of tracks) {
+      const next = applyEvent(track, event, payload);
+      if (next === track && stored) continue;
+      sql.exec(
+        "INSERT INTO github_prs (url, track, updated_at) VALUES (?, ?, ?) ON CONFLICT(url) DO UPDATE SET track = excluded.track, updated_at = excluded.updated_at",
+        url, JSON.stringify(next), now,
+      );
+      const change = changeOf(next);
+      for (const list of this.sessions()) {
+        if (list.pr?.url !== url) continue;
+        if (await this.env.SESSION.get(this.env.SESSION.idFromName(list.key)).applyPr(change)) changed++;
+      }
+    }
+    return changed;
   }
 
   /** Today's Workers AI use, counted in neurons (see budget.ts). */
@@ -346,6 +467,9 @@ export default {
         headers: { "content-type": "text/x-shellscript; charset=utf-8", "cache-control": "no-store" },
       });
     }
+    if (url.pathname === "/github" && request.method === "POST") return githubWebhook(request, env, ctx);
+    if (url.pathname === "/github/start" && request.method === "GET") return githubStart(url, env);
+    if (url.pathname === "/github/callback" && request.method === "GET") return githubCallback(url, env);
     if (!isAuthorized(request.headers.get("authorization"), env.HOOK_TOKEN)) {
       return json({ error: "unauthorized" }, 401);
     }
@@ -416,6 +540,21 @@ export default {
       return json({ resolved: await env.SESSION.get(env.SESSION.idFromName(key)).resolve() });
     }
 
+    if (route === "GET /github") {
+      const app = await hub(env).githubApp();
+      return json({
+        connected: app !== null,
+        app: app?.url ?? null,
+        installUrl: app ? `${app.url}/installations/new` : null,
+        lastEventAt: await hub(env).lastGithubEvent(),
+      });
+    }
+
+    if (route === "POST /github/connect") {
+      const state = await hub(env).newConnectState();
+      return json({ url: `https://${url.host}/github/start?state=${state}` });
+    }
+
     if (route === "POST /test") {
       const result = await hub(env).publish(demoList(new Date().toISOString()), false);
       return json(result, result.error && result.sent === 0 ? 502 : 200);
@@ -446,3 +585,64 @@ export default {
     return json({ error: "not found" }, 404);
   },
 } satisfies ExportedHandler<Env>;
+
+function html(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" },
+  });
+}
+
+const EXPIRED = messagePage(
+  "This link has expired",
+  "Open Clauder, go to Settings and tap Connect GitHub again for a new link.",
+);
+
+async function githubStart(url: URL, env: Env): Promise<Response> {
+  const state = url.searchParams.get("state") ?? "";
+  if (!(await hub(env).checkConnectState(state, false))) return html(EXPIRED, 403);
+  return html(startPage(url.host, state));
+}
+
+/** GitHub created the app: trade the one-time code for its webhook secret, then send the person on
+ * to install it on their repositories. */
+async function githubCallback(url: URL, env: Env): Promise<Response> {
+  const state = url.searchParams.get("state") ?? "";
+  const code = url.searchParams.get("code") ?? "";
+  if (!/^[\w-]{1,100}$/.test(code) || !(await hub(env).checkConnectState(state, true))) return html(EXPIRED, 403);
+  const response = await fetch(`https://api.github.com/app-manifests/${code}/conversions`, {
+    method: "POST",
+    headers: { accept: "application/vnd.github+json", "user-agent": "clauder-worker", "x-github-api-version": "2022-11-28" },
+  });
+  const app = response.ok ? appFromConversion(await response.json(), new Date().toISOString()) : null;
+  if (!app) {
+    console.log(`GitHub app conversion failed: HTTP ${response.status}`);
+    return html(messagePage("GitHub didn't finish", "Clauder couldn't read the new GitHub App. Tap Connect GitHub in Clauder to try again."), 502);
+  }
+  await hub(env).setGithubApp(app);
+  return Response.redirect(`${app.url}/installations/new`, 302);
+}
+
+async function githubWebhook(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const text = await request.text();
+  if (text.length > MAX_GITHUB_BYTES) return json({ error: "too large" }, 413);
+  const app = await hub(env).githubApp();
+  if (!app || !(await verifySignature(app.webhookSecret, text, request.headers.get("x-hub-signature-256")))) {
+    return json({ error: "bad signature" }, 401);
+  }
+  const event = request.headers.get("x-github-event") ?? "";
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return json({ error: "not json" }, 400);
+  }
+  const log = env.SPIKE_LOG.get(env.SPIKE_LOG.idFromName("spike"));
+  ctx.waitUntil(log.append({
+    receivedAt: new Date().toISOString(), remoteSessionId: null, sessionUrl: null,
+    event: `github:${event}`, body: logSummary(event, payload),
+  }));
+  if (event === "ping") return json({ ok: true });
+  const sessions = await hub(env).githubEvent(event, payload);
+  return json({ ok: true, sessions });
+}
