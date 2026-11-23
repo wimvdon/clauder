@@ -196,6 +196,36 @@ object TaskNotifier {
         null -> null
     }
 
+    /** "Editing TaskList.kt", "Shell: Run the unit tests". */
+    fun activityText(context: Context, doing: Doing): String = context.getString(
+        when (doing.kind) {
+            Doing.Kind.Shell -> R.string.activity_shell
+            Doing.Kind.Edit -> R.string.activity_edit
+            Doing.Kind.Read -> R.string.activity_read
+            Doing.Kind.Search -> R.string.activity_search
+            Doing.Kind.Fetch -> R.string.activity_fetch
+            Doing.Kind.WebSearch -> R.string.activity_web_search
+            Doing.Kind.Helper -> R.string.activity_helper
+            Doing.Kind.Other -> R.string.activity_tool
+        },
+        doing.subject,
+    )
+
+    /** "12 min · 3 files · +120 −30": how long since the person's message, and what changed. */
+    fun receiptText(context: Context, receipt: WorkReceipt): String? {
+        val res = context.resources
+        val time = receipt.minutes?.let { minutes ->
+            when {
+                minutes < 1 -> context.getString(R.string.receipt_under_minute)
+                minutes < 60 -> res.getQuantityString(R.plurals.receipt_minutes, minutes.toInt(), minutes.toInt())
+                else -> context.getString(R.string.receipt_hours, (minutes / 60).toInt(), (minutes % 60).toInt())
+            }
+        }
+        val files = receipt.files.takeIf { it > 0 }?.let { res.getQuantityString(R.plurals.receipt_files, it, it) }
+        val lines = context.getString(R.string.receipt_lines, receipt.added, receipt.removed).takeIf { receipt.files > 0 }
+        return listOfNotNull(time, files, lines).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    }
+
     fun show(context: Context, list: TaskList, alert: Boolean = true, prefs: NotifyPrefs = NotifyPrefs()) {
         val manager = NotificationManagerCompat.from(context)
         val update = LiveUpdate.from(list, summaryMode = prefs.summary)
@@ -268,8 +298,13 @@ object TaskNotifier {
         val id = idFor(key)
         val counts = counts(context, update)
         val text = statusText(context, update, counts)
-        // While Claude is on a step, what it also waits on (CI, a reminder) goes on its own line.
-        val holding = holdingText(context, update)?.takeIf { it != text }
+        // While Claude is on a step, what it also waits on (CI, a reminder) or else the tool it runs
+        // goes on its own line; a finished session shows what Claude changed there.
+        val holding = (
+            holdingText(context, update)
+                ?: update.doing?.let { activityText(context, it) }
+                ?: update.receipt?.let { receiptText(context, it) }
+            )?.takeIf { it != text }
         val next = update.nextTask
             ?.takeIf { update.status != LiveUpdate.Status.Done }
             ?.let { context.getString(R.string.notification_next, it) }

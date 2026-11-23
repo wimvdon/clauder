@@ -39,6 +39,10 @@ data class LiveUpdate(
     val linkTitle: String? = null,
     /** Finished sessions never make a sound. */
     val silent: Boolean = false,
+    /** While working with nothing else to wait on: the tool Claude runs now. */
+    val doing: Doing? = null,
+    /** When finished: what Claude changed since the person last wrote. */
+    val receipt: WorkReceipt? = null,
     /** A plain alert without a progress bar or status bar chip, so it can't pass for a Live Update:
      * a session that waits for you while the summary is the one Live Update. */
     val plain: Boolean = false,
@@ -114,6 +118,8 @@ data class LiveUpdate(
                 linkTitle = list.linkTitle,
                 silent = finished,
                 plain = plain,
+                doing = list.doing.takeIf { status == Status.Tasks },
+                receipt = list.work.takeIf { finished },
             )
         }
 

@@ -44,3 +44,18 @@ test("a session's hook settings count as current from level 1, whatever else the
 test("only git push commands are sent from the shell", () => {
   assert.ok(INSTALL_SCRIPT.includes('{"matcher": "Bash", "hooks": [dict(h, **{"if": "Bash(git push*)"})]}'));
 });
+
+test("the setup check says when the last event came and whether its hooks are current", async () => {
+  const { statusFrom } = await import("../src/hooks.ts");
+  assert.deepEqual(statusFrom(null, "v1", "L3"), { hooksVersion: "v1", hooksLevel: "L3", lastEvent: null });
+  const fresh = statusFrom({ receivedAt: "2026-11-23T09:00:00.000Z", event: "Stop", hooks: "v1", hooksLoaded: "L3" }, "v1", "L3");
+  assert.deepEqual(fresh.lastEvent, { at: "2026-11-23T09:00:00.000Z", event: "Stop", scriptCurrent: true, settingsCurrent: true });
+  const http = statusFrom({ receivedAt: "2026-11-23T09:00:00.000Z", event: "PostToolUse", hooks: null, hooksLoaded: "L0" }, "v1", "L3");
+  assert.deepEqual(http.lastEvent, { at: "2026-11-23T09:00:00.000Z", event: "PostToolUse", scriptCurrent: null, settingsCurrent: false });
+});
+
+test("the tool hook runs the script for every tool, and the installer keeps a backup of the settings", () => {
+  assert.ok(INSTALL_SCRIPT.includes('for name in ("UserPromptSubmit", "PreToolUse", "Stop"):'));
+  assert.ok(INSTALL_SCRIPT.includes('backup = p + ".clauder-backup"'));
+  assert.ok(INSTALL_SCRIPT.includes("os.replace("));
+});

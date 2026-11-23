@@ -366,7 +366,8 @@ private fun OldHooksNote(message: String) {
     }
 }
 
-/** The pull request and its CI, a reminder, helpers and the cost, with buttons for the pull
+/** The pull request and its CI, a reminder, helpers, the tool Claude runs or what it changed,
+ * and the cost, with buttons for the pull
  * request and the page Claude attached. Shows nothing when there is none of these. */
 @Composable
 private fun SessionExtras(list: TaskList) {
@@ -376,6 +377,8 @@ private fun SessionExtras(list: TaskList) {
     val line = listOfNotNull(
         list.pr?.let { prLabel(it) },
         update?.holding?.takeIf { it != LiveUpdate.Holding.Ci }?.let { TaskNotifier.holdingText(context, update) },
+        list.doing?.takeIf { list.state == SessionState.Running }?.let { TaskNotifier.activityText(context, it) },
+        list.work?.takeIf { list.state != SessionState.Running }?.let { TaskNotifier.receiptText(context, it) },
         usageLabel(list),
     )
     if (line.isNotEmpty()) {
