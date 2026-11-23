@@ -18,6 +18,7 @@ import {
   type PullRequest,
   type Usage,
 } from "./extras.ts";
+import { applyPrChange, type PrChange } from "./github.ts";
 
 export type { Link, PullRequest, Usage } from "./extras.ts";
 
@@ -636,7 +637,7 @@ export function toPushData(list: SessionList): Record<string, string> {
     updatedAt: list.updatedAt,
     tasks: encode(tasks),
     steps: encode(steps),
-    pr: list.pr ? JSON.stringify({ n: list.pr.number, u: list.pr.url, s: list.pr.state, c: list.pr.ci ?? "" }) : "",
+    pr: list.pr ? JSON.stringify({ n: list.pr.number, u: list.pr.url, s: list.pr.state, c: list.pr.ci ?? "", ...(list.pr.review ? { r: list.pr.review } : {}) }) : "",
     link: list.link?.url ?? "",
     linkTitle: list.link?.title ?? "",
     wakeAt: list.wakeAt ?? "",
@@ -658,4 +659,13 @@ export function toPushData(list: SessionList): Record<string, string> {
     if (JSON.stringify(out).length === before) break;
   }
   return out;
+}
+
+/** A GitHub webhook changed the PR the session follows: its CI, state or review. The session's
+ * own state doesn't change here; a PR subscription wakes Claude, and that turn's hooks do. Returns
+ * null when it isn't the session's PR or nothing changes. */
+export function applyPrUpdate(list: SessionList, change: PrChange, now: string): SessionList | null {
+  const pr = applyPrChange(list.pr, change);
+  if (!pr || pr === list.pr) return null;
+  return { ...list, pr, seq: nextSeq(list, now), updatedAt: now };
 }

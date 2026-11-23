@@ -2,6 +2,18 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-23: CI results from GitHub webhooks, through a GitHub App made with the manifest flow
+
+The hook events and PR subscription wakes carry no CI result, so Clauder guessed "running" after a
+push and learned the outcome only when Claude read its notifications. GitHub now sends webhooks
+straight to the Worker. They come from a private, read-only GitHub App that the owner creates from
+a one-time Clauder link (GitHub's app manifest flow), so the webhook secret is never copied by hand
+and one installation covers every repository, including new ones. Rejected: a webhook per
+repository (the owner would paste the URL and a secret into each repository's settings) and a
+GitHub token in the Worker to ask the Checks API (more access than webhooks need). GitHub Actions
+results come from `workflow_run`, not from Actions' own check runs, so a job that starts after
+others doesn't make CI look passed in between.
+
 ## 2026-11-22: Icons: same padding in every app, white background, white details; colour scheme follows the icon
 
 All ten apps get one icon family. For Clauder the ring already sat at the shared padding (its
