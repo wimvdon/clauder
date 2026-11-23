@@ -1,5 +1,6 @@
 package to.wim.clauder.ui.tasks
 
+import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -471,6 +472,16 @@ private fun SessionCard(list: TaskList, muted: Boolean, hookFix: String, onUnmut
             // Where the work stands after Claude's last turn, in one line.
             list.summary?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // The day's free AI allowance ran out, so this turn has no summary line.
+            val now = System.currentTimeMillis()
+            if (list.aiPaused(now)) {
+                val resumes = DateFormat.getTimeFormat(LocalContext.current).format(java.util.Date(list.aiResumesMillis(now)))
+                Text(
+                    stringResource(R.string.ai_paused_note, resumes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             // Resolving the thread in the Claude app doesn't reach Clauder, so it can be done here.
             if (list.state == SessionState.Waiting) {

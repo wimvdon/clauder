@@ -8,6 +8,7 @@
 //   GET    /sessions         task lists of sessions changed in the last day, newest first
 //   POST   /sessions/resolve {"key": "cse_…"} the person marked the thread resolved on the phone
 //   POST   /test             sends a demo task list to every phone
+//   GET    /ai               today's Workers AI use in neurons (free allocation: 10,000 a day)
 //   GET    /status           when the last hook event arrived and whether its hooks are current
 //   GET    /log, DELETE /log raw hook payloads, for debugging (last 500)
 
@@ -17,7 +18,8 @@ import { FcmClient, parseServiceAccount } from "./fcm";
 import { HOOKS_LEVEL, HOOKS_VERSION, installScript } from "./install";
 import { loadedIsCurrent, statusFrom } from "./hooks";
 import { readTurn, type AskModel } from "./ask";
-import { applyAsk, applyHook, emptyList, resolveByUser, sessionKey, toPushData, type SessionList } from "./tasklist";
+import { allows, current, spend, utcDay, type Budget, type Priority } from "./budget";
+import { applyAsk, applyHook, emptyList, needsStateRead, resolveByUser, sessionKey, toPushData, type SessionList } from "./tasklist";
 
 export interface Env {
   HOOK_TOKEN: string;
@@ -108,13 +110,29 @@ export class Session extends DurableObject<Env> {
     return true;
   }
 
-  /** Has the model read the turn's last reply: its summary line, and whether it asks the user. */
+  /** Has the model read the turn's last reply: its summary line, and whether it asks the user.
+   * Only the summary when the read can't change the state, and nothing when the day's free
+   * Workers AI allocation is (nearly) used up. */
   private async checkAsk(reply: string): Promise<void> {
     if (!this.env.AI) return;
-    const read = await readTurn(this.env.AI as unknown as AskModel, reply);
+    const before = await this.ctx.storage.get<SessionList>("list");
+    if (!before) return;
+    const mode = needsStateRead(before) ? "full" : "summary";
+    const priority: Priority = mode === "full" ? "state" : "extra";
+    const budget = hub(this.env);
+    let read = null;
+    let pausedOn: string | undefined;
+    if (await budget.aiAllows(priority)) {
+      const result = await readTurn(this.env.AI as unknown as AskModel, reply, mode);
+      await budget.aiSpent(result.neurons, result.allocationUsed);
+      read = result.read;
+      if (result.allocationUsed) pausedOn = utcDay(new Date());
+    } else {
+      pausedOn = utcDay(new Date());
+    }
     const list = await this.ctx.storage.get<SessionList>("list");
     if (!list) return;
-    const next = applyAsk(list, reply, read, new Date().toISOString());
+    const next = applyAsk(list, reply, read, new Date().toISOString(), pausedOn);
     if (!next) return;
     await this.ctx.storage.put("list", next);
     // Push now: the update held back for this read, if any, goes out with it.
@@ -200,6 +218,26 @@ export class Hub extends DurableObject<Env> {
       .exec<{ list: string }>("SELECT list FROM sessions ORDER BY updated_at DESC LIMIT 20")
       .toArray()
       .map((row) => JSON.parse(row.list) as SessionList);
+  }
+
+  /** Today's Workers AI use, counted in neurons (see budget.ts). */
+  private async budget(): Promise<Budget> {
+    return current(await this.ctx.storage.get<Budget>("aiBudget"), utcDay(new Date()));
+  }
+
+  /** Whether a Workers AI call of [priority] still fits in today's free allocation. */
+  async aiAllows(priority: Priority): Promise<boolean> {
+    return allows(await this.budget(), priority);
+  }
+
+  /** Counts a call's neurons; [allocationUsed] when Workers AI refused it for the day's allocation. */
+  async aiSpent(neurons: number, allocationUsed: boolean): Promise<void> {
+    await this.ctx.storage.put("aiBudget", spend(await this.budget(), neurons, allocationUsed));
+  }
+
+  /** Today's Workers AI use, for GET /ai. */
+  async aiUsage(): Promise<Budget> {
+    return this.budget();
   }
 
   /** Stores the list and pushes it to every phone. Returns how many phones got it. */
@@ -358,6 +396,10 @@ export default {
     if (route === "POST /test") {
       const result = await hub(env).publish(demoList(new Date().toISOString()), false);
       return json(result, result.error && result.sent === 0 ? 502 : 200);
+    }
+
+    if (route === "GET /ai") {
+      return json(await hub(env).aiUsage());
     }
 
     if (route === "GET /status") {

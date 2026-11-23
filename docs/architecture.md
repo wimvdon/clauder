@@ -67,6 +67,16 @@ Clauder shows the task list of every running Claude Code session on the phone.
   Clauder: the Worker can't resolve the thread in the Claude app. The person's next message
   reopens it. The reply text is kept in the Durable Object only
   until the turn ends and never goes to the phone or `/sessions`.
+  **AI budget:** Workers AI's free allocation is 10,000 neurons a day, reset at 00:00 UTC. The
+  Hub Durable Object counts each call's neurons per UTC day (`worker/src/budget.ts`, from the
+  `usage` token counts the model returns, else an estimate of four characters a token);
+  `GET /ai` shows today's count. A read that can't change the state (an open card, permission
+  or question, a resolved or ended thread; `needsStateRead`) asks only for the summary line, of
+  the smaller `@cf/meta/llama-3.1-8b-instruct-fp8-fast`; every other read goes to the 70B model.
+  From 7,000 neurons only reads that can change the state still run; from 9,700, or once Workers
+  AI refuses a call for the allocation (error 3036), nothing runs until the next UTC day. A turn
+  left unread then carries `aiPausedOn` (its UTC day), and the session card says the summary is
+  back at midnight UTC in local time.
   The phone also shows a Running session that has been silent for 12 hours as Idle
   (`TaskList.shown`).
   A resolved thread stays Done until a person's message, a decision tap or a coordinator message

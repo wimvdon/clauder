@@ -155,6 +155,7 @@
         <item quantity="one">%d working</item>
         <item quantity="other">%d working</item>
     </plurals>
+    <string name="ai_paused_note">No summary: today\'s free AI allowance is used up. Summaries are back at %1$s.</string>
     <string name="setup_check_running">Checking the hooks…</string>
     <string name="setup_check_ok">The hooks are working. Last event: %1$s.</string>
     <string name="setup_check_old">Events arrive (last one %1$s), but that session runs old hooks. Sessions and threads started from now on get the new ones.</string>

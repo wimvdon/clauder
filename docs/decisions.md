@@ -398,6 +398,7 @@ waiting and a working thread shows up in both sections. Only Inactive folds (it 
 and the widget shows the same two active sections without it. Project folding is gone: with the
 status split, a long project no longer pushes waiting threads out of view. Inactive rows lost the
 project line above their title, since the project header now says it.
+
 ## 2026-11-23: Ideas taken from Claude Code Notifier, without its code
 
 Wim asked what Clauder could take from Claude Code Notifier (`touch-tap/ccn`). Its licence
@@ -423,3 +424,16 @@ move the thread on; the phone gives it its own label. Events whose payload holds
 reply, the compaction summary, the command auto mode refused) go through the hook script, which
 leaves that text out. `duration_ms` is not used: it is one tool call's run time, which the phone has
 no use for. Hooks level L4.
+
+## 2026-11-23: Workers AI stays inside its free daily allocation
+
+Wim asked whether Workers AI could take on a larger role without risking wrong states or leaving
+the free tier (10,000 neurons a day). The Worker log showed about 30 neurons a read and up to
+about 20 reads an hour on a busy evening, so a long busy day could run out, and then every read
+failed without notice. The Worker now counts the neurons of every call per UTC day and stops the
+reads that only write a line first (from 7,000), so the reads that decide a state run longest.
+Reads that can't change the state only ask for the summary, of Llama 3.1 8B, which costs about a
+seventh of the 70B model; the reads that decide Waiting for you and Done stay on the 70B model. Wim
+picked this together with a "Working on" line from the person's message (a separate change).
+Ideas left out: an AI that decides Running or Done on its own, reads CI results or judges how
+urgent an alert is, because hook data decides those exactly or a wrong guess would hide an alert.

@@ -151,6 +151,7 @@
         <item quantity="one">%d bezig</item>
         <item quantity="other">%d bezig</item>
     </plurals>
+    <string name="ai_paused_note">Geen samenvatting: de gratis AI-ruimte van vandaag is op. Om %1$s komen de samenvattingen terug.</string>
     <string name="setup_check_running">Hooks controleren…</string>
     <string name="setup_check_ok">De hooks werken. Laatste gebeurtenis: %1$s.</string>
     <string name="setup_check_old">Er komen gebeurtenissen binnen (de laatste %1$s), maar die sessie gebruikt oude hooks. Sessies en threads die je vanaf nu start, krijgen de nieuwe.</string>
