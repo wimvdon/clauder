@@ -368,3 +368,14 @@ share that one text, so the chip now uses words: "1 waiting" when any session wa
 "2 working" (it was "3 · 1?"). A session's own chip stays "3/5" while working and says "Waiting"
 when it waits. With one active session, the summary's line says what that session is doing
 instead of only its project, which is also what the watch shows when the Live Update is opened.
+
+## 2026-11-23: A decision card stays open until it is picked or closed
+
+A Noter thread put up a card, then the person asked a side question. That message set the thread
+to Working, and while Claude answered, asked about the card again and kept building, Clauder showed
+1 working instead of Waiting for you. Now only a decision tap (`wake:decision-chosen`) or Claude's
+`close_decision` ends a card's wait; a person's other message or a coordinator message doesn't.
+Older hook scripts that don't send the source still end it on any prompt. The same log showed a
+background notification injected into the running turn wiping the reply Claude had just sent, so
+the check at the turn's end had nothing to read: a background wake now keeps the reply and the
+pending check, and only the person's message clears them.

@@ -581,7 +581,11 @@ test("a CI or reminder wake keeps an open decision card or question waiting", ()
   assert.equal(card.needKind, "decision");
   assert.equal(card.need, "Add a summary?");
   assert.equal(run([wake("wake:decision-chosen")], card).state, "running");
-  assert.equal(run([wake("wake:mention")], card).state, "running");
+  // The person writing about something else, or a coordinator message, leaves the card open.
+  assert.equal(run([wake("wake:mention")], card).state, "waiting");
+  assert.equal(run([wake("relay")], card).state, "waiting");
+  // Older hook scripts don't say where a prompt comes from: any prompt answers.
+  assert.equal(run([{ hook_event_name: "UserPromptSubmit" }], card).state, "running");
   // Claude may still close the card itself.
   assert.equal(run([wake("notification"), tool("mcp__hearthbot__close_decision", {}), stop], card).state, "waiting");
   assert.equal(run([wake("notification"), tool("mcp__hearthbot__close_decision", {})], card).state, "running");
@@ -615,8 +619,43 @@ test("the model's answer still counts after a pause or another event, until the 
   const paused = run([{ hook_event_name: "SessionEnd", reason: "other" }], { ...ended, project: "P" });
   assert.equal(paused.askCheck, "Shall I merge?");
   assert.equal(applyAsk(paused, "Shall I merge?", read("", "PR ready"), NOW)?.summary, "PR ready");
-  const next = run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "notification" } }], paused);
+  // A background wake doesn't answer the reply; the person's message does.
+  const ci = run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "notification" } }], paused);
+  assert.equal(applyAsk(ci, "Shall I merge?", read("Merge?"), NOW)?.state, "waiting");
+  const next = run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "wake:mention" } }], paused);
   assert.equal(applyAsk(next, "Shall I merge?", read("Merge?"), NOW), null);
+});
+
+test("a card stays waiting while the person asks something else and Claude works on", () => {
+  // From the Worker log (23 nov 2026, Noter thread): a card went up, the person asked a side
+  // question, Claude answered and asked about the card again, then kept building while CI-like
+  // notifications came in. The phone showed it as working until the person picked.
+  const wake = (source: string) => ({ hook_event_name: "UserPromptSubmit", clauder: { source } });
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Should Sort wait for Save?" }, tool_response: {} };
+  const list = run([
+    wake("wake:mention"),
+    wake("other"),
+    decision,
+    reply("Mostly yes, with one difference."),
+    checklist(PLAN_DONE_BUT_ONE),
+    wake("wake:mention"),
+    reply("True. In Notion, an unsaved filter still syncs."),
+    tool("Bash", { command: "ls" }),
+    wake("notification"),
+    wake("wake:mention"),
+    reply("Shall I build it that way, which is the first option on the card?"),
+    tool("Bash", { command: "./gradlew test" }),
+    wake("notification"),
+  ]);
+  assert.equal(list.state, "waiting");
+  assert.equal(list.need, "Should Sort wait for Save?");
+  // The background notification didn't drop the reply, so the turn's end reads it.
+  const ended = run([{ hook_event_name: "Stop" }], list);
+  assert.equal(ended.askCheck, "Shall I build it that way, which is the first option on the card?");
+  assert.equal(ended.state, "waiting");
+  // The person's pick, or Claude closing the card after an answer in words, ends the wait.
+  assert.equal(run([wake("wake:decision-chosen")], ended).state, "running");
+  assert.equal(run([wake("wake:mention"), tool("mcp__hearthbot__close_decision", { chose: 0 })], ended).state, "running");
 });
 
 test("a finished checklist doesn't show Done while Claude works on the person's next message", () => {

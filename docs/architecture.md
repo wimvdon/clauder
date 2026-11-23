@@ -32,8 +32,11 @@ Clauder shows the task list of every running Claude Code session on the phone.
   the server, so without those the thread waits on the user. Every wake (a message, a CI event, a
   reminder) is a new prompt and makes the session Running again, except that an open decision card
   or a question from the reply check stays Waiting for you through wakes the person didn't cause
-  (CI events, reminders): only a person's message, a decision tap, a coordinator message or
-  `close_decision` ends it. **Idle** means nothing known is
+  (CI events, reminders). A question from the reply check ends with a person's message, a decision
+  tap or a coordinator message. An open decision card ends only with a decision tap or
+  `close_decision` (Claude closes it when the person answers in words), so a side question from the
+  person doesn't hide it. A background wake injected into a running turn also keeps the reply Claude
+  sent before it, so the check at the turn's end still reads it. **Idle** means nothing known is
   armed but the Worker can't tell: Claude Code loads hook settings once, at session start, so a
   session started with older settings may set up a wake the Worker never hears of. The hooks say
   which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's argument and the
