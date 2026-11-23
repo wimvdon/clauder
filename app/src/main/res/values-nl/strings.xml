@@ -175,4 +175,17 @@
         <item quantity="one">%d min</item>
         <item quantity="other">%d min</item>
     </plurals>
+
+    <!-- claude.ai sign-in (Settings) -->
+    <string name="claude_ai_intro">Log in bij claude.ai zodat Clauder de status van elke thread ziet, ook threads zonder hooks en threads die je zelf afrondt. Clauder bewaart de login versleuteld op deze telefoon. Hij komt nooit in een back-up en gaat nooit naar je Worker.</string>
+    <string name="claude_ai_warning">De login geeft volledige toegang tot je claude.ai-account. Clauder gebruikt private claude.ai-endpoints. De voorwaarden van Anthropic staan dat niet toe en elke update kan het breken.</string>
+    <string name="action_connect_claude_ai">Verbind met claude.ai</string>
+    <string name="claude_ai_login_title">Inloggen bij claude.ai</string>
+    <string name="claude_ai_login_help">Log in met de code die je per e-mail krijgt. Inloggen met Google werkt hier misschien niet.</string>
+    <string name="claude_ai_connected">Ingelogd bij claude.ai</string>
+    <string name="action_test_claude_ai">Testen</string>
+    <string name="action_sign_out">Uitloggen</string>
+    <string name="claude_ai_testing">Bezig met testen, dat duurt zo’n 20 seconden…</string>
+    <string name="claude_ai_unreadable">De login is op deze telefoon niet meer te lezen. Log uit en verbind opnieuw.</string>
+    <string name="claude_ai_report_help">Kopieer dit verslag naar de Claude-thread die erom vroeg. Er staan alleen veldnamen, aantallen en statuscodes in.</string>
 </resources>

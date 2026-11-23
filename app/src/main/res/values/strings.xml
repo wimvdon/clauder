@@ -181,4 +181,18 @@
         <item quantity="one">%d min</item>
         <item quantity="other">%d min</item>
     </plurals>
+
+    <!-- claude.ai sign-in (Settings) -->
+    <string name="section_claude_ai" translatable="false">claude.ai</string>
+    <string name="claude_ai_intro">Sign in to claude.ai so Clauder can see the state of every thread, also threads without hooks and threads you resolve yourself. Clauder keeps the sign-in encrypted on this phone. It is never backed up and never sent to your Worker.</string>
+    <string name="claude_ai_warning">The sign-in gives full access to your claude.ai account. Clauder uses private claude.ai endpoints, which Anthropic’s terms don’t allow and any update can break.</string>
+    <string name="action_connect_claude_ai">Connect to claude.ai</string>
+    <string name="claude_ai_login_title">Sign in to claude.ai</string>
+    <string name="claude_ai_login_help">Sign in with the code sent to your email. Google sign-in may not work here.</string>
+    <string name="claude_ai_connected">Signed in to claude.ai</string>
+    <string name="action_test_claude_ai">Test</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="claude_ai_testing">Testing, this takes about 20 seconds…</string>
+    <string name="claude_ai_unreadable">The sign-in can no longer be read on this phone. Sign out and connect again.</string>
+    <string name="claude_ai_report_help">Copy this report into the Claude thread that asked for it. It holds only field names, counts and status codes.</string>
 </resources>

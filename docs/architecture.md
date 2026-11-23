@@ -178,12 +178,21 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **Screens:** Tasks (the sessions from the Worker's `GET /sessions`, kept up to date by pushes,
   grouped per project,
   `tasks/SessionBoard`) and Settings (connection, notifications, the setup block for cloud
-  environments, appearance).
+  environments, appearance), with the claude.ai sign-in page as a child of Settings.
 - **Stored data:** theme, Dynamic color and the Worker address in `backed_up_settings`; the
   Worker token, the registered FCM token, the session cache and muted sessions
-  in `device_state` (not backed up).
-  See `settings/SettingsStore.kt`.
+  in `device_state` (not backed up); the encrypted claude.ai sign-in in `claude_ai_login` (not
+  backed up). See `settings/SettingsStore.kt` and `claudeai/ClaudeAiLogin.kt`.
 - **Worker client:** `push/WorkerClient.kt` (plain `HttpURLConnection`, no extra library).
+- **claude.ai (first step):** Settings → claude.ai opens claude.ai's own sign-in page in a WebView
+  (`ui/claudeai/ClaudeAiLoginScreen`). As soon as claude.ai sets its `sessionKey` cookie, the app
+  keeps an encrypted copy (`claudeai/ClaudeAiLogin`: AES-GCM with a key in the Android Keystore, in
+  the DataStore `claude_ai_login`, not backed up) and clears the WebView's cookies and site data.
+  **Test** calls the private endpoints the Claude app uses (`claudeai/ClaudeAi`, `claudeai/ClaudeAiClient`)
+  and shows a copyable report of HTTP codes, field names, counts and status values only
+  (`claudeai/Probe`). Nothing else uses the sign-in yet; the Tasks screen still comes from the
+  Worker. The calls run on the phone because claude.ai answers server traffic with a Cloudflare
+  bot check; the sign-in never goes to the Worker. Endpoints and shapes: `docs/spike-claude-ai-api.md`.
 
 ## Structure
 ```
