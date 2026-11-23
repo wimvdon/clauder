@@ -37,6 +37,8 @@ data class LiveUpdate(
     val prNumber: Int? = null,
     val linkUrl: String? = null,
     val linkTitle: String? = null,
+    /** While waiting: the turn stopped on an API error or a usage limit, so [need] is the error. */
+    val error: Boolean = false,
     /** Finished sessions never make a sound. */
     val silent: Boolean = false,
     /** While working with nothing else to wait on: the tool Claude runs now. */
@@ -120,6 +122,7 @@ data class LiveUpdate(
                 plain = plain,
                 doing = list.doing.takeIf { status == Status.Tasks },
                 receipt = list.work.takeIf { finished },
+                error = status == Status.Waiting && list.error != null,
             )
         }
 

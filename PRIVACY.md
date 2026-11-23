@@ -35,7 +35,11 @@ script also sends how many files Claude edited and how many lines it added and r
 last message (only the counts, no file names or content). While Claude works it sends, at most
 every 10 seconds, the name of the tool Claude runs and one short detail: the description Claude
 gave a shell command (or only the program's name), a file's name, a search pattern, a web
-address's host or a search query. No other tool input is sent. When you send a prompt, a
+address's host or a search query. No other tool input is sent. The hooks also report when an API error or a usage limit stops a
+turn (the error's type and text), when auto mode refuses a tool call (the policy it hit, not the
+command), when a `git push` fails (with its output), when helpers start and stop, when the
+conversation is compacted (not its summary), and which model, effort level and permission mode the
+session uses. When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,
 read from the session's own transcript, and what kind of event woke the session (a message, a
 coordinator note or a background event such as CI); the prompt's text is left out. If you connect GitHub (Settings → GitHub in Clauder, which asks your Worker for a one-time link and opens it in your browser), GitHub also sends the Worker webhooks from a

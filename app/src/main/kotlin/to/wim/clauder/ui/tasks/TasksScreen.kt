@@ -382,6 +382,7 @@ private fun SessionExtras(list: TaskList) {
         update?.holding?.takeIf { it != LiveUpdate.Holding.Ci }?.let { TaskNotifier.holdingText(context, update) },
         list.doing?.takeIf { list.state == SessionState.Running }?.let { TaskNotifier.activityText(context, it) },
         list.work?.takeIf { list.state != SessionState.Running }?.let { TaskNotifier.receiptText(context, it) },
+        TaskNotifier.modelText(context, list),
         usageLabel(list),
     )
     if (line.isNotEmpty()) {

@@ -186,4 +186,12 @@
     <string name="action_github_repos">Repositories wählen</string>
     <string name="pr_review_approved">Genehmigt</string>
     <string name="pr_review_changes">Änderungen angefordert</string>
+    <string name="state_error">Durch einen Fehler gestoppt</string>
+    <string name="state_error_need">Durch einen Fehler gestoppt: %1$s</string>
+    <string name="activity_blocked">Der Automodus hat einen Schritt blockiert: %1$s</string>
+    <string name="activity_blocked_plain">Der Automodus hat einen Schritt blockiert</string>
+    <string name="activity_compacting">Unterhaltung wird komprimiert</string>
+    <string name="activity_push_failed">git push fehlgeschlagen</string>
+    <string name="model_effort">Aufwand %1$s</string>
+    <string name="model_plan_mode">Planmodus</string>
 </resources>
