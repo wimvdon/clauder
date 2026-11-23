@@ -89,7 +89,7 @@ Clauder shows the task list of every running Claude Code session on the phone.
   A resolved thread stays Done until a person's message, a decision tap or a coordinator message
   wakes it: the prompt hook sends which kind of envelope the platform wrapped around the prompt
   (`clauder.source`: `wake:mention`, `wake:decision-chosen`, `relay`, `notification`, `other`),
-  never the prompt's text, and CI events and other background wakes don't reopen it.
+  and, apart from the person's own message for the "Working on" line (below), never the prompt's text; and CI events and other background wakes don't reopen it.
   A session that ended with open steps reads "Ended early".
 - **What a session waits on, and what it made** (`worker/src/extras.ts`): the hooks also match
   the GitHub tools (create, read, merge and update a pull request), `subscribe_pr_activity`,
@@ -148,7 +148,7 @@ Clauder shows the task list of every running Claude Code session on the phone.
   Settings opens, and opens Clauder when tapped. Settings offers to add it on Android 13 and later.
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
-  prompt event (without the prompt's text). The Tasks screen has three sections, in this order:
+  prompt event (of the prompt itself only the person's own message, see "Working on"). The Tasks screen has three sections, in this order:
   Needs input (waiting for you), Running (working, CI waits included) and Inactive (idle or
   finished) (`SessionBoard.board`, `SessionBoard.status`). Inside each, sessions are grouped under
   the project's name, else the repository's, as a plain header that doesn't fold. Needs input and
