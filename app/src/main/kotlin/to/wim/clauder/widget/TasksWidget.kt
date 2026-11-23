@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.first
 import to.wim.clauder.ClauderApp
 import to.wim.clauder.MainActivity
 import to.wim.clauder.R
+import to.wim.clauder.claudeai.RemoteThreads
 import to.wim.clauder.links.ClaudeApp
 import to.wim.clauder.tasks.LiveUpdate
 import to.wim.clauder.tasks.SegmentBar
@@ -53,15 +54,20 @@ import to.wim.clauder.ui.tasks.stateLabelRes
 /** Home screen widget: the sessions that need input or are running, by project, with their progress. */
 class TasksWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val store = (context.applicationContext as ClauderApp).store
+        val app = context.applicationContext as ClauderApp
+        val store = app.store
         val firstSettings = store.current()
         val firstSessions = store.cachedSessions()
         val firstMuted = store.muted.first()
+        val firstRemote = app.claudeAiLogin.snapshot.first()
         provideContent {
             // Read inside the content, so a widget that is already showing follows every change.
             val settings by store.settings.collectAsState(firstSettings)
-            val sessions by store.sessions.collectAsState(firstSessions)
+            val hookSessions by store.sessions.collectAsState(firstSessions)
             val muted by store.muted.collectAsState(firstMuted)
+            // claude.ai's last read, when signed in there: threads without hooks, and resolves by hand.
+            val remote by app.claudeAiLogin.snapshot.collectAsState(firstRemote)
+            val sessions = RemoteThreads.overlay(hookSessions, remote)
             val now = System.currentTimeMillis()
             val (finished, active) = SessionBoard.sort(sessions).map { it.shown(now) }.partition { SessionBoard.isInactive(it) }
             val colors = widgetColors(settings.dynamicColor)
@@ -196,18 +202,23 @@ class TasksWidget : GlanceAppWidget() {
      * stands out from the ones that are only working; its state line says so in words too. */
     @Composable
     private fun Session(context: Context, list: TaskList, muted: Boolean) {
-        val url = LiveUpdate.from(list)?.openUrl ?: LiveUpdate.CODE_URL
+        val url = LiveUpdate.from(list)?.openUrl ?: ClaudeApp.safeUrl(list.url) ?: LiveUpdate.CODE_URL
         val waiting = list.state == SessionState.Waiting
         val container = if (waiting) GlanceTheme.colors.primaryContainer else GlanceTheme.colors.surfaceVariant
         val onContainer = if (waiting) GlanceTheme.colors.onPrimaryContainer else GlanceTheme.colors.onSurface
         val onContainerVariant = if (waiting) GlanceTheme.colors.onPrimaryContainer else GlanceTheme.colors.onSurfaceVariant
         val state = context.getString(stateLabelRes(list))
-        val counts = context.resources.getQuantityString(
-            if (list.hasSteps) R.plurals.step_counts else R.plurals.notification_counts,
-            list.items.size,
-            list.doneCount,
-            list.items.size,
-        )
+        // A thread only claude.ai knows has no steps to count.
+        val counts = if (list.items.isEmpty()) {
+            null
+        } else {
+            context.resources.getQuantityString(
+                if (list.hasSteps) R.plurals.step_counts else R.plurals.notification_counts,
+                list.items.size,
+                list.doneCount,
+                list.items.size,
+            )
+        }
         val line = listOfNotNull(state, counts, context.getString(R.string.session_muted).takeIf { muted }).joinToString(" · ")
         Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp)) {
             Column(

@@ -41,6 +41,7 @@ fun ClaudeAiSection(app: ClauderApp, onConnect: () -> Unit) {
         SettingsBlock {
             if (connected) {
                 Text(stringResource(R.string.claude_ai_connected), style = MaterialTheme.typography.bodyLarge)
+                Hint(stringResource(R.string.claude_ai_sync_note))
                 Spacer(Modifier.height(12.dp))
                 Row {
                     Button(

@@ -497,3 +497,18 @@ the run GitHub then creates to that session by workflow and time, and the app sh
 alerts once when it passes or fails, on its own channel so it can be silenced apart from "Waiting
 for you". Matching by time is a small guess, so it only counts `workflow_dispatch` runs of the
 named workflow that start within 5 minutes. No new hook events, so the hook level stays L4.
+
+## 2026-11-23: claude.ai state everywhere, and alerts for project chat replies
+
+Wim asked for the rest of the claude.ai list. The project chat's Claude sends no hook events, so a
+reply there can only be seen in claude.ai's own project chat, which only the phone may read. To see
+it without the app open, Clauder now reads claude.ai in the background with Android's own
+JobScheduler: every 15 minutes (the shortest period Android allows) and again a minute later while
+a project chat waits for Claude's answer. JobScheduler instead of WorkManager, because WorkManager
+would be a new library (it only comes in through Glance now), and without a network condition,
+because that needs a new permission; a read without network just fails. Keeping a live connection
+open would need a foreground service, which Wim hasn't asked for. The same reads now also feed the
+widget, the tile and the notifications, not only the Tasks screen. For hook sessions claude.ai only
+decides Done and Ended (a thread resolved or archived by hand): the hooks know CI waits and
+questions better, so a working or waiting thread keeps the hook's state. Two hook sessions bound to
+the same thread show once, the newest.

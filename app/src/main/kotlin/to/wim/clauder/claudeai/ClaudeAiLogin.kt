@@ -25,9 +25,15 @@ private val Context.claudeAiLogin: DataStore<Preferences> by preferencesDataStor
  * Android Keystore. It is never backed up and never sent anywhere but claude.ai.
  */
 class ClaudeAiLogin(context: Context) {
-    private val store = context.applicationContext.claudeAiLogin
+    private val appContext = context.applicationContext
+    private val store = appContext.claudeAiLogin
     private val sealedKey = stringPreferencesKey("sealed_session_key")
     private val organizationKey = stringPreferencesKey("organization_uuid")
+
+    // What claude.ai showed at the last read, so the widget and alerts have it after a restart.
+    // Never backed up, and forgotten with the sign-in.
+    private val snapshotKey = stringPreferencesKey("thread_snapshot")
+    private val chatsKey = stringPreferencesKey("project_chats")
 
     val isConnected: Flow<Boolean> = store.data.map { it[sealedKey] != null }
 
@@ -38,6 +44,21 @@ class ClaudeAiLogin(context: Context) {
             it[sealedKey] = sealed
             if (organization != null) it[organizationKey] = organization else it.remove(organizationKey)
         }
+        ClaudeAiJob.schedule(appContext)
+    }
+
+    /** The last read of claude.ai's thread lists (see [ClaudeAiSync]). */
+    val snapshot: Flow<RemoteSnapshot?> = store.data.map { prefs -> prefs[snapshotKey]?.let { RemoteThreads.snapshotFromJson(it) } }
+
+    suspend fun saveSnapshot(snapshot: RemoteSnapshot) {
+        store.edit { it[snapshotKey] = RemoteThreads.snapshotToJson(snapshot) }
+    }
+
+    /** What the phone remembers of each project chat (see [ProjectChat]). */
+    suspend fun chatWatches(): Map<String, ChatWatch> = ProjectChat.watchesFromJson(store.data.first()[chatsKey])
+
+    suspend fun saveChatWatches(watches: Map<String, ChatWatch>) {
+        store.edit { it[chatsKey] = ProjectChat.watchesToJson(watches) }
     }
 
     suspend fun organization(): String? = store.data.first()[organizationKey]
@@ -56,9 +77,12 @@ class ClaudeAiLogin(context: Context) {
     /** Forgets the sign-in here and in the sign-in page's WebView. */
     suspend fun clear() {
         ClaudeAiSync.clear()
+        ClaudeAiJob.cancel(appContext)
         store.edit {
             it.remove(sealedKey)
             it.remove(organizationKey)
+            it.remove(snapshotKey)
+            it.remove(chatsKey)
         }
         forgetWebLogin()
     }

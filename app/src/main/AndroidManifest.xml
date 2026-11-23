@@ -51,6 +51,13 @@
             </intent-filter>
         </service>
 
+        <!-- Reads claude.ai in the background while signed in (JobScheduler). BIND_JOB_SERVICE only
+             lets the system start it; it is not a permission the app asks for. -->
+        <service
+            android:name=".claudeai.ClaudeAiJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <!-- The Mute button on a session's notification. -->
         <receiver
             android:name=".tasks.MuteReceiver"

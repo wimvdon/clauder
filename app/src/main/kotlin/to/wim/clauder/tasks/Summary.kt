@@ -34,7 +34,7 @@ data class Summary(
 
         /** [lists] as shown at [nowMillis], leaving out muted sessions. */
         fun from(lists: List<TaskList>, muted: Set<String>, nowMillis: Long): Summary {
-            val shown = lists.filter { it.key !in muted && it.items.isNotEmpty() }.map { it.shown(nowMillis) }
+            val shown = lists.filter { it.key !in muted && (it.items.isNotEmpty() || it.fromClaudeAi) }.map { it.shown(nowMillis) }
             val waiting = shown.filter { it.state == SessionState.Waiting }
             val working = shown.filter { it.state == SessionState.Running }
             return Summary(working.size, waiting.size, waiting + working)

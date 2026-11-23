@@ -6,8 +6,20 @@ import org.json.JSONObject
 import to.wim.clauder.tasks.SessionState
 import to.wim.clauder.tasks.TaskList
 
-/** A claude.ai project (channel), as the projects call lists it. */
-data class RemoteProject(val id: String, val name: String, val lastActivityAt: String?)
+/**
+ * A claude.ai project (channel), as the projects call lists it. [chatMark] changes when a message
+ * is added to the project chat (`last_timeline_seq`), [threadsMark] when anything in it changes
+ * (`last_activity_at` and `last_message_seq`), and [hasUnread] says whether the account has unread
+ * messages there.
+ */
+data class RemoteProject(
+    val id: String,
+    val name: String,
+    val lastActivityAt: String?,
+    val chatMark: String? = null,
+    val threadsMark: String? = null,
+    val hasUnread: Boolean = false,
+)
 
 /**
  * One project thread as claude.ai reports it: what the Claude app's own thread list shows.
@@ -38,7 +50,7 @@ data class RemoteThread(
 /** Reads claude.ai's project and thread lists, and lays them over the hook sessions. */
 object RemoteThreads {
     /** Keys of threads that only claude.ai knows (no hooks), so they can't clash with session keys. */
-    const val KEY_PREFIX = "claudeai:"
+    const val KEY_PREFIX = TaskList.CLAUDE_AI_KEY_PREFIX
 
     /** Projects active in the last [maxAgeMillis] before [nowMillis], newest first. */
     fun projects(body: String, nowMillis: Long, maxAgeMillis: Long = PROJECT_MAX_AGE_MS): List<RemoteProject> = try {
@@ -47,7 +59,15 @@ object RemoteThreads {
             .filter { it.isNull("archived_at") }
             .mapNotNull { o ->
                 val id = o.text("id") ?: return@mapNotNull null
-                RemoteProject(id, o.text("name") ?: id, o.text("last_activity_at"))
+                val activity = o.text("last_activity_at")
+                RemoteProject(
+                    id = id,
+                    name = o.text("name") ?: id,
+                    lastActivityAt = activity,
+                    chatMark = o.text("last_timeline_seq"),
+                    threadsMark = listOfNotNull(activity, o.text("last_message_seq")).joinToString("/").ifEmpty { null },
+                    hasUnread = o.optBoolean("has_unread", false),
+                )
             }
             .filter { p -> p.lastActivityAt?.let(::millis)?.let { nowMillis - it <= maxAgeMillis } ?: true }
     } catch (e: JSONException) {
@@ -85,21 +105,30 @@ object RemoteThreads {
 
     /**
      * [lists] with claude.ai's view laid over them, as fetched at [fetchedAtMillis]:
-     * - A hook session bound to a thread takes the thread's state, unless a hook reported after
-     *   the fetch (then the hooks are newer). This brings in threads resolved by hand.
+     * - A hook session bound to a thread takes the thread's Done or Ended (a thread resolved or
+     *   archived by hand sends no hook), unless a hook reported after the fetch. The hooks know
+     *   more about the rest (CI waits, questions), so a working or waiting thread keeps the hook's
+     *   state; only a hook session that can't tell (Idle) takes claude.ai's.
+     * - When several hook sessions are bound to one thread, only the newest is kept, so a thread
+     *   never shows twice.
      * - A thread no hook session knows is added when it waits for the person or is working, so
      *   threads without hooks show up too. It has no steps.
      */
     fun overlay(lists: List<TaskList>, threads: List<RemoteThread>, fetchedAtMillis: Long): List<TaskList> {
         if (threads.isEmpty()) return lists
         val bySession = threads.flatMap { t -> t.sessionIds.map { id(it) to t } }.toMap()
-        val matched = mutableSetOf<String>()
-        val updated = lists.map { list ->
-            val thread = bySession[id(list.key)] ?: return@map list
-            matched += thread.id
-            val state = thread.state ?: return@map list
+        // The newest hook session of each thread; older ones bound to the same thread are dropped.
+        val newest = lists.filter { bySession[id(it.key)] != null }
+            .groupBy { bySession.getValue(id(it.key)).id }
+            .mapValues { (_, sessions) -> sessions.maxBy { millis(it.updatedAt) ?: 0 }.key }
+        val matched = newest.keys
+        val updated = lists.mapNotNull { list ->
+            val thread = bySession[id(list.key)] ?: return@mapNotNull list
+            if (newest[thread.id] != list.key) return@mapNotNull null
+            val state = thread.state ?: return@mapNotNull list.withProject(thread)
             val hookNewer = (millis(list.updatedAt) ?: 0) > fetchedAtMillis
-            if (hookNewer || state == list.state) list.withProject(thread) else list.withProject(thread).copy(state = state)
+            val takes = state == SessionState.Done || state == SessionState.Ended || list.state == SessionState.Idle
+            if (hookNewer || !takes || state == list.state) list.withProject(thread) else list.withProject(thread).copy(state = state)
         }
         val added = threads
             .filter { it.id !in matched }
@@ -119,6 +148,83 @@ object RemoteThreads {
             }
         return (updated + added).sortedByDescending { millis(it.updatedAt) ?: 0 }
     }
+
+    /** [lists] with [snapshot] laid over them, or [lists] alone without one. */
+    fun overlay(lists: List<TaskList>, snapshot: RemoteSnapshot?): List<TaskList> =
+        snapshot?.let { overlay(lists, it.threads, it.fetchedAtMillis) } ?: lists
+
+    /** What a new read changed for the notifications: each shown session whose state changed (with
+     * the copy shown before, if any), and the keys no longer shown at all. */
+    data class Changes(val shown: List<Pair<TaskList?, TaskList>>, val gone: List<String>)
+
+    fun changes(before: List<TaskList>, after: List<TaskList>): Changes {
+        val old = before.associateBy { it.key }
+        val shown = after.mapNotNull { list ->
+            val previous = old[list.key]
+            if (previous != null && previous.state == list.state) null else previous to list
+        }
+        val now = after.map { it.key }.toSet()
+        return Changes(shown, before.map { it.key }.filter { it !in now })
+    }
+
+    /** The snapshot as JSON, so it lasts between app starts (see [snapshotFromJson]). */
+    fun snapshotToJson(snapshot: RemoteSnapshot): String = JSONObject()
+        .put("fetchedAt", snapshot.fetchedAtMillis)
+        .put("organization", snapshot.organization)
+        .put("projects", JSONArray(snapshot.projects.map { projectJson(it) }))
+        .put(
+            "threads",
+            JSONArray(
+                snapshot.threads.map { t ->
+                    JSONObject()
+                        .put("id", t.id)
+                        .put("project", t.project.id)
+                        .put("title", t.title ?: JSONObject.NULL)
+                        .put("status", t.status)
+                        .put("waits", t.waitsOnPrompt)
+                        .put("working", t.anyWorking)
+                        .put("sessions", JSONArray(t.sessionIds))
+                        .put("updatedAt", t.updatedAt ?: JSONObject.NULL)
+                },
+            ),
+        )
+        .toString()
+
+    fun snapshotFromJson(text: String): RemoteSnapshot? = try {
+        val o = JSONObject(text)
+        val projectsArray = o.optJSONArray("projects") ?: JSONArray()
+        val projects = (0 until projectsArray.length()).mapNotNull { projectsArray.optJSONObject(it) }.mapNotNull { p ->
+            val id = p.text("id") ?: return@mapNotNull null
+            RemoteProject(id, p.text("name") ?: id, p.text("lastActivityAt"), p.text("chatMark"), p.text("threadsMark"), p.optBoolean("hasUnread"))
+        }
+        val byId = projects.associateBy { it.id }
+        val threadsArray = o.optJSONArray("threads") ?: JSONArray()
+        val threads = (0 until threadsArray.length()).mapNotNull { threadsArray.optJSONObject(it) }.mapNotNull { t ->
+            val project = byId[t.text("project")] ?: return@mapNotNull null
+            val sessions = t.optJSONArray("sessions") ?: JSONArray()
+            RemoteThread(
+                id = t.text("id") ?: return@mapNotNull null,
+                project = project,
+                title = t.text("title"),
+                status = t.optString("status"),
+                waitsOnPrompt = t.optBoolean("waits"),
+                anyWorking = t.optBoolean("working"),
+                sessionIds = (0 until sessions.length()).map { sessions.optString(it) }.filter { it.isNotBlank() },
+                updatedAt = t.text("updatedAt"),
+            )
+        }
+        RemoteSnapshot(threads, o.getLong("fetchedAt"), o.optString("organization"), projects)
+    } catch (e: JSONException) {
+        null
+    }
+
+    private fun projectJson(p: RemoteProject): JSONObject = JSONObject()
+        .put("id", p.id)
+        .put("name", p.name)
+        .put("lastActivityAt", p.lastActivityAt ?: JSONObject.NULL)
+        .put("chatMark", p.chatMark ?: JSONObject.NULL)
+        .put("threadsMark", p.threadsMark ?: JSONObject.NULL)
+        .put("hasUnread", p.hasUnread)
 
     /** True for a row only claude.ai knows about. */
     fun isRemoteOnly(list: TaskList): Boolean = list.key.startsWith(KEY_PREFIX)

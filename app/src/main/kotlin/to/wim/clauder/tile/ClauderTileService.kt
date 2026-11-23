@@ -27,7 +27,7 @@ class ClauderTileService : TileService() {
         super.onStartListening()
         val app = application as ClauderApp
         scope.launch {
-            val summary = Summary.from(app.store.cachedSessions(), app.store.muted.first(), System.currentTimeMillis())
+            val summary = Summary.from(app.board(), app.store.muted.first(), System.currentTimeMillis())
             val tile = qsTile ?: return@launch
             tile.label = getString(R.string.app_name)
             tile.subtitle = TaskNotifier.summaryText(this@ClauderTileService, summary)

@@ -105,7 +105,7 @@ fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSetting
     val remote by ClaudeAiSync.snapshot.collectAsState()
     // claude.ai's own thread list, when signed in there: threads without hooks, and resolves by hand.
     val sessions = remember(hookSessions, remote) {
-        remote?.let { RemoteThreads.overlay(hookSessions, it.threads, it.fetchedAtMillis) } ?: hookSessions
+        RemoteThreads.overlay(hookSessions, remote)
     }
     val muted by app.store.muted.collectAsState(emptySet())
     var load by remember { mutableStateOf(Load.Loading) }

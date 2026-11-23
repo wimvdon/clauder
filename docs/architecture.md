@@ -249,12 +249,33 @@ Clauder shows the task list of every running Claude Code session on the phone.
   **Test** calls the private endpoints the Claude app uses (`claudeai/ClaudeAi`, `claudeai/ClaudeAiClient`)
   and shows a copyable report of HTTP codes, field names, counts and status values only
   (`claudeai/Probe`). While signed in, `claudeai/ClaudeAiSync` reads the thread lists of projects
-  active in the last 7 days (at most once a minute: when the Tasks screen opens or refreshes, and
-  after each push) into memory, and `claudeai/RemoteThreads.overlay` lays them over the Worker's
-  sessions on the Tasks screen only: a hook session bound to a thread (`bound_sessions[].id` = the
-  session key) takes the thread's state unless a hook reported after the read, and a thread no hook
-  knows is added while it waits or works (key `claudeai:<thread id>`, no steps). The widget, Live
-  Updates and alerts still come from the Worker alone. The calls run on the phone because claude.ai answers server traffic with a Cloudflare
+  active in the last 7 days (at most once a minute: when the Tasks screen opens or refreshes, after
+  each push, and from `claudeai/ClaudeAiJob`, a JobScheduler job every 15 minutes and again about a
+  minute later while a project chat waits for Claude's answer). A project whose activity mark
+  (`last_activity_at`/`last_message_seq`) didn't change keeps the threads read before, for up to 10
+  minutes. The read is kept, encrypted store aside, in the `claude_ai_login` DataStore (not backed
+  up, forgotten on sign-out), so the widget and alerts have it after a restart.
+  `claudeai/RemoteThreads.overlay` lays it over the Worker's sessions on the Tasks screen, the
+  widget, the tile and the notifications (`ClauderApp.board`): a hook session bound to a thread
+  (`bound_sessions[].id` = the session key, `CLAUDE_CODE_REMOTE_SESSION_ID`, without its `cse_`/
+  `session_` prefix) takes the thread's Done or Ended (resolved or archived by hand) unless a hook
+  reported after the read; a working or waiting thread keeps the hook's state, which knows CI waits
+  and questions, and only an Idle hook session takes claude.ai's state. When several hook sessions
+  are bound to one thread, only the newest shows. A thread no hook knows is added while it waits or
+  works (key `claudeai:<thread id>`, no steps); while it waits it gets a plain "Waiting for you"
+  alert without a Mark resolved button (there is no Worker session to mark). After each read,
+  `ClauderApp.showRemoteChanges` updates the notification of each session whose shown state changed
+  (`RemoteThreads.changes`), silently on the first read after signing in.
+  **Project chat replies** (`claudeai/ProjectChat`): the project chat's Claude sends no hook events,
+  so each read also reads the project chat (`timeline`) of every project whose `last_timeline_seq`
+  changed, and alerts on the "Claude's replies in project chats" channel when Claude posted a
+  top-level message after the person's latest one there, newer than anything seen before and at
+  most 2 hours old (cards without text don't count). Title: the project's name; text: the reply's
+  start as plain text; tap: the project on claude.ai. One alert per project: only the first reply
+  to a message sounds, later ones update it quietly, and it goes away once claude.ai reports the
+  chat read (`has_unread` back to false). The first look at a chat only remembers where it stands.
+  The phone keeps per project only marks, times and message ids (`ChatWatch`), never message text.
+  The calls run on the phone because claude.ai answers server traffic with a Cloudflare
   bot check; the sign-in never goes to the Worker. Endpoints and shapes: `docs/spike-claude-ai-api.md`.
 
 ## Structure

@@ -18,6 +18,9 @@
     <string name="channel_waiting_description">Cuando Claude se detiene y espera tu respuesta</string>
     <string name="channel_runs">Ejecuciones que inició Claude</string>
     <string name="channel_runs_description">Cuando un flujo de trabajo que inició Claude, como una versión, termina bien o falla</string>
+    <string name="channel_replies">Respuestas de Claude en los chats de proyecto</string>
+    <string name="channel_replies_description">Cuando Claude te responde en el chat de un proyecto</string>
+    <string name="chat_reply_label">Chat del proyecto</string>
     <string name="run_running">%1$s en curso</string>
     <string name="run_passed">%1$s correcto</string>
     <string name="run_failed">%1$s falló</string>
@@ -210,6 +213,7 @@
     <string name="claude_ai_login_title">Iniciar sesión en claude.ai</string>
     <string name="claude_ai_login_help">Inicia sesión con el código que recibes por correo. Puede que el inicio de sesión con Google no funcione aquí.</string>
     <string name="claude_ai_connected">Sesión iniciada en claude.ai</string>
+    <string name="claude_ai_sync_note">Clauder consulta claude.ai cada 15 minutos más o menos, y cada minuto mientras un chat de proyecto espera la respuesta de Claude. Te avisa cuando Claude te responde en un chat de proyecto.</string>
     <string name="action_test_claude_ai">Probar</string>
     <string name="action_sign_out">Cerrar sesión</string>
     <string name="claude_ai_testing">Probando, tarda unos 20 segundos…</string>

@@ -19,9 +19,14 @@ sign in to claude.ai in Settings, to claude.ai.
   in the app. Clauder keeps the sign-in cookie claude.ai sets (`sessionKey`) and the id of the
   claude.ai organization you last used (`lastActiveOrg`). While you stay signed in, Clauder sends
   them to claude.ai to read your projects active in the last 7 days and each one's thread list
-  (titles, status, session ids), when the Tasks screen opens or refreshes and after each push, at
-  most once a minute. What it reads stays in the app's memory and is shown on the Tasks screen; it
-  is not saved or sent anywhere. When you tap **Test**, it also sends them with requests for your organization list, your projects, a project's threads and chat
+  (titles, status, session ids), and the project chat of a project whose chat changed (its latest
+  messages, to see whether Claude answered you). It does that when the Tasks screen opens or
+  refreshes, after each push and about every 15 minutes in the background (every minute while a
+  project chat waits for Claude's answer), at most once a minute. The thread list is shown on the
+  Tasks screen, in the widget and in notifications, and the start of Claude's reply in a project
+  chat in an alert. The last thread list (titles, status, session ids) and, per project, the time
+  and id of the latest messages it saw are saved on this phone, next to the sign-in, never backed
+  up and deleted when you sign out; message text is not saved. Nothing of it is sent anywhere. When you tap **Test**, it also sends them with requests for your organization list, your projects, a project's threads and chat
   messages, your notification count and a few seconds of the live thread and session updates.
   The test report on screen holds only HTTP codes, field names, counts, status values, times,
   organization capabilities and claude.ai's own error text, no names or message text. The sign-in is a full login to your claude.ai account; it is sent
