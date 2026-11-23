@@ -27,13 +27,20 @@ private val Context.claudeAiLogin: DataStore<Preferences> by preferencesDataStor
 class ClaudeAiLogin(context: Context) {
     private val store = context.applicationContext.claudeAiLogin
     private val sealedKey = stringPreferencesKey("sealed_session_key")
+    private val organizationKey = stringPreferencesKey("organization_uuid")
 
     val isConnected: Flow<Boolean> = store.data.map { it[sealedKey] != null }
 
-    suspend fun save(sessionKey: String) {
+    /** [organization] is claude.ai's `lastActiveOrg` cookie, when the sign-in page set it. */
+    suspend fun save(sessionKey: String, organization: String?) {
         val sealed = SealedText.seal(keystoreKey(), sessionKey)
-        store.edit { it[sealedKey] = sealed }
+        store.edit {
+            it[sealedKey] = sealed
+            if (organization != null) it[organizationKey] = organization else it.remove(organizationKey)
+        }
     }
+
+    suspend fun organization(): String? = store.data.first()[organizationKey]
 
     /** The session key, or null when there is none or it can no longer be read. */
     suspend fun sessionKey(): String? {
@@ -43,7 +50,10 @@ class ClaudeAiLogin(context: Context) {
 
     /** Forgets the sign-in here and in the sign-in page's WebView. */
     suspend fun clear() {
-        store.edit { it.remove(sealedKey) }
+        store.edit {
+            it.remove(sealedKey)
+            it.remove(organizationKey)
+        }
         forgetWebLogin()
     }
 

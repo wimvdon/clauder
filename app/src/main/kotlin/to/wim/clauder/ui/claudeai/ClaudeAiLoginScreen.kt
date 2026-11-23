@@ -46,10 +46,11 @@ fun ClaudeAiLoginScreen(app: ClauderApp, onDone: () -> Unit) {
 
     fun checkCookie() {
         if (saved) return
-        val key = ClaudeAi.sessionKeyFrom(CookieManager.getInstance().getCookie(ClaudeAi.ORIGIN)) ?: return
+        val cookies = CookieManager.getInstance().getCookie(ClaudeAi.ORIGIN)
+        val key = ClaudeAi.sessionKeyFrom(cookies) ?: return
         saved = true
         scope.launch {
-            app.claudeAiLogin.save(key)
+            app.claudeAiLogin.save(key, ClaudeAi.organizationFrom(cookies))
             ClaudeAiLogin.forgetWebLogin()
             onDone()
         }

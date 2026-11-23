@@ -104,9 +104,12 @@ class ClaudeAiTest {
     fun `the probe follows the first project and never repeats names or messages`() = runBlocking {
         val asked = mutableListOf<String>()
         val calls = object : ClaudeAiCalls {
+            override var organization: String? = null
+
             override suspend fun get(path: String): CallResult {
                 asked += path
                 return when {
+                    path == "api/organizations" -> CallResult(200, """[{"uuid":"$ORG","name":"Fix it"}]""")
                     path.startsWith("v1/code/channels?") -> CallResult(200, channels)
                     path.contains("/threads") -> CallResult(200, threads)
                     path.contains("/timeline") -> CallResult(200, timeline)
@@ -116,12 +119,14 @@ class ClaudeAiTest {
 
             override suspend fun stream(path: String, millis: Long): CallResult {
                 asked += path
+                assertEquals(ORG, organization)
                 return CallResult(200, "event: session_activity\ndata: {\"session_id\":\"s\",\"working\":true}\n")
             }
         }
         val report = Probe.run(calls)
         assertEquals(
             listOf(
+                "api/organizations",
                 "v1/code/channels?limit=20",
                 "v1/code/channels/chan_1/threads?limit=20",
                 "v1/code/channels/chan_1/timeline?limit=10",
@@ -131,7 +136,8 @@ class ClaudeAiTest {
             ),
             asked,
         )
-        assertTrue(report.lines().first().startsWith("channels: HTTP 200, projects=1"))
+        assertEquals("organization: HTTP 200, found (1 in list)", report.lines().first())
+        assertTrue(report.lines()[1].startsWith("channels: HTTP 200, projects=1"))
         assertTrue(report.contains("notifications summary: HTTP 200, [newest_cursor,unseen_count]"))
         assertFalse(report.contains("Clauder"))
         assertFalse(report.contains("Fix it"))
@@ -139,12 +145,44 @@ class ClaudeAiTest {
 
     @Test
     fun `no project means no thread calls`() = runBlocking {
+        val asked = mutableListOf<String>()
         val calls = object : ClaudeAiCalls {
-            override suspend fun get(path: String) = CallResult(401, "{}")
+            override var organization: String? = null
+            override suspend fun get(path: String): CallResult {
+                asked += path
+                return CallResult(404, """{"type":"error","error":{"type":"not_found_error","message":"x"}}""")
+            }
             override suspend fun stream(path: String, millis: Long) = CallResult(401, "")
         }
-        val report = Probe.run(calls)
+        val report = Probe.run(calls, savedOrganization = ORG)
+        assertEquals(ORG, calls.organization)
+        assertFalse(asked.contains("api/organizations"))
         assertTrue(report.contains("threads: skipped (no project)"))
-        assertTrue(report.startsWith("channels: HTTP 401"))
+        assertTrue(report.startsWith("organization: from sign-in\nchannels: HTTP 404, not_found_error"))
+        assertFalse(report.contains("message"))
+    }
+
+    @Test
+    fun `the organization comes from the sign-in cookie or the list`() {
+        assertEquals(ORG, ClaudeAi.organizationFrom("a=1; lastActiveOrg=$ORG; sessionKey=k"))
+        assertNull(ClaudeAi.organizationFrom("lastActiveOrg=not-a-uuid"))
+        assertNull(ClaudeAi.organizationFrom(null))
+        assertEquals(ORG, ClaudeAi.firstOrganization("""[{"name":"x"},{"uuid":"$ORG"}]"""))
+        assertNull(ClaudeAi.firstOrganization("{}"))
+    }
+
+    @Test
+    fun `calls go to the site root with the Claude app's headers`() {
+        assertEquals("https://claude.ai/", ClaudeAi.BASE)
+        val headers = ClaudeAi.headers("k", ORG, "application/json")
+        assertEquals("sessionKey=k", headers["Cookie"])
+        assertEquals("2023-06-01", headers["Anthropic-Version"])
+        assertEquals("ccr-byoc-2025-07-29", headers["Anthropic-Beta"])
+        assertEquals(ORG, headers["X-Organization-Uuid"])
+        assertFalse(ClaudeAi.headers("k", null, "text/event-stream").containsKey("X-Organization-Uuid"))
+    }
+
+    private companion object {
+        const val ORG = "0b2c6a1e-3f4d-4e5a-9b8c-7d6e5f4a3b2c"
     }
 }

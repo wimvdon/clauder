@@ -50,7 +50,7 @@ fun ClaudeAiSection(app: ClauderApp, onConnect: () -> Unit) {
                                 report = null
                                 val key = app.claudeAiLogin.sessionKey()
                                 unreadable = key == null
-                                if (key != null) report = Probe.run(ClaudeAiClient(key))
+                                if (key != null) report = Probe.run(ClaudeAiClient(key), app.claudeAiLogin.organization())
                                 testing = false
                             }
                         },

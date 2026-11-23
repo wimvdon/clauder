@@ -11,6 +11,9 @@ data class CallResult(val code: Int? = null, val body: String = "", val error: S
 
 /** The calls the probe makes. ClaudeAiClient does them over the network; tests use a fake. */
 interface ClaudeAiCalls {
+    /** Sent as X-Organization-Uuid with every call once known. */
+    var organization: String?
+
     suspend fun get(path: String): CallResult
 
     /** Reads a server-sent event stream for at most [millis], then closes it. Body = the lines read. */
@@ -25,8 +28,20 @@ interface ClaudeAiCalls {
 object Probe {
     const val STREAM_MILLIS = 8_000L
 
-    suspend fun run(calls: ClaudeAiCalls): String {
+    /** [savedOrganization] is the one claude.ai's sign-in page left; without it, the list is asked. */
+    suspend fun run(calls: ClaudeAiCalls, savedOrganization: String? = null): String {
         val lines = mutableListOf<String>()
+        if (savedOrganization != null) {
+            calls.organization = savedOrganization
+            lines += "organization: from sign-in"
+        } else {
+            val orgs = calls.get(ClaudeAi.Paths.ORGANIZATIONS)
+            lines += line("organization", orgs) { body ->
+                val found = ClaudeAi.firstOrganization(body)
+                calls.organization = found
+                if (found != null) "found (${JSONArray(body).length()} in list)" else "none in list"
+            }
+        }
         val channels = calls.get(ClaudeAi.Paths.channels(limit = 20))
         lines += line("channels", channels) { describeChannels(it) }
         val channelId = if (channels.ok) firstChannelId(channels.body) else null
@@ -44,7 +59,7 @@ object Probe {
 
     fun line(name: String, result: CallResult, describe: (String) -> String): String {
         val head = "$name: " + (result.code?.let { "HTTP $it" } ?: "error ${result.error}")
-        if (!result.ok) return head + challengeNote(result)
+        if (!result.ok) return head + challengeNote(result) + errorType(result)
         val detail = try {
             describe(result.body)
         } catch (e: JSONException) {
@@ -56,6 +71,13 @@ object Probe {
     /** Cloudflare's bot check answers 403 with an HTML page that says "Just a moment". */
     private fun challengeNote(result: CallResult): String =
         if (result.body.contains("Just a moment") || result.body.contains("challenge-platform")) ", Cloudflare check" else ""
+
+    /** claude.ai's JSON errors name a type (not_found_error, say): safe to show, and telling. */
+    private fun errorType(result: CallResult): String = try {
+        JSONObject(result.body).optJSONObject("error")?.optString("type")?.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()
+    } catch (e: JSONException) {
+        ""
+    }
 
     fun firstChannelId(body: String): String? = try {
         JSONObject(body).optJSONArray("data")?.optJSONObject(0)?.optString("id")?.takeIf { it.isNotBlank() }
