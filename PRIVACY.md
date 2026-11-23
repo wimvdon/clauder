@@ -20,8 +20,8 @@ sign in to claude.ai in Settings, to claude.ai.
   claude.ai organization you last used (`lastActiveOrg`), and, when you tap **Test**, sends them
   to claude.ai with requests for your organization list, your projects, a project's threads and chat
   messages, your notification count and a few seconds of the live thread and session updates.
-  The test report on screen holds only HTTP codes, field names, counts, status values and times,
-  no names or message text. The sign-in is a full login to your claude.ai account; it is sent
+  The test report on screen holds only HTTP codes, field names, counts, status values, times,
+  organization capabilities and claude.ai's own error text, no names or message text. The sign-in is a full login to your claude.ai account; it is sent
   only to claude.ai, never to the Worker or anyone else. The organization id stays on this phone, next to the
   sign-in, and is not backed up. These are private claude.ai endpoints
   that Anthropic does not offer for other apps.

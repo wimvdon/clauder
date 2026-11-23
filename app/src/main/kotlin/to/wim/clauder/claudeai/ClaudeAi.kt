@@ -31,12 +31,23 @@ object ClaudeAi {
     /** The organization claude.ai last used (`lastActiveOrg` cookie), when it is a valid UUID. */
     fun organizationFrom(cookieHeader: String?): String? = cookie(cookieHeader, "lastActiveOrg")?.takeIf { UUID.matches(it) }
 
-    /** The first organization uuid in claude.ai's organization list, or null. */
-    fun firstOrganization(body: String): String? = try {
+    /** The organization uuids in claude.ai's organization list, in its order. */
+    fun organizations(body: String): List<String> = try {
         val list = JSONArray(body)
-        (0 until list.length()).mapNotNull { list.optJSONObject(it)?.optString("uuid") }.firstOrNull { UUID.matches(it) }
+        (0 until list.length()).mapNotNull { list.optJSONObject(it)?.optString("uuid") }.filter { UUID.matches(it) }
     } catch (e: JSONException) {
-        null
+        emptyList()
+    }
+
+    /** Each organization's capabilities (such as chat or claude_max), no names: safe to report. */
+    fun organizationCapabilities(body: String): List<String> = try {
+        val list = JSONArray(body)
+        (0 until list.length()).mapNotNull { list.optJSONObject(it) }.map { o ->
+            val caps = o.optJSONArray("capabilities") ?: JSONArray()
+            (0 until caps.length()).map { caps.optString(it) }.sorted().joinToString(",", "[", "]")
+        }
+    } catch (e: JSONException) {
+        emptyList()
     }
 
     /** Headers for one call. The organization header is left out while it is still unknown. */
@@ -59,7 +70,8 @@ object ClaudeAi {
         /** The account's organizations (the web app's own endpoint, under /api/). */
         const val ORGANIZATIONS = "api/organizations"
 
-        fun channels(limit: Int) = "v1/code/channels?limit=$limit"
+        /** The Claude app always asks for the projects the account has joined. */
+        fun channels(limit: Int) = "v1/code/channels?scope=joined&limit=$limit"
         fun threads(channelId: String, limit: Int) = "v1/code/channels/${encode(channelId)}/threads?limit=$limit"
         /** The project chat: top-level messages, newest first. */
         fun timeline(channelId: String, limit: Int) = "v1/code/channels/${encode(channelId)}/timeline?limit=$limit"
