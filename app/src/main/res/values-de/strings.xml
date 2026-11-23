@@ -151,6 +151,7 @@
         <item quantity="one">%d aktiv</item>
         <item quantity="other">%d aktiv</item>
     </plurals>
+    <string name="ai_paused_note">Keine Zusammenfassung: Das kostenlose KI-Kontingent für heute ist aufgebraucht. Ab %1$s gibt es wieder Zusammenfassungen.</string>
     <string name="setup_check_running">Hooks werden geprüft…</string>
     <string name="setup_check_ok">Die Hooks funktionieren. Letztes Ereignis: %1$s.</string>
     <string name="setup_check_old">Ereignisse kommen an (das letzte %1$s), aber diese Sitzung nutzt alte Hooks. Sitzungen und Threads, die du ab jetzt startest, bekommen die neuen.</string>

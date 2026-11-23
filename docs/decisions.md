@@ -19,6 +19,18 @@ the shapes live before the Tasks screen uses them. Rejected: the Worker calling 
 check, and a full login on a server); pasting the cookie by hand (hard on a phone); a foreground
 service for instant background updates (an always-on notification and a new permission).
 
+## 2026-11-23: CI results from GitHub webhooks, through a GitHub App made with the manifest flow
+
+The hook events and PR subscription wakes carry no CI result, so Clauder guessed "running" after a
+push and learned the outcome only when Claude read its notifications. GitHub now sends webhooks
+straight to the Worker. They come from a private, read-only GitHub App that the owner creates from
+a one-time Clauder link (GitHub's app manifest flow), so the webhook secret is never copied by hand
+and one installation covers every repository, including new ones. Rejected: a webhook per
+repository (the owner would paste the URL and a secret into each repository's settings) and a
+GitHub token in the Worker to ask the Checks API (more access than webhooks need). GitHub Actions
+results come from `workflow_run`, not from Actions' own check runs, so a job that starts after
+others doesn't make CI look passed in between.
+
 ## 2026-11-22: Icons: same padding in every app, white background, white details; colour scheme follows the icon
 
 All ten apps get one icon family. For Clauder the ring already sat at the shared padding (its
@@ -415,6 +427,7 @@ waiting and a working thread shows up in both sections. Only Inactive folds (it 
 and the widget shows the same two active sections without it. Project folding is gone: with the
 status split, a long project no longer pushes waiting threads out of view. Inactive rows lost the
 project line above their title, since the project header now says it.
+
 ## 2026-11-23: Ideas taken from Claude Code Notifier, without its code
 
 Wim asked what Clauder could take from Claude Code Notifier (`touch-tap/ccn`). Its licence
@@ -427,3 +440,16 @@ The receipt counts from the transcript's own edit results (raw data, no guessing
 session's machine, so only counts leave it. The tool hook is a command hook rather than an HTTP
 hook, so it can skip calls (at most one per 10 seconds) and send only a short detail instead of
 the whole tool input.
+
+## 2026-11-23: Workers AI stays inside its free daily allocation
+
+Wim asked whether Workers AI could take on a larger role without risking wrong states or leaving
+the free tier (10,000 neurons a day). The Worker log showed about 30 neurons a read and up to
+about 20 reads an hour on a busy evening, so a long busy day could run out, and then every read
+failed without notice. The Worker now counts the neurons of every call per UTC day and stops the
+reads that only write a line first (from 7,000), so the reads that decide a state run longest.
+Reads that can't change the state only ask for the summary, of Llama 3.1 8B, which costs about a
+seventh of the 70B model; the reads that decide Waiting for you and Done stay on the 70B model. Wim
+picked this together with a "Working on" line from the person's message (a separate change).
+Ideas left out: an AI that decides Running or Done on its own, reads CI results or judges how
+urgent an alert is, because hook data decides those exactly or a wrong guess would hide an alert.

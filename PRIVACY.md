@@ -35,7 +35,7 @@ the text of the turn's last reply until that turn ends. When a turn ends while s
 set up (such as CI on a pull request or a reminder) will still wake the session, the Worker has
 the end of that last reply read by a language model on Cloudflare Workers AI, in your own
 Cloudflare account, to see whether Claude asks you something. Only the answer (the question, in a
-few words) is kept and shown on the phone; the reply text is then dropped. It also receives the pull requests Claude
+few words) is kept and shown on the phone; the reply text is then dropped. The Worker counts how much of Workers AI's free daily allowance these reads use (token counts only, no text), so it can stop before the allowance runs out. It also receives the pull requests Claude
 opens, reads or merges and their CI results, the `git push` commands Claude runs (with their
 output; no other shell commands are sent), the reminders Claude sets, and, at the end of each
 turn, how many tokens the session used per model (counted on the session's machine from its
@@ -47,7 +47,13 @@ gave a shell command (or only the program's name), a file's name, a search patte
 address's host or a search query. No other tool input is sent. When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,
 read from the session's own transcript, and what kind of event woke the session (a message, a
-coordinator note or a background event such as CI); the prompt's text is left out. It keeps each session's task
+coordinator note or a background event such as CI); the prompt's text is left out. If you connect GitHub (Settings in Clauder), GitHub also sends the Worker webhooks from a
+GitHub App on your own account that can only read: check runs, check suites, workflow runs, pull
+requests and reviews of the repositories you install it on. The Worker keeps, per pull request,
+its head commit, its state, the result of each workflow or check suite and the latest review
+verdict, for 14 days after its last event, plus a short summary of each webhook in the debug log.
+It keeps the app's webhook secret to check that a webhook comes from GitHub, and throws away the
+app's private key and client secret right away. It keeps each session's task
 list for a day after its last change, and the last 500 raw events for debugging. It runs in your
 own Cloudflare account; nobody else has access.
 

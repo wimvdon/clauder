@@ -5,6 +5,7 @@ import {
   applyHook,
   clip,
   emptyList,
+  needsStateRead,
   progress,
   resolveByUser,
   sessionKey,
@@ -704,6 +705,40 @@ test("the phone hears when a session runs old hook settings", () => {
   assert.equal(toPushData(run([checklist(PLAN_DONE_BUT_ONE)])).hooks, "");
   const old = applyHook(emptyList("cse_abc", null, NOW), checklist(PLAN_DONE_BUT_ONE), NOW, undefined)!;
   assert.equal(toPushData(old).hooks, "old");
+});
+
+test("only a read that can change the state goes to the big model", () => {
+  const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
+  const working = run([checklist(PLAN_DONE_BUT_ONE), reply("CI runs."), later, { hook_event_name: "Stop" }]);
+  assert.equal(needsStateRead(working), true);
+  const waits = run([checklist(PLAN_DONE_BUT_ONE), reply("Done."), { hook_event_name: "Stop" }]);
+  assert.equal(needsStateRead(waits), true);
+  const decision = { hook_event_name: "PostToolUse", tool_name: "mcp__hearthbot__request_decision", tool_input: { question: "Which colour?" }, tool_response: {} };
+  const card = run([checklist(PLAN_DONE_BUT_ONE), decision, reply("Card is up."), { hook_event_name: "Stop" }]);
+  assert.equal(needsStateRead(card), false);
+  const resolved = run([checklist(PLAN_DONE_BUT_ONE), reply("All done."), tool("mcp__hearthbot__set_thread_resolved", { resolved: true }), { hook_event_name: "Stop" }]);
+  assert.equal(needsStateRead(resolved), false);
+  assert.equal(needsStateRead({ ...working, state: "ended" }), false);
+});
+
+test("a turn left unread for the day's AI allocation says so until the next read", () => {
+  const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
+  const list = run([checklist(PLAN_DONE_BUT_ONE), reply("CI runs."), later, { hook_event_name: "Stop" }]);
+  const paused = applyAsk(list, list.askCheck!, null, NOW, "2026-11-22")!;
+  assert.equal(paused.aiPausedOn, "2026-11-22");
+  assert.equal(paused.askCheck, undefined);
+  assert.equal(paused.state, "running");
+  assert.equal(paused.seq, list.seq + 1);
+  assert.equal(toPushData(paused).aiPausedOn, "2026-11-22");
+  // The flag lives through the next hooks, and the next read clears it.
+  const next = run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "wake:mention" } }, reply("Merged."), later, { hook_event_name: "Stop" }], paused);
+  assert.equal(next.aiPausedOn, "2026-11-22");
+  const read2 = applyAsk(next, next.askCheck!, read("", "PR merged"), NOW)!;
+  assert.equal(read2.aiPausedOn, undefined);
+  assert.equal(read2.summary, "PR merged");
+  assert.equal(toPushData(read2).aiPausedOn, "");
+  // A failed read keeps it.
+  assert.equal(applyAsk(next, next.askCheck!, null, NOW)?.aiPausedOn, "2026-11-22");
 });
 
 const checklistTool = (text: string) => ({

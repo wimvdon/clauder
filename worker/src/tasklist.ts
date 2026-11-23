@@ -18,6 +18,7 @@ import {
   type PullRequest,
   type Usage,
 } from "./extras.ts";
+import { applyPrChange, type PrChange } from "./github.ts";
 import { doingFrom, workFrom, type Doing, type Work } from "./activity.ts";
 
 export type { Link, PullRequest, Usage } from "./extras.ts";
@@ -98,6 +99,10 @@ export interface SessionList {
   /** The model's one-line summary of the last turn, until the person writes again or a later turn
    * writes a new one. */
   summary?: string;
+  /** The UTC day ("2026-11-23") on which this session's last turn wasn't read because Workers AI's
+   * free daily allocation was (nearly) used up, so it has no summary; see budget.ts. Cleared by the
+   * next read. */
+  aiPausedOn?: string;
   /** Set when the person wrote while every step was already completed: that old checklist doesn't
    * make the thread Done until it changes. Not sent to the phone. */
   staleFinish?: boolean;
@@ -585,10 +590,15 @@ function pick(list: SessionList): Partial<SessionList> {
  * Events in between (a session pause, a late tool result) don't drop it. Returns null when
  * nothing changes.
  */
-export function applyAsk(list: SessionList, reply: string, read: TurnRead | null, now: string): SessionList | null {
+export function applyAsk(list: SessionList, reply: string, read: TurnRead | null, now: string, pausedOn?: string): SessionList | null {
   if (list.askCheck === undefined || list.askCheck !== reply) return null;
-  const { askCheck: _askCheck, ...rest } = list;
-  if (!read) return rest;
+  const { askCheck: _askCheck, aiPausedOn: _aiPausedOn, ...rest } = list;
+  if (pausedOn) {
+    // Not read today: the phone says why the summary is missing.
+    const paused = { ...rest, aiPausedOn: pausedOn };
+    return list.aiPausedOn === pausedOn ? paused : { ...paused, seq: nextSeq(list, now), updatedAt: now };
+  }
+  if (!read) return list.aiPausedOn ? { ...rest, aiPausedOn: list.aiPausedOn } : rest;
   const next: SessionList = { ...rest };
   if (read.summary) next.summary = clip(read.summary, MAX_NEED);
   // A resolved or closed thread doesn't wait, whatever its last reply says. A finished checklist
@@ -610,8 +620,19 @@ export function applyAsk(list: SessionList, reply: string, read: TurnRead | null
     next.resolved = true;
     delete next.need;
   }
-  const shown = next.state !== list.state || next.need !== list.need || next.summary !== list.summary;
+  const shown = next.state !== list.state || next.need !== list.need || next.summary !== list.summary || list.aiPausedOn !== undefined;
   return shown ? { ...next, seq: nextSeq(list, now), updatedAt: now } : next;
+}
+
+/**
+ * Whether reading the turn's reply can change the state (see [applyAsk]): a question makes a
+ * working or idle thread wait, and a finished turn resolves a thread that waits on nothing but the
+ * person. A resolved or closed thread, or one that already waits on a card, a permission or a
+ * question, only gets its summary line, which a smaller model writes.
+ */
+export function needsStateRead(list: SessionList): boolean {
+  if (list.resolved || list.state === "ended") return false;
+  return list.state !== "waiting" || list.needKind === undefined;
 }
 
 /**
@@ -662,7 +683,7 @@ export function toPushData(list: SessionList): Record<string, string> {
     updatedAt: list.updatedAt,
     tasks: encode(tasks),
     steps: encode(steps),
-    pr: list.pr ? JSON.stringify({ n: list.pr.number, u: list.pr.url, s: list.pr.state, c: list.pr.ci ?? "" }) : "",
+    pr: list.pr ? JSON.stringify({ n: list.pr.number, u: list.pr.url, s: list.pr.state, c: list.pr.ci ?? "", ...(list.pr.review ? { r: list.pr.review } : {}) }) : "",
     link: list.link?.url ?? "",
     linkTitle: list.link?.title ?? "",
     wakeAt: list.wakeAt ?? "",
@@ -676,6 +697,8 @@ export function toPushData(list: SessionList): Record<string, string> {
     // "old" when the session runs hook settings from before the installer reported every wake
     // source: it can't update them itself, so the phone shows how to.
     hooks: list.hooksCurrent ? "" : "old",
+    // The UTC day the last turn went unread because Workers AI's free daily allocation ran out.
+    aiPausedOn: list.aiPausedOn ?? "",
   });
   const shorten = (items: Task[]) =>
     items.map((t) => ({ ...t, subject: clip(t.subject, Math.max(20, Math.floor(t.subject.length * 0.7))) }));
@@ -688,4 +711,13 @@ export function toPushData(list: SessionList): Record<string, string> {
     if (JSON.stringify(out).length === before) break;
   }
   return out;
+}
+
+/** A GitHub webhook changed the PR the session follows: its CI, state or review. The session's
+ * own state doesn't change here; a PR subscription wakes Claude, and that turn's hooks do. Returns
+ * null when it isn't the session's PR or nothing changes. */
+export function applyPrUpdate(list: SessionList, change: PrChange, now: string): SessionList | null {
+  const pr = applyPrChange(list.pr, change);
+  if (!pr || pr === list.pr) return null;
+  return { ...list, pr, seq: nextSeq(list, now), updatedAt: now };
 }
