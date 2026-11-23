@@ -17,9 +17,9 @@ import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
 import { HOOKS_LEVEL, HOOKS_VERSION, installScript } from "./install";
 import { loadedIsCurrent, statusFrom } from "./hooks";
-import { readTurn, type AskModel } from "./ask";
+import { readRequest, readTurn, type AskModel } from "./ask";
 import { allows, current, spend, utcDay, type Budget, type Priority } from "./budget";
-import { applyAsk, applyHook, emptyList, needsStateRead, resolveByUser, sessionKey, toPushData, type SessionList } from "./tasklist";
+import { applyAsk, applyHook, applyRequest, emptyList, needsStateRead, resolveByUser, sessionKey, toPushData, withoutAsk, type SessionList } from "./tasklist";
 
 export interface Env {
   HOOK_TOKEN: string;
@@ -95,6 +95,10 @@ export class Session extends DurableObject<Env> {
     const asking = ended && next.askCheck !== undefined && this.env.AI !== undefined;
     if (next.seq !== base.seq) await this.schedulePush(asking ? ASK_WAIT_MS : PUSH_DEBOUNCE_MS);
     if (asking) this.ctx.waitUntil(this.checkAsk(next.askCheck!));
+    // The person's new message: a small model writes the "Working on" line.
+    if (next.askRequest !== undefined && next.askRequest !== base.askRequest && this.env.AI !== undefined) {
+      this.ctx.waitUntil(this.checkRequest(next.askRequest));
+    }
     return next;
   }
 
@@ -139,6 +143,25 @@ export class Session extends DurableObject<Env> {
     if (next.seq !== list.seq || (await this.ctx.storage.get<boolean>("pushPending"))) await this.schedulePush(PUSH_DEBOUNCE_MS);
   }
 
+  /** Has a small model read the person's message: what Claude now works on, and a title for a
+   * session outside a project. Skipped when the day's free Workers AI allowance runs low. */
+  private async checkRequest(text: string): Promise<void> {
+    if (!this.env.AI) return;
+    const budget = hub(this.env);
+    let read = null;
+    if (await budget.aiAllows("extra")) {
+      const result = await readRequest(this.env.AI as unknown as AskModel, text);
+      await budget.aiSpent(result.neurons, result.allocationUsed);
+      read = result.read;
+    }
+    const list = await this.ctx.storage.get<SessionList>("list");
+    if (!list) return;
+    const next = applyRequest(list, text, read, new Date().toISOString());
+    if (!next) return;
+    await this.ctx.storage.put("list", next);
+    if (next.seq !== list.seq) await this.schedulePush(PUSH_DEBOUNCE_MS);
+  }
+
   /** Pushes after [delay], or sooner if a push is already due. */
   private async schedulePush(delay: number): Promise<void> {
     await this.ctx.storage.put("pushPending", true);
@@ -154,7 +177,7 @@ export class Session extends DurableObject<Env> {
     if (await this.ctx.storage.get<boolean>("pushPending")) {
       await this.ctx.storage.put("pushPending", false);
       // The reply text stays here; the phone and /sessions get only what they show.
-      const { reply: _reply, askCheck: _askCheck, staleFinish: _staleFinish, ...shown } = list;
+      const { reply: _reply, askCheck: _askCheck, askRequest: _askRequest, staleFinish: _staleFinish, ...shown } = list;
       try {
         await hub(this.env).publish(shown);
       } catch (e) {
@@ -348,7 +371,7 @@ export default {
           typeof body === "object" && body !== null && "hook_event_name" in body
             ? String((body as { hook_event_name: unknown }).hook_event_name)
             : null,
-        body,
+        body: withoutAsk(body),
       };
       const log = env.SPIKE_LOG.get(env.SPIKE_LOG.idFromName("spike"));
       ctx.waitUntil(log.append(entry));

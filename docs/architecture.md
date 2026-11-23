@@ -77,6 +77,13 @@ Clauder shows the task list of every running Claude Code session on the phone.
   AI refuses a call for the allocation (error 3036), nothing runs until the next UTC day. A turn
   left unread then carries `aiPausedOn` (its UTC day), and the session card says the summary is
   back at midnight UTC in local time.
+  **Working on:** for the person's own message (`wake:mention` or `wake:spawn` in a project
+  thread, the typed prompt elsewhere), the prompt hook sends its text as `clauder.ask` (at most
+  1,000 characters). The Worker keeps it as `askRequest` (never logged, never sent to the phone)
+  and has the 8B model write a "Working on" line, shown as the summary until the turn's own
+  summary replaces it, and for a session outside a project a title (`titleFromAsk`) instead of the
+  folder name; a checklist heading still wins. These reads only run below 7,000 neurons, and a
+  read that arrives after the turn ended, or after a newer prompt, is dropped.
   The phone also shows a Running session that has been silent for 12 hours as Idle
   (`TaskList.shown`).
   A resolved thread stays Done until a person's message, a decision tap or a coordinator message

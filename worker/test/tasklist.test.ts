@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   applyAsk,
   applyHook,
+  applyRequest,
   clip,
   emptyList,
   needsStateRead,
@@ -11,6 +12,7 @@ import {
   sessionKey,
   titleFromCwd,
   toPushData,
+  withoutAsk,
   type SessionList,
 } from "../src/tasklist.ts";
 
@@ -782,4 +784,54 @@ test("a turn's end reports what changed since the person wrote, until the person
   const future = { hook_event_name: "Stop", clauder: { work: { since: "2030-01-01T00:00:00.000Z", files: 1, added: 1, removed: 0 } } };
   assert.equal(run([future], planned).work, undefined);
   assert.equal(toPushData(planned).work, "");
+});
+
+const asks = (text: string, source = "wake:mention") => ({ hook_event_name: "UserPromptSubmit", cwd: CWD, clauder: { source, ask: text } });
+
+test("the person's message gives a Working on line until the turn's own summary", () => {
+  const later = tool("mcp__claude-code-remote__send_later", { delay_minutes: 30, message: "x" });
+  const before = run([checklist(PLAN_DONE_BUT_ONE), reply("CI runs."), later, { hook_event_name: "Stop" }]);
+  const summed = applyAsk(before, before.askCheck!, read("", "CI running"), NOW)!;
+  const asked = run([asks("Can you also add a test?")], summed);
+  assert.equal(asked.askRequest, "Can you also add a test?");
+  assert.equal(toPushData(asked).askRequest, undefined);
+  const working = applyRequest(asked, "Can you also add a test?", { working: "Adding a test", title: "Add a test" }, NOW)!;
+  assert.equal(working.summary, "Adding a test");
+  assert.equal(working.askRequest, undefined);
+  assert.equal(working.seq, asked.seq + 1);
+  // A list named by its checklist keeps that title.
+  assert.equal(working.title, asked.title);
+  // Too late: the turn already ended, or a newer prompt came.
+  const ended = run([{ hook_event_name: "Stop" }], asked);
+  assert.equal(ended.askRequest, undefined);
+  assert.equal(applyRequest(ended, "Can you also add a test?", { working: "Adding a test", title: "" }, NOW), null);
+  const newer = run([asks("Never mind")], asked);
+  assert.equal(applyRequest(newer, "Can you also add a test?", { working: "Adding a test", title: "" }, NOW), null);
+  // A failed read only drops the pending message; a prompt without text leaves none.
+  assert.equal(applyRequest(asked, "Can you also add a test?", null, NOW)?.summary, undefined);
+  assert.equal(run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "notification" } }], asked).askRequest, undefined);
+  assert.equal(run([asks("x".repeat(3000))], summed).askRequest?.length, 1000);
+});
+
+test("a session outside a project gets its title from the person's message, once", () => {
+  const code = run([asks("Fix the export button on Safari", "other")]);
+  assert.equal(code.title, "clauder");
+  const titled = applyRequest(code, code.askRequest!, { working: "Fixing the export button", title: "Fix Safari export button" }, NOW)!;
+  assert.equal(titled.title, "Fix Safari export button");
+  assert.equal(titled.titleFromAsk, true);
+  // Later events keep it; a later message doesn't rename it.
+  const later = run([asks("Also check Firefox", "other")], titled);
+  assert.equal(later.title, "Fix Safari export button");
+  assert.equal(applyRequest(later, later.askRequest!, { working: "Checking Firefox", title: "Check Firefox" }, NOW)?.title, "Fix Safari export button");
+  // A checklist heading still wins.
+  assert.equal(run([checklist("Safari fix\n\n○ One")], titled).title, "Safari fix");
+});
+
+test("the log never keeps the person's message", () => {
+  const body = { hook_event_name: "UserPromptSubmit", clauder: { source: "wake:mention", ask: "secret plan", project: "P" } };
+  assert.deepEqual(withoutAsk(body), { hook_event_name: "UserPromptSubmit", clauder: { source: "wake:mention", project: "P" } });
+  assert.equal(body.clauder.ask, "secret plan");
+  const plain = { hook_event_name: "Stop" };
+  assert.equal(withoutAsk(plain), plain);
+  assert.equal(withoutAsk("raw"), "raw");
 });

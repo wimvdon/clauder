@@ -38,7 +38,10 @@ gave a shell command (or only the program's name), a file's name, a search patte
 address's host or a search query. No other tool input is sent. When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,
 read from the session's own transcript, and what kind of event woke the session (a message, a
-coordinator note or a background event such as CI); the prompt's text is left out. It keeps each session's task
+coordinator note or a background event such as CI). Of the prompt's text it sends only the message
+you wrote yourself (at most 1,000 characters; coordinator notes and background events are left out).
+A smaller language model on Workers AI reads it once for a one-line "Working on" summary and, for a
+session outside a project, a short title; the message itself is then dropped and never logged. It keeps each session's task
 list for a day after its last change, and the last 500 raw events for debugging. It runs in your
 own Cloudflare account; nobody else has access.
 

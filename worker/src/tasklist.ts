@@ -1,7 +1,7 @@
 // Pure task-list logic: turns raw Claude Code hook payloads into one session's task list.
 // No Worker types, so it runs under plain Node tests.
 
-import { MAX_REPLY_CHARS, type TurnRead } from "./ask.ts";
+import { MAX_REPLY_CHARS, type RequestRead, type TurnRead } from "./ask.ts";
 import {
   afterPush,
   applyPrTool,
@@ -98,6 +98,12 @@ export interface SessionList {
   /** The model's one-line summary of the last turn, until the person writes again or a later turn
    * writes a new one. */
   summary?: string;
+  /** The person's message that started the current turn, kept only until a small model has read
+   * it for the "Working on" line (see ask.ts and [applyRequest]) or the turn ends. Not sent to the
+   * phone. */
+  askRequest?: string;
+  /** True once a session outside a project got its title from the person's message. */
+  titleFromAsk?: boolean;
   /** The UTC day ("2026-11-23") on which this session's last turn wasn't read because Workers AI's
    * free daily allocation was (nearly) used up, so it has no summary; see budget.ts. Cleared by the
    * next read. */
@@ -113,6 +119,8 @@ export interface SessionList {
 export const MAX_TASKS = 50;
 export const MAX_NEED = 200;
 export const MAX_SUBJECT = 120;
+/** How much of the person's message the hook sends for the "Working on" line. */
+export const MAX_REQUEST_CHARS = 1000;
 
 type Json = Record<string, unknown>;
 
@@ -311,6 +319,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   let summary = list.summary;
   // The reply the model still has to read stays until a new prompt starts the next turn.
   let askCheck = list.askCheck;
+  let askRequest = list.askRequest;
   let staleFinish = list.staleFinish ?? false;
   // An open decision card, or a question the person hasn't answered yet, keeps the session
   // waiting while Claude goes on with the work, also through wakes the person didn't cause (CI
@@ -321,7 +330,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   let thread = list.thread;
   let title = list.titleFromPlan
     ? list.title
-    : (thread ?? (list.tasks.length === 0 && steps.length === 0 ? titleFromCwd(str(input.cwd)) : list.title));
+    : (thread ?? (list.titleFromAsk || list.tasks.length > 0 || steps.length > 0 ? list.title : titleFromCwd(str(input.cwd))));
   let titleFromPlan = list.titleFromPlan ?? false;
   let { project, projectId } = list;
   const repo = repoFromCwd(str(input.cwd)) ?? list.repo;
@@ -431,6 +440,8 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       const said = reply ?? str(input.last_assistant_message)?.slice(-MAX_REPLY_CHARS);
       askCheck = said ?? undefined;
       reply = undefined;
+      // The turn's own summary replaces the "Working on" line.
+      askRequest = undefined;
       // Stop ends every turn. An open decision card or question keeps the session waiting. Otherwise it is
       // running while something Claude set up will wake it, and waiting on the user when
       // nothing will.
@@ -456,6 +467,10 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       // don't say, so any prompt counts as the person's.
       const source = obj(input.clauder)?.source;
       const fromPerson = reopens(source);
+      // The person's own message, which the hook sends for the "Working on" line (only for a
+      // message the person wrote; older hooks never send it). Any new prompt drops an older one.
+      const asked = str(obj(input.clauder)?.ask);
+      askRequest = asked ? asked.slice(0, MAX_REQUEST_CHARS) : undefined;
       state = deciding && !answers(needKind, source) ? "waiting" : "running";
       // A background event (a CI result, a finished helper) is often injected into a running turn,
       // so the reply Claude sent before it, and the check of the last turn's reply, still count.
@@ -529,14 +544,14 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   const {
     need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches, hooksCurrent: _hooksCurrent,
     helpers: _helpers, usage: _usage, doing: _doing, work: _work, resolved: _resolved, reply: _reply, askCheck: _askCheck, summary: _summary,
-    staleFinish: _staleFinish, ...rest
+    staleFinish: _staleFinish, askRequest: _askRequest, ...rest
   } = list;
   if (!changed) {
     // Nothing the phone shows changed; keep the reply or the check without a push (same seq).
-    if (reply === list.reply && askCheck === list.askCheck && staleFinish === (list.staleFinish ?? false)) return null;
+    if (reply === list.reply && askCheck === list.askCheck && askRequest === list.askRequest && staleFinish === (list.staleFinish ?? false)) return null;
     return {
       ...rest, ...pick(list), ...(reply ? { reply } : {}), ...(askCheck ? { askCheck } : {}), ...(summary ? { summary } : {}),
-      ...(staleFinish ? { staleFinish } : {}),
+      ...(askRequest ? { askRequest } : {}), ...(staleFinish ? { staleFinish } : {}),
     };
   }
   return {
@@ -564,6 +579,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     ...(resolved ? { resolved } : {}),
     ...(reply ? { reply } : {}),
     ...(askCheck ? { askCheck } : {}),
+    ...(askRequest ? { askRequest } : {}),
     ...(summary ? { summary } : {}),
     ...(staleFinish ? { staleFinish } : {}),
     seq: nextSeq(list, now),
@@ -620,6 +636,28 @@ export function applyAsk(list: SessionList, reply: string, read: TurnRead | null
     delete next.need;
   }
   const shown = next.state !== list.state || next.need !== list.need || next.summary !== list.summary || list.aiPausedOn !== undefined;
+  return shown ? { ...next, seq: nextSeq(list, now), updatedAt: now } : next;
+}
+
+/**
+ * Applies what a small model read in the person's message [text]: a "Working on" line, shown as
+ * the summary until the turn ends with its own, and for a session outside a project (whose title
+ * is otherwise its folder's name) a short title. Never changes the state. Ignored when [text] is
+ * no longer the message waiting to be read: the turn ended, or a newer prompt came. Returns null
+ * when nothing changes.
+ */
+export function applyRequest(list: SessionList, text: string, read: RequestRead | null, now: string): SessionList | null {
+  if (list.askRequest === undefined || list.askRequest !== text) return null;
+  const { askRequest: _askRequest, ...rest } = list;
+  if (!read) return rest;
+  const next: SessionList = { ...rest };
+  if (read.working) next.summary = clip(read.working, MAX_NEED);
+  const titled = !list.project && !list.thread && !list.titleFromPlan && !list.titleFromAsk && read.title !== "";
+  if (titled) {
+    next.title = clip(read.title);
+    next.titleFromAsk = true;
+  }
+  const shown = next.summary !== list.summary || next.title !== list.title;
   return shown ? { ...next, seq: nextSeq(list, now), updatedAt: now } : next;
 }
 
@@ -710,4 +748,12 @@ export function toPushData(list: SessionList): Record<string, string> {
     if (JSON.stringify(out).length === before) break;
   }
   return out;
+}
+
+/** The payload without the person's message text (clauder.ask), which the log never keeps. */
+export function withoutAsk(body: unknown): unknown {
+  const clauder = typeof body === "object" && body !== null ? (body as { clauder?: unknown }).clauder : undefined;
+  if (typeof clauder !== "object" || clauder === null || !("ask" in clauder)) return body;
+  const { ask: _ask, ...rest } = clauder as Record<string, unknown>;
+  return { ...(body as Record<string, unknown>), clauder: rest };
 }

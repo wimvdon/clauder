@@ -166,3 +166,59 @@ export async function readTurn(model: AskModel, reply: string, mode: ReadMode = 
     return { read: null, neurons: 0, allocationUsed: isAllocationError(e) };
   }
 }
+
+/** What the small model read in the person's message: what Claude now works on ("" for none) and a
+ * short title for the work ("" for none). */
+export interface RequestRead {
+  working: string;
+  title: string;
+}
+
+export const MAX_TITLE_CHARS = 60;
+
+const REQUEST_SYSTEM = [
+  "You read a message a user sent to an AI assistant that works on software and documents.",
+  "Write two things, in the language of the message.",
+  "working: one line of at most 10 words saying what the assistant is now working on, starting",
+  "with a verb form such as \"Fixing the Safari export button\" or \"Onderzoekt de AI-kosten\".",
+  "title: a title of 3 to 6 words for the user's goal, in sentence case, such as \"Fix Safari",
+  "export button\". No full stop, no quotes, no \"Claude\".",
+  "When the message asks nothing to do (a greeting, a thank you, \"ok\"), leave both empty.",
+  'Reply with JSON only: {"working": "the line or empty", "title": "the title or empty"}.',
+].join(" ");
+
+export function requestInput(text: string): Record<string, unknown> {
+  return {
+    messages: [
+      { role: "system", content: REQUEST_SYSTEM },
+      { role: "user", content: `<message>\n${text.slice(0, 1000)}\n</message>` },
+    ],
+    max_tokens: 60,
+    temperature: 0,
+  };
+}
+
+export function parseRequest(output: unknown): RequestRead | null {
+  const value = jsonOf(output);
+  if (value === null) return null;
+  const { working, title } = value as { working?: unknown; title?: unknown };
+  if (typeof working !== "string" && typeof title !== "string") return null;
+  return { working: oneLine(working, MAX_SUMMARY_CHARS), title: oneLine(title, MAX_TITLE_CHARS) };
+}
+
+/** Reads the person's message with the small model. The read is null when the model fails or
+ * answers unreadably. */
+export async function readRequest(model: AskModel, text: string): Promise<{ read: RequestRead | null; neurons: number; allocationUsed: boolean }> {
+  if (!text.trim()) return { read: { working: "", title: "" }, neurons: 0, allocationUsed: false };
+  const input = requestInput(text);
+  try {
+    const output = await model.run(SUMMARY_MODEL, input);
+    const usage = reportedUsage(output) ?? {
+      input: estimateTokens(JSON.stringify(input.messages)),
+      output: estimateTokens(JSON.stringify(output ?? "")),
+    };
+    return { read: parseRequest(output), neurons: neurons(SUMMARY_MODEL, usage.input, usage.output), allocationUsed: false };
+  } catch (e) {
+    return { read: null, neurons: 0, allocationUsed: isAllocationError(e) };
+  }
+}

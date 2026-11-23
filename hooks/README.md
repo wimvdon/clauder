@@ -76,8 +76,11 @@ sent. A session without `CLAUDER_HOOK_TOKEN` is refused by the Worker and carrie
 
 The hook input is sent as-is. Besides task text it includes the working directory, the transcript
 path and, for `Stop`, Claude's last message. The prompt script adds the project's and thread's
-names and ids and leaves out the prompt's text. The repository-level `settings.json` has no
-`UserPromptSubmit` hook, so prompts are never sent. It goes only to your own Worker.
+names and ids. Of the prompt it sends only the message the person wrote (in a project thread the
+message that woke the session, elsewhere what was typed; at most 1,000 characters), so the Worker
+can write a "Working on" line. Coordinator notes and background events such as CI results are left
+out, and the Worker drops the message once it is read and never logs it. The repository-level
+`settings.json` has no `UserPromptSubmit` hook, so prompts are never sent from there. It goes only to your own Worker.
 
 ## Keeping the hooks current
 

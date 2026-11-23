@@ -424,3 +424,13 @@ seventh of the 70B model; the reads that decide Waiting for you and Done stay on
 picked this together with a "Working on" line from the person's message (a separate change).
 Ideas left out: an AI that decides Running or Done on its own, reads CI results or judges how
 urgent an alert is, because hook data decides those exactly or a wrong guess would hide an alert.
+
+## 2026-11-23: A "Working on" line from the person's message
+
+Wim picked this with the AI budget. Until now the phone showed nothing new between the person's
+message and the first checklist, and a session outside a project was titled after its folder.
+The prompt hook now sends the person's own message (never a coordinator note or a CI event), and
+the small model writes one line about what Claude now works on, plus a title for sessions outside
+a project. It is display only: no state depends on it. The message is dropped once read and never
+logged, so the hooks' rule "the prompt's text stays in the session" now has this one exception,
+which PRIVACY.md describes. No new hook events, so the hook level stays the same.
