@@ -14,6 +14,8 @@ import java.net.URL
  */
 class ClaudeAiClient(private val sessionKey: String) : ClaudeAiCalls {
 
+    override var organization: String? = null
+
     override suspend fun get(path: String): CallResult = withContext(Dispatchers.IO) {
         request(path, accept = "application/json", readTimeout = 15_000) { connection ->
             val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
@@ -43,13 +45,12 @@ class ClaudeAiClient(private val sessionKey: String) : ClaudeAiCalls {
     }
 
     private fun request(path: String, accept: String, readTimeout: Int, read: (HttpURLConnection) -> CallResult): CallResult = try {
-        val connection = URL(ClaudeAi.API + path).openConnection() as HttpURLConnection
+        val connection = URL(ClaudeAi.BASE + path).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = 10_000
             connection.readTimeout = readTimeout
             connection.instanceFollowRedirects = false
-            connection.setRequestProperty("Cookie", "sessionKey=$sessionKey")
-            connection.setRequestProperty("Accept", accept)
+            ClaudeAi.headers(sessionKey, organization, accept).forEach { (name, value) -> connection.setRequestProperty(name, value) }
             connection.setRequestProperty("User-Agent", "Clauder/${BuildConfig.VERSION_NAME} (Android)")
             read(connection)
         } finally {

@@ -16,12 +16,14 @@ sign in to claude.ai in Settings, to claude.ai.
   the counts of files and lines it changed, and a link to the session on claude.ai. Google's FCM service carries
   these messages to the phone.
 - **To claude.ai, only after you sign in there in Settings:** claude.ai's own sign-in page, shown
-  in the app. Clauder keeps the sign-in cookie claude.ai sets (`sessionKey`) and, when you tap
-  **Test**, sends it to claude.ai with requests for your projects, a project's threads and chat
+  in the app. Clauder keeps the sign-in cookie claude.ai sets (`sessionKey`) and the id of the
+  claude.ai organization you last used (`lastActiveOrg`), and, when you tap **Test**, sends them
+  to claude.ai with requests for your organization list, your projects, a project's threads and chat
   messages, your notification count and a few seconds of the live thread and session updates.
   The test report on screen holds only HTTP codes, field names, counts, status values and times,
   no names or message text. The sign-in is a full login to your claude.ai account; it is sent
-  only to claude.ai, never to the Worker or anyone else. These are private claude.ai endpoints
+  only to claude.ai, never to the Worker or anyone else. The organization id stays on this phone, next to the
+  sign-in, and is not backed up. These are private claude.ai endpoints
   that Anthropic does not offer for other apps.
 - The app has no analytics, advertising or crash reporting.
 

@@ -8,9 +8,15 @@ calls them and reports what comes back (`claudeai/Probe.kt`).
 
 ## Sign-in
 
-- Base URL `https://claude.ai/api/`, signed with the claude.ai `sessionKey` cookie (the same
+- Base URL `https://claude.ai/` (the `v1/code/...` calls sit at the site root, not under `/api/`;
+  `/api/` gave 404 on every call in the first live test, 0.3.2). Signed with the claude.ai `sessionKey` cookie (the same
   login as the website; the app also knows `sessionKeyV2`, `sessionKeyV3`, `lastActiveOrg`). The
   app gets it from a claude.ai sign-in page in a WebView and reads it with `CookieManager`.
+- Every call also carries the headers the app's sessions client adds: `X-Organization-Uuid`
+  (the account's organization), `Anthropic-Version: 2023-06-01` and
+  `Anthropic-Beta: ccr-byoc-2025-07-29`. Clauder takes the organization from the `lastActiveOrg`
+  cookie the sign-in page sets, or else the first one in `GET api/organizations` (the web app's
+  own endpoint, which does sit under `/api/`).
 - The cookie is a full account login. Signing out of claude.ai ends it.
 - From a server (this container) every call gets Cloudflare's bot check (HTTP 403,
   `cf-mitigated: challenge`). We don't try to get past it, so the calls run on the phone.
@@ -65,7 +71,8 @@ A project chat reply from Claude: a timeline message with `author_session_id` or
 
 ## Still to confirm live (the Test report)
 
-- Whether claude.ai accepts the cookie from Clauder's own client, or wants the app's headers.
+- Whether claude.ai accepts the cookie and headers from Clauder's own client (the 0.3.2 test used
+  the wrong base, `/api/`, and no headers: 404 everywhere).
 - How `status` is written on the threads call; the `sessions/watch` event names.
 - Whether `bound_sessions[].id` is the session id the hooks send (the key to merge both sources).
 - How long a `sessionKey` lives; whether Google sign-in works in the WebView.
