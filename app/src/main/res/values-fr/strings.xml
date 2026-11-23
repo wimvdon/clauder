@@ -200,4 +200,12 @@
     <string name="claude_ai_testing">Test en cours, environ 20 secondes…</string>
     <string name="claude_ai_unreadable">La connexion n’est plus lisible sur ce téléphone. Déconnectez-vous et connectez-vous à nouveau.</string>
     <string name="claude_ai_report_help">Copiez ce rapport dans le fil Claude qui l’a demandé. Il ne contient que des noms de champs, des nombres et des codes d’état.</string>
+    <string name="state_error">Arrêté par une erreur</string>
+    <string name="state_error_need">Arrêté par une erreur : %1$s</string>
+    <string name="activity_blocked">Le mode auto a bloqué une étape : %1$s</string>
+    <string name="activity_blocked_plain">Le mode auto a bloqué une étape</string>
+    <string name="activity_compacting">Compactage de la conversation</string>
+    <string name="activity_push_failed">Échec de git push</string>
+    <string name="model_effort">effort %1$s</string>
+    <string name="model_plan_mode">Mode plan</string>
 </resources>

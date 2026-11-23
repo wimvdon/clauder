@@ -178,7 +178,14 @@ if event == "Stop":
     since = read(since_file)
     if since:
         info["work"] = work(paths, since)
-if event != "PreToolUse":
+# Events that only report a state change: their texts (a subagent's last reply, the compaction
+# summary and instructions, the command auto mode refused) stay in the container, and the project
+# names aren't needed.
+if event in ("SessionStart", "SubagentStop", "PreCompact", "PostCompact", "PermissionDenied"):
+    for field in ("compact_summary", "custom_instructions", "last_assistant_message", "agent_transcript_path",
+                  "session_title", "tool_input"):
+        body.pop(field, None)
+elif event != "PreToolUse":
     try:
         with open(body.get("transcript_path") or "", encoding="utf-8", errors="replace") as f:
             text = f.read(4000000).replace(chr(92) + chr(34), chr(34))
@@ -259,8 +266,11 @@ tools = ("TaskCreate|TaskUpdate|TodoWrite|ReadNotifications|mcp__hearthbot__upda
          "|mcp__hearthbot__set_thread_resolved|mcp__claude-code-remote__send_later"
          "|mcp__claude-code-remote__subscribe_pr_activity|mcp__claude-code-remote__unsubscribe_pr_activity|mcp__claude-code-remote__watch_url|mcp__claude-code-remote__unwatch_url|mcp__github__create_pull_request"
          "|mcp__github__merge_pull_request|mcp__github__pull_request_read|mcp__github__update_pull_request|mcp__github__push_files")
+# StopFailure: an API error ended the turn instead of Stop. SubagentStart: a helper started (".+"
+# leaves out Claude Code's own internal agents). PostModelSwitch: the session's model changed.
 events = {"TaskCreated": None, "TaskCompleted": None, "PostToolUse": tools,
-          "Notification": None, "SessionEnd": None}
+          "Notification": None, "SessionEnd": None, "StopFailure": None,
+          "SubagentStart": ".+", "PostModelSwitch": None}
 hooks = d.setdefault("hooks", {})
 def ours(x):
     return "clauder.wim-d57.workers.dev" in json.dumps(x) or "clauder-prompt.py" in json.dumps(x)
@@ -271,12 +281,24 @@ for name, matcher in events.items():
     hooks[name] = [x for x in hooks.get(name, []) if not ours(x)] + [entry]
 # A git push to a pull request's branch starts its CI again. Only git push commands are sent.
 hooks["PostToolUse"].append({"matcher": "Bash", "hooks": [dict(h, **{"if": "Bash(git push*)"})]})
+# A git push that failed: CI doesn't start again.
+hooks["PostToolUseFailure"] = [x for x in hooks.get("PostToolUseFailure", []) if not ours(x)] + [
+    {"matcher": "Bash", "hooks": [dict(h, **{"if": "Bash(git push*)"})]}]
 # Settings load once, at session start: the level in the command and in the headers above says
 # which hooks the session really runs, even after the script file was replaced. The level goes up
 # only when the events the hooks send change, so other edits don't make live sessions look old.
 cmd = {"type": "command", "command": "python3 ~/.claude/clauder-prompt.py __HOOKS_LEVEL__", "timeout": 12}
 for name in ("UserPromptSubmit", "PreToolUse", "Stop"):
     hooks[name] = [x for x in hooks.get(name, []) if not ours(x)] + [{"hooks": [cmd]}]
+# These go through the script too, so it can leave their texts out (see above): a helper stopped,
+# compaction starts and ends, auto mode refused a tool call. SessionStart takes command hooks
+# only; it says the model, and runs in the background so a session never waits for it.
+for name, matcher, extra in (("SessionStart", None, {"async": True}), ("SubagentStop", ".+", {}), ("PreCompact", None, {}),
+                             ("PostCompact", None, {}), ("PermissionDenied", None, {})):
+    entry = {"hooks": [dict(cmd, **extra)]}
+    if matcher:
+        entry["matcher"] = matcher
+    hooks[name] = [x for x in hooks.get(name, []) if not ours(x)] + [entry]
 # A copy of the settings as they were before Clauder first changed them, and a write that never
 # leaves a half-written file for a session that starts at that moment.
 backup = p + ".clauder-backup"

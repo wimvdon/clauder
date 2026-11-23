@@ -200,4 +200,12 @@
     <string name="claude_ai_testing">Probando, tarda unos 20 segundos…</string>
     <string name="claude_ai_unreadable">La sesión ya no se puede leer en este teléfono. Cierra sesión y vuelve a conectarte.</string>
     <string name="claude_ai_report_help">Copia este informe en el hilo de Claude que lo pidió. Solo contiene nombres de campos, recuentos y códigos de estado.</string>
+    <string name="state_error">Detenido por un error</string>
+    <string name="state_error_need">Detenido por un error: %1$s</string>
+    <string name="activity_blocked">El modo automático bloqueó un paso: %1$s</string>
+    <string name="activity_blocked_plain">El modo automático bloqueó un paso</string>
+    <string name="activity_compacting">Compactando la conversación</string>
+    <string name="activity_push_failed">git push falló</string>
+    <string name="model_effort">esfuerzo %1$s</string>
+    <string name="model_plan_mode">Modo plan</string>
 </resources>

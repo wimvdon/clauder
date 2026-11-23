@@ -200,4 +200,12 @@
     <string name="claude_ai_testing">Prova in corso, circa 20 secondi…</string>
     <string name="claude_ai_unreadable">L’accesso non è più leggibile su questo telefono. Esci e collegati di nuovo.</string>
     <string name="claude_ai_report_help">Copia questo resoconto nel thread di Claude che lo ha chiesto. Contiene solo nomi di campi, conteggi e codici di stato.</string>
+    <string name="state_error">Interrotto da un errore</string>
+    <string name="state_error_need">Interrotto da un errore: %1$s</string>
+    <string name="activity_blocked">La modalità automatica ha bloccato un passaggio: %1$s</string>
+    <string name="activity_blocked_plain">La modalità automatica ha bloccato un passaggio</string>
+    <string name="activity_compacting">Compattazione della conversazione</string>
+    <string name="activity_push_failed">git push non riuscito</string>
+    <string name="model_effort">impegno %1$s</string>
+    <string name="model_plan_mode">Modalità piano</string>
 </resources>

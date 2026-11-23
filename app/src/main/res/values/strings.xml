@@ -196,4 +196,12 @@
     <string name="claude_ai_testing">Testing, this takes about 20 seconds…</string>
     <string name="claude_ai_unreadable">The sign-in can no longer be read on this phone. Sign out and connect again.</string>
     <string name="claude_ai_report_help">Copy this report into the Claude thread that asked for it. It holds only field names, counts and status codes.</string>
+    <string name="state_error">Stopped by an error</string>
+    <string name="state_error_need">Stopped by an error: %1$s</string>
+    <string name="activity_blocked">Auto mode blocked a step: %1$s</string>
+    <string name="activity_blocked_plain">Auto mode blocked a step</string>
+    <string name="activity_compacting">Compacting the conversation</string>
+    <string name="activity_push_failed">git push failed</string>
+    <string name="model_effort">%1$s effort</string>
+    <string name="model_plan_mode">Plan mode</string>
 </resources>

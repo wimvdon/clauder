@@ -189,4 +189,12 @@
     <string name="claude_ai_testing">Wird getestet, das dauert etwa 20 Sekunden…</string>
     <string name="claude_ai_unreadable">Die Anmeldung lässt sich auf diesem Telefon nicht mehr lesen. Melde dich ab und verbinde dich neu.</string>
     <string name="claude_ai_report_help">Kopiere diesen Bericht in den Claude-Thread, der danach gefragt hat. Er enthält nur Feldnamen, Anzahlen und Statuscodes.</string>
+    <string name="state_error">Durch einen Fehler gestoppt</string>
+    <string name="state_error_need">Durch einen Fehler gestoppt: %1$s</string>
+    <string name="activity_blocked">Der Automodus hat einen Schritt blockiert: %1$s</string>
+    <string name="activity_blocked_plain">Der Automodus hat einen Schritt blockiert</string>
+    <string name="activity_compacting">Unterhaltung wird komprimiert</string>
+    <string name="activity_push_failed">git push fehlgeschlagen</string>
+    <string name="model_effort">Aufwand %1$s</string>
+    <string name="model_plan_mode">Planmodus</string>
 </resources>
