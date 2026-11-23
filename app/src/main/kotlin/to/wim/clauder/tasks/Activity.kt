@@ -3,11 +3,21 @@ package to.wim.clauder.tasks
 /** The tool Claude runs now, as the hook script reports it: the tool's name and a short detail
  * (a file's name, the description Claude gave a shell command, a search pattern). */
 data class Doing(val tool: String, val detail: String?) {
-    enum class Kind { Shell, Edit, Read, Search, Fetch, WebSearch, Helper, Other }
+    enum class Kind { Shell, Edit, Read, Search, Fetch, WebSearch, Helper, Blocked, Compacting, PushFailed, Other }
 
     /** How the phone words it: "Editing TaskList.kt", "Searching for parseChecklist". */
     val kind: Kind
-        get() = if (detail == null) Kind.Other else when (tool) {
+        get() = when (tool) {
+            BLOCKED -> Kind.Blocked
+            COMPACTING -> Kind.Compacting
+            PUSH_FAILED -> Kind.PushFailed
+            else -> toolKind()
+        }
+
+    private fun toolKind(): Kind = if (detail == null) {
+        Kind.Other
+    } else {
+        when (tool) {
             "Bash" -> Kind.Shell
             "Edit", "MultiEdit", "Write", "NotebookEdit" -> Kind.Edit
             "Read" -> Kind.Read
@@ -17,6 +27,7 @@ data class Doing(val tool: String, val detail: String?) {
             "Agent", "Task" -> Kind.Helper
             else -> Kind.Other
         }
+    }
 
     /** What goes in the sentence: the detail, or for [Kind.Other] the tool's readable name. A
      * connector's tool (mcp__github__create_pull_request) is named after its connector. */
@@ -24,6 +35,12 @@ data class Doing(val tool: String, val detail: String?) {
         get() = if (kind != Kind.Other) detail.orEmpty() else readableTool(tool)
 
     companion object {
+        /** Not tools: the Worker's names for auto mode refusing a tool call (the detail is the
+         * policy it hit), compaction, and a git push that failed. */
+        const val BLOCKED = "clauder:blocked"
+        const val COMPACTING = "clauder:compacting"
+        const val PUSH_FAILED = "clauder:push-failed"
+
         private fun readableTool(tool: String): String {
             val parts = tool.split("__")
             return if (parts.size >= 3 && parts[0] == "mcp") parts[1].replace('_', ' ').replace('-', ' ') else tool
