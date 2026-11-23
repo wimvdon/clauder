@@ -167,6 +167,16 @@ export function reopens(source: unknown): boolean {
   return source === "relay" || source === "wake:mention" || source === "wake:decision-chosen";
 }
 
+/** Whether a prompt from this source answers what the session waits on. An open decision card
+ * stays open when the person writes about something else, or a coordinator message arrives: only
+ * the person's pick, or Claude closing the card, settles it. Older hook scripts don't say the
+ * source, so any prompt counts. A question read in the reply is answered by any message from the
+ * person. */
+export function answers(needKind: SessionList["needKind"], source: unknown): boolean {
+  if (needKind === "decision") return typeof source !== "string" || source === "wake:decision-chosen";
+  return reopens(source);
+}
+
 /** Project details the UserPromptSubmit hook script reads from the session's transcript. */
 function projectInfo(input: Json): { project?: string; projectId?: string; thread?: string } {
   const info = obj(input.clauder);
@@ -421,10 +431,16 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       // A person's message, a decision tap or a coordinator message reopens a resolved thread and
       // answers what Claude asked; background events such as CI results don't. Older hook scripts
       // don't say, so any prompt counts as the person's.
-      const fromPerson = reopens(obj(input.clauder)?.source);
-      state = deciding && !fromPerson ? "waiting" : "running";
-      reply = undefined;
-      askCheck = undefined;
+      const source = obj(input.clauder)?.source;
+      const fromPerson = reopens(source);
+      state = deciding && !answers(needKind, source) ? "waiting" : "running";
+      // A background event (a CI result, a finished helper) is often injected into a running turn,
+      // so the reply Claude sent before it, and the check of the last turn's reply, still count.
+      // The person's message answers them.
+      if (fromPerson) {
+        reply = undefined;
+        askCheck = undefined;
+      }
       // The summary says where the work stands until the person writes; a CI event or a reminder
       // keeps it, so a wait on CI still shows the line about it.
       if (fromPerson) {
