@@ -10,6 +10,8 @@ export interface PullRequest {
   url: string;
   state: PrState;
   ci?: CiState;
+  /** The latest review that approved the PR or asked for changes (from GitHub webhooks). */
+  review?: "approved" | "changes_requested";
   /** True while the session is subscribed to the PR's activity, so CI and review events wake it. */
   subscribed?: boolean;
 }
