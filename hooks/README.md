@@ -49,7 +49,13 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 | `UserPromptSubmit` (user-level install only) | Claude starts working again. This is a small script (`~/.claude/clauder-prompt.py`) that also reads the project's and the thread's name from the session transcript and sends them along |
 | `PreToolUse` (user-level install: the same script) | What Claude runs now, shown while it works. At most every 10 seconds per session, the script sends the tool's name and one short detail: the description Claude gave a shell command (else the program's name), a file's name, a search pattern, a web host or query, a helper's description. Nothing else of the tool's input. It sends from a background process, so the tool doesn't wait |
 | `Stop` (user-level install: the same script as the prompt hook) | Claude finished its turn: "Running" while something it set up will wake it (a reminder, a cron, CI on a subscribed PR, a watched URL, helpers), else "Waiting for you". The script adds the tokens used per model, and the number of files Claude edited and the lines it added and removed since your last message, read from the edit results in the transcript (files in `/tmp` and `~/.claude` don't count) |
-| `Notification` | Only `notification_type` `permission_prompt` or `elicitation_dialog` counts as "Waiting for you" |
+| `Notification` | `permission_prompt`, `elicitation_dialog` and `elicitation_url_dialog` (a connector asks you to open a page) count as "Waiting for you". `quota_auto_resume_stale` or `_disabled` (Claude Code stopped waiting for a usage limit) shows "Stopped by an error"; `quota_auto_resume_fired` means it goes on |
+| `StopFailure` | An API error (rate limit, overloaded server, billing, …) ended the turn instead of `Stop`: "Stopped by an error", with the error text, instead of staying "Working" |
+| `PermissionDenied` (the same script) | Auto mode refused a tool call: the "now" line shows the policy it hit. The script leaves the tool's input out |
+| `PostToolUseFailure` on `Bash` with `"if": "Bash(git push*)"` | A `git push` failed: the "now" line says so, and CI doesn't count as started again |
+| `SubagentStart` and `SubagentStop` (the same script), matcher `.+` | Helpers that run now, counted while they work. `.+` leaves out Claude Code's own internal agents; the script leaves a helper's reply out |
+| `PreCompact` and `PostCompact` (the same script) | "Compacting the conversation" on the "now" line. The script leaves the summary and instructions out |
+| `SessionStart` (the same script, in the background) and `PostModelSwitch` | The model the session runs, shown on the session card. `SessionStart` takes command hooks only |
 | `SessionEnd` | The session closed (a project thread that stops between wakes only pauses) |
 
 When the Worker can't be reached, the script writes `~/.claude/clauder-state/offline`. For the next
@@ -59,7 +65,7 @@ keeps a copy of `~/.claude/settings.json` as it was before Clauder first changed
 (`settings.json.clauder-backup`).
 
 Claude Code loads these settings once, at session start. The hook command and the HTTP hooks'
-headers carry the hooks' level (`X-Clauder-Hooks-Loaded`, such as `L3`), so the Worker knows which
+headers carry the hooks' level (`X-Clauder-Hooks-Loaded`, such as `L4`), so the Worker knows which
 hooks a session really runs. The level goes up only when the events change
 (`worker/src/hooks-level.txt`). A session on older settings can't report every wake source, so after its turn
 it shows Idle instead of Waiting for you. `hooks/settings.json` doesn't carry the version, so

@@ -10,7 +10,7 @@ import to.wim.clauder.tasks.TaskList
 fun stateLabelRes(list: TaskList): Int = when (list.state) {
     SessionState.Running -> R.string.state_running
     SessionState.Idle -> R.string.state_idle
-    SessionState.Waiting -> R.string.state_waiting
+    SessionState.Waiting -> if (list.stoppedByError) R.string.state_error else R.string.state_waiting
     SessionState.Done -> R.string.state_done
     SessionState.Ended -> if (list.endedEarly) R.string.state_ended_early else R.string.state_ended
 }

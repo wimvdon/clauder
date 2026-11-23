@@ -175,4 +175,12 @@
         <item quantity="one">%d min</item>
         <item quantity="other">%d min</item>
     </plurals>
+    <string name="state_error">Gestopt door een fout</string>
+    <string name="state_error_need">Gestopt door een fout: %1$s</string>
+    <string name="activity_blocked">Automatische modus hield een stap tegen: %1$s</string>
+    <string name="activity_blocked_plain">Automatische modus hield een stap tegen</string>
+    <string name="activity_compacting">Gesprek wordt samengevat</string>
+    <string name="activity_push_failed">git push mislukt</string>
+    <string name="model_effort">inspanning %1$s</string>
+    <string name="model_plan_mode">Planmodus</string>
 </resources>

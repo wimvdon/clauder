@@ -410,3 +410,16 @@ The receipt counts from the transcript's own edit results (raw data, no guessing
 session's machine, so only counts leave it. The tool hook is a command hook rather than an HTTP
 hook, so it can skip calls (at most one per 10 seconds) and send only a short detail instead of
 the whole tool input.
+
+## 2026-11-23: API errors and the hook events Clauder missed
+
+The audit of data sources found that an API error ends a turn with `StopFailure` instead of
+`Stop`, so such threads stayed "Working". Wim asked to use every relevant source, so the hooks now
+also send `StopFailure`, `PermissionDenied`, `SubagentStart`/`Stop`, `PreCompact`/`PostCompact`,
+`PostModelSwitch`, `SessionStart` (command hooks only, run in the background) and a failed
+`git push`, and the Worker acts on more notification types. An error is a kind of "waiting"
+(`needKind: "error"`) rather than a sixth state, because like every other wait only the person can
+move the thread on; the phone gives it its own label. Events whose payload holds text (a helper's
+reply, the compaction summary, the command auto mode refused) go through the hook script, which
+leaves that text out. `duration_ms` is not used: it is one tool call's run time, which the phone has
+no use for. Hooks level L4.

@@ -56,7 +56,18 @@ data class TaskList(
     val doing: Doing? = null,
     /** What Claude changed since the person last wrote, until the person writes again. */
     val work: WorkReceipt? = null,
+    /** While waiting: the API error that stopped the turn, such as "rate_limit", or "usage_limit"
+     * when Claude Code stopped waiting for a usage limit. */
+    val error: String? = null,
+    /** The model the session runs, such as "claude-opus-5-5", and the effort level and
+     * permission mode the hooks last reported. */
+    val model: String? = null,
+    val effort: String? = null,
+    val mode: String? = null,
 ) {
+    /** The turn stopped on an error, and nothing goes on until the person writes. */
+    val stoppedByError: Boolean get() = state == SessionState.Waiting && error != null
+
     /** What sessions are grouped by: the project's name, else the repository's. */
     val group: String? get() = project ?: repo
 
@@ -127,6 +138,10 @@ data class TaskList(
             if (tokens > 0) put("usage", JSONObject().put("tokens", tokens).put("cost", cost))
             put("hooksCurrent", !oldHooks)
             doing?.let { put("doing", JSONObject().put("tool", it.tool).put("detail", it.detail ?: "")) }
+            error?.let { put("error", it) }
+            model?.let { put("model", it) }
+            effort?.let { put("effort", it) }
+            mode?.let { put("mode", it) }
             work?.let {
                 put(
                     "work",
@@ -248,6 +263,10 @@ data class TaskList(
                 tokens = data["tokens"]?.toLongOrNull() ?: 0,
                 cost = data["cost"]?.toDoubleOrNull() ?: 0.0,
                 oldHooks = data["hooks"] == "old",
+                error = data["error"]?.takeIf { it.isNotBlank() },
+                model = data["model"]?.takeIf { it.isNotBlank() },
+                effort = data["effort"]?.takeIf { it.isNotBlank() },
+                mode = data["mode"]?.takeIf { it.isNotBlank() },
                 doing = data["doing"]?.takeIf { it.isNotBlank() }?.let { text ->
                     try {
                         val o = JSONObject(text)
@@ -301,6 +320,10 @@ data class TaskList(
                 tokens = json.optJSONObject("usage")?.optLong("tokens") ?: 0,
                 cost = json.optJSONObject("usage")?.optDouble("cost")?.takeIf { !it.isNaN() } ?: 0.0,
                 oldHooks = !json.optBoolean("hooksCurrent"),
+                error = json.optString("error").takeIf { it.isNotBlank() },
+                model = json.optString("model").takeIf { it.isNotBlank() },
+                effort = json.optString("effort").takeIf { it.isNotBlank() },
+                mode = json.optString("mode").takeIf { it.isNotBlank() },
                 doing = json.optJSONObject("doing")?.let { doing(it.optString("tool"), it.optString("detail")) },
                 work = json.optJSONObject("work")?.let {
                     work(it.optString("since"), it.optString("endedAt"), it.optInt("files", -1), it.optInt("added", -1), it.optInt("removed", -1))

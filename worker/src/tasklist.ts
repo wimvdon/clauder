@@ -64,8 +64,20 @@ export interface SessionList {
   /** While waiting: what Claude asks, such as a decision card's question or the permission it needs. */
   need?: string;
   /** What the wait is for. A decision card stays open across turns; a permission prompt or a
-   * question form (Notification) is answered before the turn ends. */
-  needKind?: "decision" | "permission" | "question";
+   * question form (Notification) is answered before the turn ends. "error": the turn stopped on an
+   * API error (StopFailure) or a usage limit Claude Code won't wait out; [error] says which. */
+  needKind?: "decision" | "permission" | "question" | "error";
+  /** With needKind "error": the error type, such as "rate_limit" or "server_error" (StopFailure's
+   * `error`), or "usage_limit" when Claude Code stopped waiting for a usage limit. */
+  error?: string;
+  /** The model the session runs (SessionStart, then PostModelSwitch). */
+  model?: string;
+  /** The effort level and permission mode the hooks last reported. */
+  effort?: string;
+  mode?: string;
+  /** Subagents started this session that haven't stopped (SubagentStart/SubagentStop). Not sent
+   * to the phone; it counts them in [helpers]. */
+  agents?: string[];
   /** The pull request the session works on (the newest it opened or follows), with its CI. */
   pr?: PullRequest;
   /** A link the last reply attached that the phone can open, such as a mockup or a page. */
@@ -154,7 +166,23 @@ const PUSH_FILES_TOOL = "mcp__github__push_files";
 
 /** Notification types that mean Claude can't go on without the user. "idle_prompt" only says
  * Claude finished a turn, which Stop already covers. */
-const ASKING = new Set(["permission_prompt", "elicitation_dialog"]);
+const ASKING = new Set(["permission_prompt", "elicitation_dialog", "elicitation_url_dialog"]);
+/** Claude Code stopped waiting for a claude.ai usage limit to reset, so the task doesn't go on by
+ * itself. "quota_auto_resume_fired" means it went on. */
+const QUOTA_STOPPED = new Set(["quota_auto_resume_stale", "quota_auto_resume_disabled"]);
+export const EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
+export const MODES = new Set(["default", "plan", "acceptEdits", "auto", "dontAsk", "bypassPermissions"]);
+/** What the phone shows on the "now" line for events that aren't a tool Claude runs. */
+export const COMPACTING = "clauder:compacting";
+export const BLOCKED = "clauder:blocked";
+export const PUSH_FAILED = "clauder:push-failed";
+const MAX_AGENTS = 20;
+
+/** A model id as Claude Code reports it, such as "claude-opus-5-5" or "claude-opus-5-5[1m]". */
+function modelId(value: unknown): string | null {
+  const id = str(value)?.trim();
+  return id && /^[A-Za-z0-9._:@\/\[\]-]{1,80}$/.test(id) ? id : null;
+}
 
 /** The repository folder, or null for a home folder (project threads start in /home/user). */
 export function repoFromCwd(cwd: string | null): string | null {
@@ -302,6 +330,14 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
   let usage = list.usage;
   let doing = list.doing;
   let work = list.work;
+  let error = list.error;
+  let model = list.model;
+  let agents = list.agents ?? [];
+  // Every event that has them says the effort level and permission mode in use.
+  const level = str(obj(input.effort)?.level);
+  const effort = level && EFFORTS.has(level) ? level : list.effort;
+  const permission = str(input.permission_mode);
+  const mode = permission && MODES.has(permission) ? permission : list.mode;
   let resolved = list.resolved ?? false;
   let reply = list.reply;
   let summary = list.summary;
@@ -436,9 +472,39 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       state = armed ? "running" : hooksCurrent ? "waiting" : "idle";
       break;
     }
+    case "StopFailure": {
+      // An API error ended the turn instead of Stop (a rate limit, an overloaded server, a billing
+      // problem). Nothing goes on by itself, so the thread waits on the person, also when a card
+      // was open: the error comes first. last_assistant_message is the error text, not a reply.
+      if (list.tasks.length === 0 && steps.length === 0) return null;
+      doing = undefined;
+      reply = undefined;
+      askCheck = undefined;
+      helpers = runningWork(input) || undefined;
+      const type = str(input.error) ?? "unknown";
+      state = "waiting";
+      needKind = "error";
+      error = /^[a-z_]{1,40}$/.test(type) ? type : "unknown";
+      need = clip(str(input.last_assistant_message) ?? str(input.error_details) ?? "", MAX_NEED) || undefined;
+      break;
+    }
     case "Notification": {
       const type = str(input.notification_type);
       const message = str(input.message) ?? "";
+      if (type === "quota_auto_resume_fired") {
+        // Claude Code waited out a usage limit and goes on with the task.
+        if (state !== "waiting" || needKind !== "error") return null;
+        state = "running";
+        break;
+      }
+      if (type && QUOTA_STOPPED.has(type)) {
+        state = "waiting";
+        needKind = "error";
+        error = "usage_limit";
+        need = clip(message, MAX_NEED) || undefined;
+        doing = undefined;
+        break;
+      }
       if (!type || !ASKING.has(type)) return null;
       state = "waiting";
       need = clip(message, MAX_NEED) || undefined;
@@ -446,6 +512,49 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       doing = undefined;
       break;
     }
+    case "PermissionDenied": {
+      // Auto mode refused a tool call; Claude goes on another way. Shown on the "now" line with
+      // the policy it hit, never the command itself.
+      const reason = str(input.reason)?.replace(/^\[|\]$/g, "") ?? "";
+      doing = { tool: BLOCKED, ...(reason ? { detail: clip(reason, 80) } : {}) };
+      break;
+    }
+    case "PostToolUseFailure": {
+      // Only a failed git push is sent: CI doesn't start again, so the pull request keeps its CI.
+      if (str(input.tool_name) !== "Bash" || input.is_interrupt === true) return null;
+      doing = { tool: PUSH_FAILED };
+      break;
+    }
+    case "SubagentStart": {
+      const id = str(input.agent_id);
+      if (!id || agents.includes(id) || agents.length >= MAX_AGENTS) return null;
+      agents = [...agents, id];
+      helpers = Math.max(helpers ?? 0, agents.length);
+      break;
+    }
+    case "SubagentStop": {
+      // Claude Code's own internal agents stop without a start of theirs: ignored.
+      const id = str(input.agent_id);
+      if (!id || !agents.includes(id)) return null;
+      agents = agents.filter((a) => a !== id);
+      helpers = Math.max((helpers ?? 1) - 1, 0) || undefined;
+      break;
+    }
+    case "PreCompact":
+      doing = { tool: COMPACTING };
+      break;
+    case "PostCompact":
+      if (doing?.tool !== COMPACTING) return null;
+      doing = undefined;
+      break;
+    case "SessionStart":
+      // The command hook script sends this, with the model when Claude Code knows it.
+      model = modelId(input.model) ?? model;
+      if (doing?.tool === COMPACTING) doing = undefined;
+      break;
+    case "PostModelSwitch":
+      model = modelId(input.to_model) ?? model;
+      break;
     case "UserPromptSubmit": {
       // A person's message, a decision tap or a coordinator message reopens a resolved thread and
       // answers what Claude asked; background events such as CI results don't. Older hook scripts
@@ -482,6 +591,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
       // wake. Watches, crons and helpers end with the session; a reminder and a PR subscription
       // live on the server and still wake it. With neither, only the user can.
       watches = [];
+      agents = [];
       doing = undefined;
       if (project && input?.reason === "other") {
         if (state === "running" && wakeAt === undefined && !prWakes(pr)) state = hooksCurrent ? "waiting" : "idle";
@@ -500,6 +610,7 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     need = undefined;
     needKind = undefined;
   }
+  if (needKind !== "error") error = undefined;
 
   const changed =
     state !== list.state ||
@@ -519,20 +630,29 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     JSON.stringify(link) !== JSON.stringify(list.link) ||
     JSON.stringify(usage) !== JSON.stringify(list.usage) ||
     JSON.stringify(doing) !== JSON.stringify(list.doing) ||
+    error !== list.error ||
+    model !== list.model ||
+    effort !== list.effort ||
+    mode !== list.mode ||
     JSON.stringify(work) !== JSON.stringify(list.work) ||
     JSON.stringify(tasks) !== JSON.stringify(list.tasks) ||
     JSON.stringify(steps) !== JSON.stringify(list.steps ?? []);
   const {
     need: _need, needKind: _needKind, pr: _pr, link: _link, wakeAt: _wakeAt, watches: _watches, hooksCurrent: _hooksCurrent,
-    helpers: _helpers, usage: _usage, doing: _doing, work: _work, resolved: _resolved, reply: _reply, askCheck: _askCheck, summary: _summary,
+    helpers: _helpers, usage: _usage, doing: _doing, work: _work, error: _error, model: _model, effort: _effort,
+    mode: _mode, agents: _agents, resolved: _resolved, reply: _reply, askCheck: _askCheck, summary: _summary,
     staleFinish: _staleFinish, ...rest
   } = list;
   if (!changed) {
-    // Nothing the phone shows changed; keep the reply or the check without a push (same seq).
-    if (reply === list.reply && askCheck === list.askCheck && staleFinish === (list.staleFinish ?? false)) return null;
+    // Nothing the phone shows changed; keep the reply, the check or the running subagents without
+    // a push (same seq).
+    const sameAgents = JSON.stringify(agents) === JSON.stringify(list.agents ?? []);
+    if (reply === list.reply && askCheck === list.askCheck && staleFinish === (list.staleFinish ?? false) && sameAgents) {
+      return null;
+    }
     return {
       ...rest, ...pick(list), ...(reply ? { reply } : {}), ...(askCheck ? { askCheck } : {}), ...(summary ? { summary } : {}),
-      ...(staleFinish ? { staleFinish } : {}),
+      ...(staleFinish ? { staleFinish } : {}), ...(agents.length ? { agents } : {}),
     };
   }
   return {
@@ -557,6 +677,11 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
     ...(usage ? { usage } : {}),
     ...(doing ? { doing } : {}),
     ...(work ? { work } : {}),
+    ...(error ? { error } : {}),
+    ...(model ? { model } : {}),
+    ...(effort ? { effort } : {}),
+    ...(mode ? { mode } : {}),
+    ...(agents.length ? { agents } : {}),
     ...(resolved ? { resolved } : {}),
     ...(reply ? { reply } : {}),
     ...(askCheck ? { askCheck } : {}),
@@ -569,9 +694,9 @@ export function applyHook(list: SessionList, body: unknown, now: string, hooks?:
 
 /** The optional fields of a list that stay as they are. */
 function pick(list: SessionList): Partial<SessionList> {
-  const { need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, doing, work, resolved } = list;
+  const { need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, doing, work, error, model, effort, mode, resolved } = list;
   return Object.fromEntries(
-    Object.entries({ need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, doing, work, resolved })
+    Object.entries({ need, needKind, pr, link, wakeAt, watches, hooksCurrent, helpers, usage, doing, work, error, model, effort, mode, resolved })
       .filter(([, v]) => v !== undefined),
   ) as Partial<SessionList>;
 }
@@ -621,7 +746,7 @@ export function applyAsk(list: SessionList, reply: string, read: TurnRead | null
  */
 export function resolveByUser(list: SessionList, now: string): SessionList | null {
   if (list.resolved || list.state === "ended") return null;
-  const { need: _need, needKind: _needKind, askCheck: _askCheck, ...rest } = list;
+  const { need: _need, needKind: _needKind, error: _error, askCheck: _askCheck, ...rest } = list;
   return { ...rest, state: "done", resolved: true, seq: nextSeq(list, now), updatedAt: now };
 }
 
@@ -673,6 +798,10 @@ export function toPushData(list: SessionList): Record<string, string> {
     work: list.work
       ? JSON.stringify({ s: list.work.since, e: list.work.endedAt, f: list.work.files, a: list.work.added, r: list.work.removed })
       : "",
+    error: list.error ?? "",
+    model: list.model ?? "",
+    effort: list.effort ?? "",
+    mode: list.mode ?? "",
     // "old" when the session runs hook settings from before the installer reported every wake
     // source: it can't update them itself, so the phone shows how to.
     hooks: list.hooksCurrent ? "" : "old",
