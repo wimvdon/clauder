@@ -55,7 +55,7 @@ coordinator note or a background event such as CI). Of the prompt's text it send
 you wrote yourself (at most 1,000 characters; coordinator notes and background events are left out).
 A smaller language model on Workers AI reads it once for a one-line "Working on" summary and, for a
 session outside a project, a short title; the message itself is then dropped and never logged.
-If you connect GitHub (Settings in Clauder), GitHub also sends the Worker webhooks from a
+If you connect GitHub (Settings → GitHub in Clauder, which asks your Worker for a one-time link and opens it in your browser), GitHub also sends the Worker webhooks from a
 GitHub App on your own account that can only read: check runs, check suites, workflow runs, pull
 requests and reviews of the repositories you install it on. The Worker keeps, per pull request,
 its head commit, its state, the result of each workflow or check suite and the latest review

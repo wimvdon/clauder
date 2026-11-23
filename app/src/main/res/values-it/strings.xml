@@ -187,6 +187,16 @@
         <item quantity="many">%d min</item>
         <item quantity="other">%d min</item>
     </plurals>
+    <string name="section_github">GitHub</string>
+    <string name="github_checking">Controllo di GitHub…</string>
+    <string name="github_intro">Collega GitHub perché Clauder mostri i risultati della CI e lo stato delle pull request non appena GitHub li ha. GitHub ti chiede di creare una piccola app che può solo leggere i check e le pull request, e poi di installarla sui tuoi repository.</string>
+    <string name="github_no_events">GitHub è collegato, ma non è ancora arrivato nulla. Controlla che l’app sia installata sui tuoi repository.</string>
+    <string name="github_ok">GitHub è collegato. Ultimo aggiornamento %1$s.</string>
+    <string name="github_failed">Impossibile raggiungere il Worker. %1$s</string>
+    <string name="action_connect_github">Collega GitHub</string>
+    <string name="action_github_repos">Scegli i repository</string>
+    <string name="pr_review_approved">Approvata</string>
+    <string name="pr_review_changes">Modifiche richieste</string>
 
     <!-- claude.ai sign-in (Settings) -->
     <string name="claude_ai_intro">Accedi a claude.ai così Clauder vede lo stato di ogni thread, anche i thread senza hook e quelli che risolvi tu. Clauder conserva l’accesso cifrato su questo telefono. Non finisce mai nei backup e non viene mai inviato al tuo Worker.</string>

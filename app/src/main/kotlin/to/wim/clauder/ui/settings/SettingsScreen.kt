@@ -74,6 +74,8 @@ import to.wim.clauder.R
 import to.wim.clauder.push.ConnectOutcome
 import to.wim.clauder.push.Push
 import to.wim.clauder.push.WorkerClient
+import to.wim.clauder.links.ClaudeApp
+import to.wim.clauder.settings.GithubStatus
 import to.wim.clauder.settings.HookSetup
 import to.wim.clauder.settings.SetupCheck
 import to.wim.clauder.settings.Settings
@@ -122,6 +124,7 @@ fun SettingsScreen(
                 ClaudeAiSection(app, onConnect = onConnectClaudeAi)
                 NotificationSection(app, settings, resumes)
                 EnvironmentSection(settings)
+                if (settings.isConnected) GithubSection(settings)
                 AppearanceSection(app, settings)
                 Text(
                     stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
@@ -432,6 +435,75 @@ private fun SetupCheckBlock(settings: Settings) {
         Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick = { scope.launch { check() } }, enabled = !checking) {
             Text(stringResource(R.string.action_check_again))
+        }
+    }
+}
+
+/** GitHub sends CI results and PR states to the Worker once its GitHub App is installed. */
+@Composable
+private fun GithubSection(settings: Settings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val res = LocalResources.current
+    var status by remember { mutableStateOf<GithubStatus?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    fun failure(r: WorkerClient.Result<*>): String? = when (r) {
+        is WorkerClient.Result.Ok -> null
+        WorkerClient.Result.Unauthorized -> res.getString(R.string.connect_wrong_token)
+        is WorkerClient.Result.Failed -> res.getString(R.string.github_failed, r.message)
+    }
+    suspend fun check() {
+        busy = true
+        val r = WorkerClient(settings.workerUrl, settings.token).github()
+        status = (r as? WorkerClient.Result.Ok)?.value
+        message = failure(r)
+        busy = false
+    }
+    LaunchedEffect(settings.workerUrl, settings.token) { check() }
+    SettingsSection(stringResource(R.string.section_github)) {
+        SettingsBlock {
+            val current = status
+            val now = System.currentTimeMillis()
+            val text = when {
+                current == null -> message ?: stringResource(R.string.github_checking)
+                !current.connected -> stringResource(R.string.github_intro)
+                current.lastEventAtMillis == null -> stringResource(R.string.github_no_events)
+                else -> stringResource(
+                    R.string.github_ok,
+                    DateUtils.getRelativeTimeSpanString(minOf(current.lastEventAtMillis, now), now, DateUtils.MINUTE_IN_MILLIS).toString(),
+                )
+            }
+            Text(text, style = MaterialTheme.typography.bodyLarge)
+            if (current != null) message?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (current?.connected == true) {
+                    current.installUrl?.let { url ->
+                        Button(onClick = { ClaudeApp.openAny(context, url) }) { Text(stringResource(R.string.action_github_repos)) }
+                    }
+                    OutlinedButton(onClick = { scope.launch { check() } }, enabled = !busy) { Text(stringResource(R.string.action_check_again)) }
+                } else if (current != null) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                busy = true
+                                val r = WorkerClient(settings.workerUrl, settings.token).githubConnect()
+                                val url = (r as? WorkerClient.Result.Ok)?.value
+                                message = failure(r) ?: if (url == null) res.getString(R.string.github_failed, "") else null
+                                url?.let { ClaudeApp.openAny(context, it) }
+                                busy = false
+                            }
+                        },
+                        enabled = !busy,
+                    ) { Text(stringResource(R.string.action_connect_github)) }
+                    OutlinedButton(onClick = { scope.launch { check() } }, enabled = !busy) { Text(stringResource(R.string.action_check_again)) }
+                } else {
+                    OutlinedButton(onClick = { scope.launch { check() } }, enabled = !busy) { Text(stringResource(R.string.action_check_again)) }
+                }
+            }
         }
     }
 }

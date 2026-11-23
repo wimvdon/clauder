@@ -16,8 +16,11 @@ enum class PrState { Open, Merged, Closed }
 
 enum class CiState { Running, Passed, Failed }
 
-/** The pull request a session works on, and how its CI is doing (null: not known yet). */
-data class PullRequest(val number: Int, val url: String, val state: PrState, val ci: CiState?)
+enum class Review { Approved, ChangesRequested }
+
+/** The pull request a session works on, how its CI is doing (null: not known yet) and the latest
+ * review that approved it or asked for changes (from GitHub webhooks; null: none). */
+data class PullRequest(val number: Int, val url: String, val state: PrState, val ci: CiState?, val review: Review? = null)
 
 /** One Claude session, as the Worker sends it. A project thread has steps (its progress
  * checklist, the plan the user follows); Claude Code also keeps tasks (its own work list). */
@@ -141,7 +144,8 @@ data class TaskList(
                 put(
                     "pr",
                     JSONObject().put("number", it.number).put("url", it.url).put("state", it.state.name.lowercase())
-                        .put("ci", it.ci?.name?.lowercase() ?: ""),
+                        .put("ci", it.ci?.name?.lowercase() ?: "")
+                        .put("review", reviewName(it.review)),
                 )
             }
             link?.let { put("link", JSONObject().put("url", it).put("title", linkTitle ?: "")) }
@@ -203,10 +207,22 @@ data class TaskList(
             else -> null
         }
 
+        private fun review(value: String?): Review? = when (value) {
+            "approved" -> Review.Approved
+            "changes_requested" -> Review.ChangesRequested
+            else -> null
+        }
+
+        private fun reviewName(review: Review?): String = when (review) {
+            Review.Approved -> "approved"
+            Review.ChangesRequested -> "changes_requested"
+            null -> ""
+        }
+
         /** Only https pull request links on GitHub. */
-        private fun pullRequest(number: Int, url: String, state: String?, ci: String?): PullRequest? {
+        private fun pullRequest(number: Int, url: String, state: String?, ci: String?, review: String? = null): PullRequest? {
             if (number <= 0 || !url.startsWith("https://github.com/")) return null
-            return PullRequest(number, url, prState(state), ciState(ci))
+            return PullRequest(number, url, prState(state), ciState(ci), review(review))
         }
 
         private fun doing(tool: String?, detail: String?): Doing? =
@@ -266,7 +282,7 @@ data class TaskList(
                 pr = data["pr"]?.takeIf { it.isNotBlank() }?.let { text ->
                     try {
                         val o = JSONObject(text)
-                        pullRequest(o.optInt("n"), o.optString("u"), o.optString("s"), o.optString("c"))
+                        pullRequest(o.optInt("n"), o.optString("u"), o.optString("s"), o.optString("c"), o.optString("r"))
                     } catch (e: org.json.JSONException) {
                         null
                     }
@@ -327,7 +343,7 @@ data class TaskList(
                 need = json.optString("need").takeIf { it.isNotBlank() },
                 summary = json.optString("summary").takeIf { it.isNotBlank() },
                 pr = json.optJSONObject("pr")?.let {
-                    pullRequest(it.optInt("number"), it.optString("url"), it.optString("state"), it.optString("ci"))
+                    pullRequest(it.optInt("number"), it.optString("url"), it.optString("state"), it.optString("ci"), it.optString("review"))
                 },
                 link = httpsOrNull(json.optJSONObject("link")?.optString("url")),
                 linkTitle = json.optJSONObject("link")?.optString("title")?.takeIf { it.isNotBlank() },

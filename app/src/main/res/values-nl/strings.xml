@@ -176,6 +176,16 @@
         <item quantity="one">%d min</item>
         <item quantity="other">%d min</item>
     </plurals>
+    <string name="section_github">GitHub</string>
+    <string name="github_checking">GitHub controleren…</string>
+    <string name="github_intro">Koppel GitHub, dan toont Clauder CI-resultaten en de status van pull requests zodra GitHub ze heeft. GitHub vraagt je een kleine app te maken die alleen checks en pull requests kan lezen, en die daarna op je repositories te installeren.</string>
+    <string name="github_no_events">GitHub is gekoppeld, maar er is nog niets binnengekomen. Controleer of de app op je repositories is geïnstalleerd.</string>
+    <string name="github_ok">GitHub is gekoppeld. Laatste update %1$s.</string>
+    <string name="github_failed">De Worker is niet bereikbaar. %1$s</string>
+    <string name="action_connect_github">GitHub koppelen</string>
+    <string name="action_github_repos">Repositories kiezen</string>
+    <string name="pr_review_approved">Goedgekeurd</string>
+    <string name="pr_review_changes">Wijzigingen gevraagd</string>
 
     <!-- claude.ai sign-in (Settings) -->
     <string name="claude_ai_intro">Log in bij claude.ai zodat Clauder de status van elke thread ziet, ook threads zonder hooks en threads die je zelf afrondt. Clauder bewaart de login versleuteld op deze telefoon. Hij komt nooit in een back-up en gaat nooit naar je Worker.</string>
