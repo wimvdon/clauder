@@ -42,6 +42,11 @@ class ClaudeAiLogin(context: Context) {
 
     suspend fun organization(): String? = store.data.first()[organizationKey]
 
+    /** Keeps the organization that answered, so the next read asks it first. */
+    suspend fun saveOrganization(organization: String) {
+        store.edit { it[organizationKey] = organization }
+    }
+
     /** The session key, or null when there is none or it can no longer be read. */
     suspend fun sessionKey(): String? {
         val sealed = store.data.first()[sealedKey] ?: return null
@@ -50,6 +55,7 @@ class ClaudeAiLogin(context: Context) {
 
     /** Forgets the sign-in here and in the sign-in page's WebView. */
     suspend fun clear() {
+        ClaudeAiSync.clear()
         store.edit {
             it.remove(sealedKey)
             it.remove(organizationKey)
