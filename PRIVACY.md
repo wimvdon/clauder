@@ -2,8 +2,9 @@
 
 _Last updated: 2026-11-23_
 
-Clauder shows the task lists of your own Claude Code sessions. It talks only to a Cloudflare
-Worker that you (the owner) run, and to Firebase Cloud Messaging to receive updates.
+Clauder shows the task lists of your own Claude Code sessions. It talks to a Cloudflare
+Worker that you (the owner) run, to Firebase Cloud Messaging to receive updates and, only if you
+sign in to claude.ai in Settings, to claude.ai.
 
 ## What the app sends and receives
 
@@ -14,6 +15,14 @@ Worker that you (the owner) run, and to Firebase Cloud Messaging to receive upda
   checklist, the thread's title, or else the folder name), its project and repository names, its steps and task subjects with their states, the tool Claude runs now with its short detail,
   the counts of files and lines it changed, and a link to the session on claude.ai. Google's FCM service carries
   these messages to the phone.
+- **To claude.ai, only after you sign in there in Settings:** claude.ai's own sign-in page, shown
+  in the app. Clauder keeps the sign-in cookie claude.ai sets (`sessionKey`) and, when you tap
+  **Test**, sends it to claude.ai with requests for your projects, a project's threads and chat
+  messages, your notification count and a few seconds of the live thread and session updates.
+  The test report on screen holds only HTTP codes, field names, counts, status values and times,
+  no names or message text. The sign-in is a full login to your claude.ai account; it is sent
+  only to claude.ai, never to the Worker or anyone else. These are private claude.ai endpoints
+  that Anthropic does not offer for other apps.
 - The app has no analytics, advertising or crash reporting.
 
 ## What the Worker keeps
@@ -58,7 +67,7 @@ own Cloudflare account; nobody else has access.
 
 ## Permissions
 
-- **Internet:** to reach the Worker and Firebase.
+- **Internet:** to reach the Worker, Firebase and, after you sign in there, claude.ai.
 - **Notifications** and **Live Updates:** to show each session's progress.
 
 ## Stored on the phone
@@ -66,11 +75,15 @@ own Cloudflare account; nobody else has access.
 Your theme choice and the Worker address are included in Android's own backup (to your Google
 account, if you turned that on) and in a transfer to a new phone. The Worker token, the Firebase
 token, the last 20 sessions (so the widget and the Tasks screen have
-something to show after a restart) and the sessions you muted stay on this phone only.
+something to show after a restart) and the sessions you muted stay on this phone only. So does the claude.ai sign-in, encrypted with a key that
+never leaves this phone's Android Keystore; the sign-in page's own cookies are cleared once it
+is copied.
 
 ## Deleting your data
 
-In Settings, tap Disconnect: the Worker forgets this phone. Uninstalling the app removes
+In Settings, tap Disconnect: the Worker forgets this phone. Under claude.ai, tap Sign out:
+the app deletes the claude.ai sign-in. To end that sign-in on claude.ai's side too, sign out of
+claude.ai in a browser or the Claude app. Uninstalling the app removes
 everything it stored on the phone.
 
 Questions: open an issue in this repository.
