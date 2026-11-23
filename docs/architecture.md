@@ -40,7 +40,7 @@ Clauder shows the task list of every running Claude Code session on the phone.
   armed but the Worker can't tell: Claude Code loads hook settings once, at session start, so a
   session started with older settings may set up a wake the Worker never hears of. The hooks say
   which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's argument and the
-  HTTP hooks' headers): a level (`L2`, from `worker/src/hooks-level.txt`) that goes up only when the
+  HTTP hooks' headers): a level (`L3`, from `worker/src/hooks-level.txt`) that goes up only when the
   events the hooks send change, so other installer edits don't make live sessions look old
   (`worker/src/hooks.ts`; the hash `5ba5b56f378b` from before levels counts as level 1). Sessions
   on settings without the header are pushed with `hooks: "old"`, and the phone shows them with a
@@ -84,6 +84,25 @@ Clauder shows the task list of every running Claude Code session on the phone.
   (`~/.claude/clauder-prompt.py`, the same script as the prompt hook) that totals the tokens per
   model from the transcript (and its subagents); the Worker prices them with the API price table
   in `extras.ts` (an estimate: subscriptions don't bill per token).
+- **What Claude does now, and what it changed** (`worker/src/activity.ts`, `tasks/Activity.kt`):
+  a PreToolUse command hook (the same script) sends, at most every 10 seconds per session and from a
+  background process, the tool's name and one short detail (the description Claude gave a shell
+  command, else the program; a file's name; a pattern; a host or query). The Worker keeps it as
+  `doing` until the turn ends, and the phone shows it as the Live Update's second part while a
+  session works ("Now: step · Editing TaskList.kt"). A person's message (the same sources that
+  reopen a thread, plus `wake:spawn` and `other`) makes the script note the time on the session's
+  machine (`~/.claude/clauder-state/<session>.since`); at each Stop it counts the files and the
+  added and removed lines in the transcript's edit results since then (`structuredPatch` of Edit,
+  MultiEdit and Write, a new file's content; not `/tmp` or `~/.claude`). The Worker keeps it as
+  `work` until the person writes again, and the phone shows it on a finished session and the
+  session card: "12 min · 3 files · +120 −30". Shell commands that change files aren't counted.
+- **Setup check:** `GET /status` says when the last hook event reached the Worker (from the debug
+  log) and whether its session runs current hook settings. Settings → Cloud environments shows it
+  (`settings/SetupCheck.kt`).
+- **When the Worker is down:** the script notes it (`~/.claude/clauder-state/offline`), and for a
+  minute every hook in that container makes one 2-second try instead of two 4-second ones, and the
+  tool hook sends nothing. The installer backs up `~/.claude/settings.json` once
+  (`settings.json.clauder-backup`) and writes it atomically.
 - **Notifications:** one per session by default. With "One notification for all sessions"
   (`Settings.summaryNotification`, backed up) the phone posts one ongoing summary
   (`Summary`, `TaskNotifier.showSummary`) and only the sessions that wait for you get their own,

@@ -3,6 +3,7 @@ package to.wim.clauder.push
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import to.wim.clauder.settings.HookStatus
 import to.wim.clauder.tasks.TaskList
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -37,6 +38,9 @@ class WorkerClient(private val baseUrl: String, private val token: String) {
         val o = JSONObject(it)
         TestResult(o.optInt("sent"), o.optInt("devices"), o.optBoolean("fcmConfigured"))
     }
+
+    /** When the last hook event reached the Worker, and whether its hooks were current (GET /status). */
+    suspend fun status(): Result<HookStatus> = call("GET", "/status", null) { HookStatus.fromJson(JSONObject(it)) }
 
     private suspend fun <T> call(method: String, path: String, body: String?, parse: (String) -> T): Result<T> =
         withContext(Dispatchers.IO) {

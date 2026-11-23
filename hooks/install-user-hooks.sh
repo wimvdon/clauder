@@ -11,19 +11,96 @@ try:
     d = json.load(open(p))
 except Exception:
     d = {}
-# On each prompt: the project and thread names from the transcript, sent with the prompt event.
-# On each turn's end (Stop): the tokens the session used per model, read from the transcript.
+# One script for the prompt, tool and turn-end hooks:
+# - Each prompt: the project and thread names from the transcript. A message from the person also
+#   starts counting the work (see Stop).
+# - Each tool (PreToolUse): the tool's name and a short detail, at most every 10 seconds per
+#   session, sent from a background process so the tool doesn't wait. Nothing else of the tool's
+#   input is sent.
+# - Each turn's end (Stop): the tokens the session used per model, and the files Claude edited and
+#   the lines it added and removed since the person's last message, read from the transcript.
+# When the Worker can't be reached, every hook in this container keeps to one short try (and the
+# tool hook to none) for a minute, so a Worker that is down doesn't slow Claude down.
 # Cloud environments keep the result of their setup script, so a session can start with hooks
 # from an older installer. The Worker says so when the version below is out of date, and the
 # prompt hook then runs the installer again; the new hooks apply from the next session start.
 prompt = os.path.expanduser("~/.claude/clauder-prompt.py")
-open(prompt, "w").write(r'''import json, os, re, subprocess, sys, urllib.error, urllib.request
+open(prompt, "w").write(r'''import json, os, re, subprocess, sys, time, urllib.error, urllib.request
 VERSION = "__HOOKS_VERSION__"
 try:
     body = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
+if not isinstance(body, dict):
+    sys.exit(0)
+event = body.get("hook_event_name")
+state = os.path.expanduser("~/.claude/clauder-state")
+offline = os.path.join(state, "offline")
+def age(path):
+    try:
+        return time.time() - os.path.getmtime(path)
+    except OSError:
+        return None
+def write(path, text):
+    try:
+        os.makedirs(state, exist_ok=True)
+        with open(path, "w") as f:
+            f.write(text)
+    except OSError:
+        pass
+def read(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+def short(value, n=80):
+    value = " ".join(str(value or "").split())
+    return value if len(value) <= n else value[:n - 1].rstrip() + "…"
+down_for = age(offline)
+was_offline = down_for is not None and down_for < 60
+key = re.sub(r"[^A-Za-z0-9_-]", "", os.environ.get("CLAUDE_CODE_REMOTE_SESSION_ID") or str(body.get("session_id") or ""))[:100] or "session"
+since_file = os.path.join(state, key + ".since")
 info = {}
+if event == "PreToolUse":
+    tool = str(body.get("tool_name") or "")
+    ti = body.get("tool_input") if isinstance(body.get("tool_input"), dict) else {}
+    last = os.path.join(state, key + ".tool")
+    quiet = tool in ("TodoWrite", "TaskCreate", "TaskUpdate", "TaskGet", "TaskList", "ToolSearch") or tool.startswith("mcp__hearthbot__")
+    recent = age(last)
+    if not tool or quiet or was_offline or (recent is not None and recent < 10):
+        sys.exit(0)
+    detail = ""
+    if tool == "Bash":
+        detail = ti.get("description") or ""
+        if not detail:
+            parts = [x for x in re.split(r"\s*(?:&&|\|\||;|\|)\s*", str(ti.get("command") or "").strip()) if x and not x.startswith("cd ")]
+            words = parts[0].split() if parts else []
+            detail = os.path.basename(words[0]) if words else ""
+    elif tool in ("Edit", "MultiEdit", "Write", "Read", "NotebookEdit"):
+        detail = os.path.basename(str(ti.get("file_path") or ti.get("notebook_path") or ""))
+    elif tool in ("Grep", "Glob"):
+        detail = ti.get("pattern") or ""
+    elif tool == "WebFetch":
+        m = re.match(r"https?://([^/:?#]+)", str(ti.get("url") or ""))
+        detail = m.group(1) if m else ""
+    elif tool == "WebSearch":
+        detail = ti.get("query") or ""
+    elif tool in ("Agent", "Task"):
+        detail = ti.get("description") or ""
+    write(last, str(int(time.time())))
+    info["tool"] = {"name": tool[:80], "detail": short(detail)} if detail else {"name": tool[:80]}
+    body = {k: body.get(k) for k in ("hook_event_name", "session_id", "cwd")}
+    # The tool runs at once; a child process sends the event.
+    try:
+        if os.fork() != 0:
+            os._exit(0)
+        os.setsid()
+        null = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2):
+            os.dup2(null, fd)
+    except Exception:
+        pass
 def usage(paths):
     seen = {}
     for path in paths:
@@ -53,21 +130,66 @@ def usage(paths):
         t["cacheWrite1h"] += hour
         t["cacheWrite5m"] += max(write - hour, 0)
     return list(totals.values())
-if body.get("hook_event_name") == "Stop":
+# The edits Claude made since [since]: each Edit, MultiEdit and Write result in the transcript
+# carries the change as a patch, and a new file its content. Scratch files (/tmp) and Claude's own
+# settings don't count.
+def work(paths, since):
+    files, added, removed = set(), 0, 0
+    own = os.path.expanduser("~/.claude/")
+    for path in paths:
+        try:
+            lines = open(path, encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in lines:
+            if '"structuredPatch"' not in line:
+                continue
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            r = e.get("toolUseResult") if isinstance(e, dict) else None
+            if not isinstance(r, dict) or not isinstance(r.get("filePath"), str) or not isinstance(r.get("structuredPatch"), list):
+                continue
+            if str(e.get("timestamp") or "") < since:
+                continue
+            fp = r["filePath"]
+            if fp.startswith("/tmp/") or fp.startswith(own):
+                continue
+            plus = minus = 0
+            for hunk in r["structuredPatch"]:
+                for x in (hunk.get("lines") if isinstance(hunk, dict) else None) or []:
+                    if isinstance(x, str) and x.startswith("+"):
+                        plus += 1
+                    elif isinstance(x, str) and x.startswith("-"):
+                        minus += 1
+            if r.get("type") == "create" and not r["structuredPatch"]:
+                plus = len(str(r.get("content") or "").splitlines())
+            if plus or minus or r.get("type") == "create":
+                files.add(fp)
+                added += plus
+                removed += minus
+    return {"since": since, "files": len(files), "added": added, "removed": removed}
+if event == "Stop":
     import glob
     path = body.get("transcript_path") or ""
-    info["usage"] = usage([path] + glob.glob(path[:-6] + "/subagents/*.jsonl" if path.endswith(".jsonl") else ""))
-try:
-    with open(body.get("transcript_path") or "", encoding="utf-8", errors="replace") as f:
-        text = f.read(4000000).replace(chr(92) + chr(34), chr(34))
-    m = re.search(r'Project: "([^"\n]{1,120})" \(id: `(chan_[A-Za-z0-9]+)`\)', text)
-    if m:
-        info["project"], info["projectId"] = m.group(1), m.group(2)
-    m = re.search(r'Thread title: "([^"\n]{1,200})"', text)
-    if m:
-        info["thread"] = m.group(1)
-except OSError:
-    pass
+    paths = [path] + glob.glob(path[:-6] + "/subagents/*.jsonl" if path.endswith(".jsonl") else "")
+    info["usage"] = usage(paths)
+    since = read(since_file)
+    if since:
+        info["work"] = work(paths, since)
+if event != "PreToolUse":
+    try:
+        with open(body.get("transcript_path") or "", encoding="utf-8", errors="replace") as f:
+            text = f.read(4000000).replace(chr(92) + chr(34), chr(34))
+        m = re.search(r'Project: "([^"\n]{1,120})" \(id: `(chan_[A-Za-z0-9]+)`\)', text)
+        if m:
+            info["project"], info["projectId"] = m.group(1), m.group(2)
+        m = re.search(r'Thread title: "([^"\n]{1,200})"', text)
+        if m:
+            info["thread"] = m.group(1)
+    except OSError:
+        pass
 # What woke the session, from the envelope the platform wraps around each prompt: a person's
 # message or a decision tap ("wake:mention"), a message from the coordinator ("relay"), or
 # background events such as CI results ("notification"). Only the envelope's tag is sent.
@@ -83,6 +205,9 @@ if isinstance(prompt, str):
         info["source"] = "relay"
     else:
         info["source"] = "other"
+    # The person (or the coordinator for them) asked for something: count the work from here.
+    if info["source"] in ("wake:spawn", "wake:mention", "wake:decision-chosen", "relay", "other"):
+        write(since_file, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + ".000Z")
 body.pop("prompt", None)  # the prompt text stays in the session
 body["clauder"] = info
 req = urllib.request.Request("https://clauder.wim-d57.workers.dev/hook", data=json.dumps(body).encode(), method="POST", headers={
@@ -92,19 +217,32 @@ req = urllib.request.Request("https://clauder.wim-d57.workers.dev/hook", data=js
     # The version of the hook settings this session loaded at its start (the command passes it).
     "X-Clauder-Hooks-Loaded": sys.argv[1] if len(sys.argv) > 1 else "",
     "Content-Type": "application/json", "User-Agent": "clauder-hook/1"})
-# A second try when the Worker can't be reached: a lost Stop would leave the thread Working.
+# A second try when the Worker can't be reached, because a lost Stop would leave the thread
+# Working. Not while the Worker was just unreachable, or for the tool hook.
+short_try = was_offline or event == "PreToolUse"
 outdated = False
-for attempt in range(2):
+reached = False
+for attempt in range(1 if short_try else 2):
     try:
-        with urllib.request.urlopen(req, timeout=4) as resp:
+        with urllib.request.urlopen(req, timeout=2 if short_try else 4) as resp:
             resp.read()
             outdated = resp.headers.get("X-Clauder-Update") == "1"
+        reached = True
         break
     except urllib.error.HTTPError:
+        reached = True
         break
     except Exception:
         pass
-if outdated and body.get("hook_event_name") == "UserPromptSubmit":
+if reached:
+    if was_offline or os.path.exists(offline):
+        try:
+            os.remove(offline)
+        except OSError:
+            pass
+else:
+    write(offline, str(int(time.time())))
+if outdated and event == "UserPromptSubmit":
     try:
         subprocess.Popen("curl -fsS https://clauder.wim-d57.workers.dev/install.sh | bash", shell=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -137,7 +275,15 @@ hooks["PostToolUse"].append({"matcher": "Bash", "hooks": [dict(h, **{"if": "Bash
 # which hooks the session really runs, even after the script file was replaced. The level goes up
 # only when the events the hooks send change, so other edits don't make live sessions look old.
 cmd = {"type": "command", "command": "python3 ~/.claude/clauder-prompt.py __HOOKS_LEVEL__", "timeout": 12}
-for name in ("UserPromptSubmit", "Stop"):
+for name in ("UserPromptSubmit", "PreToolUse", "Stop"):
     hooks[name] = [x for x in hooks.get(name, []) if not ours(x)] + [{"hooks": [cmd]}]
-json.dump(d, open(p, "w"), indent=1)
+# A copy of the settings as they were before Clauder first changed them, and a write that never
+# leaves a half-written file for a session that starts at that moment.
+backup = p + ".clauder-backup"
+if os.path.exists(p) and not os.path.exists(backup):
+    import shutil
+    shutil.copyfile(p, backup)
+with open(p + ".clauder-new", "w") as f:
+    json.dump(d, f, indent=1)
+os.replace(p + ".clauder-new", p)
 PY

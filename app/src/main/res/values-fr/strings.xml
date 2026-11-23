@@ -59,7 +59,7 @@
     <string name="env_step_script">Setup script : collez ceci à la fin, avant un éventuel exit 0 final.</string>
     <string name="env_step_variable">Environment variables : ajoutez cette ligne.</string>
     <string name="env_step_domain">Network access : ajoutez ce domaine aux domaines autorisés.</string>
-    <string name="env_step_new">Les hooks fonctionnent dans les sessions et fils démarrés après la modification.</string>
+    <string name="env_step_new">Les hooks fonctionnent dans les sessions et fils démarrés après la modification. La vérification ci-dessus indique quand le premier événement arrive.</string>
     <string name="action_copy">Copier</string>
     <string name="section_appearance">Apparence</string>
     <string name="theme">Thème</string>
@@ -157,5 +157,31 @@
         <item quantity="one">%d en cours</item>
         <item quantity="other">%d en cours</item>
         <item quantity="many">%d en cours</item>
+    </plurals>
+    <string name="setup_check_running">Vérification des hooks…</string>
+    <string name="setup_check_ok">Les hooks fonctionnent. Dernier événement : %1$s.</string>
+    <string name="setup_check_old">Des événements arrivent (le dernier %1$s), mais cette session utilise d’anciens hooks. Les sessions et fils que vous démarrez à partir de maintenant reçoivent les nouveaux.</string>
+    <string name="setup_check_none">Aucun événement de vos sessions pour l’instant. Suivez les étapes ci-dessous, puis démarrez un nouveau fil.</string>
+    <string name="setup_check_failed">Impossible de vérifier les hooks (%1$s).</string>
+    <string name="action_check_again">Vérifier à nouveau</string>
+    <string name="activity_shell">Shell : %1$s</string>
+    <string name="activity_edit">Modifie %1$s</string>
+    <string name="activity_read">Lit %1$s</string>
+    <string name="activity_search">Cherche %1$s</string>
+    <string name="activity_fetch">Ouvre %1$s</string>
+    <string name="activity_web_search">Cherche sur le web : %1$s</string>
+    <string name="activity_helper">Assistant : %1$s</string>
+    <string name="activity_tool">Utilise %1$s</string>
+    <string name="receipt_under_minute">moins d’une minute</string>
+    <string name="receipt_hours">%1$d h %2$d min</string>
+    <plurals name="receipt_files">
+        <item quantity="one">%d fichier</item>
+        <item quantity="many">%d fichiers</item>
+        <item quantity="other">%d fichiers</item>
+    </plurals>
+    <plurals name="receipt_minutes">
+        <item quantity="one">%d min</item>
+        <item quantity="many">%d min</item>
+        <item quantity="other">%d min</item>
     </plurals>
 </resources>

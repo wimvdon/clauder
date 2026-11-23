@@ -62,7 +62,7 @@
     <string name="env_step_script">Setup script: paste this at the end, before a final exit 0 if there is one.</string>
     <string name="env_step_variable">Environment variables: add this line.</string>
     <string name="env_step_domain">Network access: add this domain to the allowed domains.</string>
-    <string name="env_step_new">The hooks work in sessions and threads started after the change.</string>
+    <string name="env_step_new">The hooks work in sessions and threads started after the change. The check above shows when the first event arrives.</string>
     <string name="action_copy">Copy</string>
     <string name="section_appearance">Appearance</string>
     <string name="theme">Theme</string>
@@ -152,5 +152,31 @@
     <plurals name="chip_working">
         <item quantity="one">%d working</item>
         <item quantity="other">%d working</item>
+    </plurals>
+    <string name="setup_check_running">Checking the hooks…</string>
+    <string name="setup_check_ok">The hooks are working. Last event: %1$s.</string>
+    <string name="setup_check_old">Events arrive (last one %1$s), but that session runs old hooks. Sessions and threads started from now on get the new ones.</string>
+    <string name="setup_check_none">No events from your sessions yet. Do the steps below, then start a new thread.</string>
+    <string name="setup_check_failed">Couldn’t check the hooks (%1$s).</string>
+    <string name="action_check_again">Check again</string>
+    <string name="activity_shell">Shell: %1$s</string>
+    <string name="activity_edit">Editing %1$s</string>
+    <string name="activity_read">Reading %1$s</string>
+    <string name="activity_search">Searching for %1$s</string>
+    <string name="activity_fetch">Opening %1$s</string>
+    <string name="activity_web_search">Searching the web for %1$s</string>
+    <string name="activity_helper">Helper: %1$s</string>
+    <string name="activity_tool">Using %1$s</string>
+    <string name="receipt_under_minute">under a minute</string>
+    <string name="receipt_hours">%1$d h %2$d min</string>
+    <!-- Lines Claude added and removed, after the file count. -->
+    <string name="receipt_lines" translatable="false">+%1$d −%2$d</string>
+    <plurals name="receipt_files">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+    <plurals name="receipt_minutes">
+        <item quantity="one">%d min</item>
+        <item quantity="other">%d min</item>
     </plurals>
 </resources>

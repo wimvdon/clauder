@@ -59,7 +59,7 @@
     <string name="env_step_script">Setup script: plak dit onderaan, vóór een eventuele exit 0 op het einde.</string>
     <string name="env_step_variable">Environment variables: voeg deze regel toe.</string>
     <string name="env_step_domain">Network access: voeg dit domein toe aan de toegestane domeinen.</string>
-    <string name="env_step_new">De hooks werken in sessies en threads die na de wijziging starten.</string>
+    <string name="env_step_new">De hooks werken in sessies en threads die na de wijziging starten. De controle hierboven toont wanneer de eerste gebeurtenis binnenkomt.</string>
     <string name="action_copy">Kopiëren</string>
     <string name="section_appearance">Weergave</string>
     <string name="theme">Thema</string>
@@ -148,5 +148,29 @@
     <plurals name="chip_working">
         <item quantity="one">%d bezig</item>
         <item quantity="other">%d bezig</item>
+    </plurals>
+    <string name="setup_check_running">Hooks controleren…</string>
+    <string name="setup_check_ok">De hooks werken. Laatste gebeurtenis: %1$s.</string>
+    <string name="setup_check_old">Er komen gebeurtenissen binnen (de laatste %1$s), maar die sessie gebruikt oude hooks. Sessies en threads die je vanaf nu start, krijgen de nieuwe.</string>
+    <string name="setup_check_none">Nog geen gebeurtenissen van je sessies. Volg de stappen hieronder en start dan een nieuwe thread.</string>
+    <string name="setup_check_failed">Kon de hooks niet controleren (%1$s).</string>
+    <string name="action_check_again">Opnieuw controleren</string>
+    <string name="activity_shell">Shell: %1$s</string>
+    <string name="activity_edit">Bewerkt %1$s</string>
+    <string name="activity_read">Leest %1$s</string>
+    <string name="activity_search">Zoekt naar %1$s</string>
+    <string name="activity_fetch">Opent %1$s</string>
+    <string name="activity_web_search">Zoekt op het web naar %1$s</string>
+    <string name="activity_helper">Helper: %1$s</string>
+    <string name="activity_tool">Gebruikt %1$s</string>
+    <string name="receipt_under_minute">minder dan een minuut</string>
+    <string name="receipt_hours">%1$d u %2$d min</string>
+    <plurals name="receipt_files">
+        <item quantity="one">%d bestand</item>
+        <item quantity="other">%d bestanden</item>
+    </plurals>
+    <plurals name="receipt_minutes">
+        <item quantity="one">%d min</item>
+        <item quantity="other">%d min</item>
     </plurals>
 </resources>
