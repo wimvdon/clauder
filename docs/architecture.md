@@ -40,7 +40,7 @@ Clauder shows the task list of every running Claude Code session on the phone.
   armed but the Worker can't tell: Claude Code loads hook settings once, at session start, so a
   session started with older settings may set up a wake the Worker never hears of. The hooks say
   which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's argument and the
-  HTTP hooks' headers): a level (`L2`, from `worker/src/hooks-level.txt`) that goes up only when the
+  HTTP hooks' headers): a level (`L3`, from `worker/src/hooks-level.txt`) that goes up only when the
   events the hooks send change, so other installer edits don't make live sessions look old
   (`worker/src/hooks.ts`; the hash `5ba5b56f378b` from before levels counts as level 1). Sessions
   on settings without the header are pushed with `hooks: "old"`, and the phone shows them with a
@@ -56,8 +56,9 @@ Clauder shows the task list of every running Claude Code session on the phone.
   asking the user something, such as "Pick one: T1, T2 or T3". When a turn ends Running or Idle,
   the Worker sends the end of the turn's last reply (the last `post_message` text, else Stop's
   `last_assistant_message`) to Cloudflare Workers AI (`worker/src/ask.ts`, binding `AI`). If the
-  model answers that the reply waits on the user, the session becomes Waiting for you with the
-  question as `need`. The answer only counts for the turn it read (the reply it read must still be
+  model answers that the reply waits on the user and names the question, the session becomes
+  Waiting for you with the question as `need`; a "waiting" answer without a question doesn't
+  count. The answer only counts for the turn it read (the reply it read must still be
   the one waiting, until the next prompt; other events in between don't drop it); if the model
   fails, nothing changes. The same answer says whether the reply reports the work as finished
   with nothing left for the user (such as "PR merged, 0.2.11 is released"). If so, and the turn
@@ -94,6 +95,25 @@ Clauder shows the task list of every running Claude Code session on the phone.
   (`~/.claude/clauder-prompt.py`, the same script as the prompt hook) that totals the tokens per
   model from the transcript (and its subagents); the Worker prices them with the API price table
   in `extras.ts` (an estimate: subscriptions don't bill per token).
+- **What Claude does now, and what it changed** (`worker/src/activity.ts`, `tasks/Activity.kt`):
+  a PreToolUse command hook (the same script) sends, at most every 10 seconds per session and from a
+  background process, the tool's name and one short detail (the description Claude gave a shell
+  command, else the program; a file's name; a pattern; a host or query). The Worker keeps it as
+  `doing` until the turn ends, and the phone shows it as the Live Update's second part while a
+  session works ("Now: step · Editing TaskList.kt"). A person's message (the same sources that
+  reopen a thread, plus `wake:spawn` and `other`) makes the script note the time on the session's
+  machine (`~/.claude/clauder-state/<session>.since`); at each Stop it counts the files and the
+  added and removed lines in the transcript's edit results since then (`structuredPatch` of Edit,
+  MultiEdit and Write, a new file's content; not `/tmp` or `~/.claude`). The Worker keeps it as
+  `work` until the person writes again, and the phone shows it on a finished session and the
+  session card: "12 min · 3 files · +120 −30". Shell commands that change files aren't counted.
+- **Setup check:** `GET /status` says when the last hook event reached the Worker (from the debug
+  log) and whether its session runs current hook settings. Settings → Cloud environments shows it
+  (`settings/SetupCheck.kt`).
+- **When the Worker is down:** the script notes it (`~/.claude/clauder-state/offline`), and for a
+  minute every hook in that container makes one 2-second try instead of two 4-second ones, and the
+  tool hook sends nothing. The installer backs up `~/.claude/settings.json` once
+  (`settings.json.clauder-backup`) and writes it atomically.
 - **Notifications:** one per session by default. With "One notification for all sessions"
   (`Settings.summaryNotification`, backed up) the phone posts one ongoing summary
   (`Summary`, `TaskNotifier.showSummary`) and only the sessions that wait for you get their own,
@@ -121,12 +141,12 @@ Clauder shows the task list of every running Claude Code session on the phone.
   Settings opens, and opens Clauder when tapped. Settings offers to add it on Android 13 and later.
 - **Projects:** the user-level hooks run `~/.claude/clauder-prompt.py` on each prompt. It reads
   the claude.ai project and thread names from the session's transcript and sends them with the
-  prompt event (without the prompt's text). The Tasks screen groups sessions under the
-  project's name, else the repository's (`SessionBoard.board`). Only working and waiting sessions
-  are grouped: every group starts open and folds shut by tapping its header, and they show as full
-  cards with their steps and a segmented progress bar (`SegmentBar`, one segment per step). All
-  idle and finished sessions, from every project, go into one "Inactive" list at the bottom that
-  starts folded and opens them as one-line rows (project or repository, title, state, count)
+  prompt event (without the prompt's text). The Tasks screen has three sections, in this order:
+  Needs input (waiting for you), Running (working, CI waits included) and Inactive (idle or
+  finished) (`SessionBoard.board`, `SessionBoard.status`). Inside each, sessions are grouped under
+  the project's name, else the repository's, as a plain header that doesn't fold. Needs input and
+  Running show full cards with their steps and a segmented progress bar (`SegmentBar`, one segment
+  per step). Only Inactive folds: it starts folded and opens to one-line rows (title, state, count)
   (`SessionBoard.rows`). In the shade, idle and finished sessions are bundled per project with a summary
   notification (`LiveUpdate.bundle`, `TaskNotifier.refreshBundles`); working and waiting sessions
   stay on their own so they keep their Live Update. The widget shows the name too. claude.ai doesn't give the project's icon or colour to the session.
@@ -138,8 +158,9 @@ Clauder shows the task list of every running Claude Code session on the phone.
 - **No shortcuts:** Clauder had app shortcuts, pinned links and a Shortcuts widget, removed on
   22 Nov 2026 (see `docs/decisions.md`). On start, `ClauderApp.retireShortcuts` greys out links an
   earlier version pinned (only the launcher can remove them) and forgets their saved list.
-- **Widget (Glance):** `widget/TasksWidget` shows the working and waiting sessions as tonal cards
-  under a header with the same summary line as the tile; idle and finished sessions are left out
+- **Widget (Glance):** `widget/TasksWidget` shows the Needs input and Running sections of the
+  Tasks screen, grouped by project the same way (`SessionBoard.rows` with `withInactive = false`),
+  as tonal cards under a header with the same summary line as the tile; idle and finished sessions are left out
   (only "No sessions right now" when nothing is active); a session that waits for you uses the primary container. Its progress bar has one
   segment per step (at most ten, a widget limit; `SegmentBar.WIDGET_MAX`), with the empty ones in
   the surface colour so they stay visible in dark mode. It uses the system widget corner radii. It reads `SettingsStore` flows inside its content, so a widget on screen follows every

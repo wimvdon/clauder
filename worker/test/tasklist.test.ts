@@ -740,3 +740,46 @@ test("a turn left unread for the day's AI allocation says so until the next read
   // A failed read keeps it.
   assert.equal(applyAsk(next, next.askCheck!, null, NOW)?.aiPausedOn, "2026-11-22");
 });
+
+const checklistTool = (text: string) => ({
+  hook_event_name: "PostToolUse", cwd: "/home/user", tool_name: "mcp__hearthbot__update_progress_checklist", tool_input: { text },
+});
+
+test("the tool Claude runs shows until the turn ends, and only the script's short detail is kept", () => {
+  const planned = run([checklistTool("Ship\n\n✱ Build")]);
+  const pre = { hook_event_name: "PreToolUse", clauder: { tool: { name: "Bash", detail: "Run the unit tests" } } };
+  const working = run([pre], planned);
+  assert.deepEqual(working.doing, { tool: "Bash", detail: "Run the unit tests" });
+  assert.equal(working.state, "running");
+  assert.ok(working.seq > planned.seq);
+  assert.deepEqual(JSON.parse(toPushData(working).doing), { t: "Bash", d: "Run the unit tests" });
+  // The same tool again changes nothing the phone shows.
+  assert.equal(applyHook(working, pre, NOW, true), null);
+  // A PreToolUse without the script's field (an HTTP hook, say) is ignored.
+  assert.equal(applyHook(planned, { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" } }, NOW, true), null);
+  assert.equal(applyHook(planned, { hook_event_name: "PreToolUse", clauder: { tool: { name: "bad name!" } } }, NOW, true), null);
+  assert.equal(run([{ hook_event_name: "Stop" }], working).doing, undefined);
+  assert.equal(run([{ hook_event_name: "Notification", notification_type: "permission_prompt", message: "Allow?" }], working).doing, undefined);
+  assert.equal(run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "notification" } }], working).doing, undefined);
+  assert.equal(toPushData(planned).doing, "");
+});
+
+test("a turn's end reports what changed since the person wrote, until the person writes again", () => {
+  const since = "2026-11-22T09:48:00.000Z";
+  const planned = run([checklistTool("Ship\n\n✱ Build")]);
+  const stop = { hook_event_name: "Stop", clauder: { work: { since, files: 3, added: 120, removed: 30 } } };
+  const ended = run([stop], planned);
+  assert.deepEqual(ended.work, { since, endedAt: NOW, files: 3, added: 120, removed: 30 });
+  assert.deepEqual(JSON.parse(toPushData(ended).work), { s: since, e: NOW, f: 3, a: 120, r: 30 });
+  // A later turn without the field (the container restarted) keeps the last report.
+  assert.deepEqual(run([{ hook_event_name: "Stop" }], ended).work, ended.work);
+  // A CI result doesn't clear it; the person's next message does.
+  assert.deepEqual(run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "notification" } }], ended).work, ended.work);
+  assert.equal(run([{ hook_event_name: "UserPromptSubmit", clauder: { source: "wake:mention" } }], ended).work, undefined);
+  // Nonsense is ignored.
+  const bad = { hook_event_name: "Stop", clauder: { work: { since: "later", files: -1, added: 1, removed: 1 } } };
+  assert.equal(run([bad], planned).work, undefined);
+  const future = { hook_event_name: "Stop", clauder: { work: { since: "2030-01-01T00:00:00.000Z", files: 1, added: 1, removed: 0 } } };
+  assert.equal(run([future], planned).work, undefined);
+  assert.equal(toPushData(planned).work, "");
+});

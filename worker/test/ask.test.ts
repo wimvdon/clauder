@@ -13,7 +13,9 @@ test("the model's JSON answer is read, as text or as an object", () => {
   assert.equal(parseTurn({ response: '{"waiting": false, "question": "", "summary": "0.2.11 released", "finished": true}' })?.finished, true);
   assert.equal(parseTurn({ response: { waiting: false, finished: "yes" } })?.finished, false);
   assert.equal(parseTurn({ response: { waiting: true, question: "Release?", finished: true } })?.finished, false);
-  assert.equal(parseTurn({ response: { waiting: true } })?.question, "Claude asks you something");
+  // "Waiting" without a question it can name isn't a question (PR test steps, a CI wait).
+  assert.deepEqual(parseTurn({ response: { waiting: true, question: "", summary: "PR #49 open, CI running" } }), { question: "", summary: "PR #49 open, CI running", finished: false });
+  assert.equal(parseTurn({ response: { waiting: true } })?.question, "");
   assert.equal(parseTurn({ response: "yes" }), null);
   assert.equal(parseTurn({ response: '{"waiting": "maybe"}' }), null);
   assert.equal(parseTurn(null), null);

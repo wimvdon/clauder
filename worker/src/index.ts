@@ -9,13 +9,14 @@
 //   POST   /sessions/resolve {"key": "cse_…"} the person marked the thread resolved on the phone
 //   POST   /test             sends a demo task list to every phone
 //   GET    /ai               today's Workers AI use in neurons (free allocation: 10,000 a day)
+//   GET    /status           when the last hook event arrived and whether its hooks are current
 //   GET    /log, DELETE /log raw hook payloads, for debugging (last 500)
 
 import { DurableObject } from "cloudflare:workers";
 import { isAuthorized, parseLimit, sessionUrl } from "./auth";
 import { FcmClient, parseServiceAccount } from "./fcm";
-import { HOOKS_VERSION, installScript } from "./install";
-import { loadedIsCurrent } from "./hooks";
+import { HOOKS_LEVEL, HOOKS_VERSION, installScript } from "./install";
+import { loadedIsCurrent, statusFrom } from "./hooks";
 import { readTurn, type AskModel } from "./ask";
 import { allows, current, spend, utcDay, type Budget, type Priority } from "./budget";
 import { applyAsk, applyHook, emptyList, needsStateRead, resolveByUser, sessionKey, toPushData, type SessionList } from "./tasklist";
@@ -399,6 +400,13 @@ export default {
 
     if (route === "GET /ai") {
       return json(await hub(env).aiUsage());
+    }
+
+    if (route === "GET /status") {
+      const log = env.SPIKE_LOG.get(env.SPIKE_LOG.idFromName("spike"));
+      // The RPC stub can't type `body: unknown`, so the entries come back untyped.
+      const entries = (await log.recent(1)) as unknown as LogEntry[];
+      return json(statusFrom(entries[0] ?? null, HOOKS_VERSION, HOOKS_LEVEL));
     }
 
     if (route === "GET /log") {

@@ -47,12 +47,19 @@ computer to install the hooks for all of them. Set `CLAUDER_HOOK_TOKEN` in your 
 | `PostToolUse` on `Bash` with `"if": "Bash(git push*)"`, and `mcp__github__push_files` | Claude pushed to its pull request, so CI runs again: working, not waiting for you. Only `git push` commands are sent |
 | `TaskCompleted` | A task was marked done |
 | `UserPromptSubmit` (user-level install only) | Claude starts working again. This is a small script (`~/.claude/clauder-prompt.py`) that also reads the project's and the thread's name from the session transcript and sends them along |
-| `Stop` (user-level install: the same script as the prompt hook) | Claude finished its turn: "Running" while something it set up will wake it (a reminder, a cron, CI on a subscribed PR, a watched URL, helpers), else "Waiting for you". The script adds the tokens used per model, read from the transcript |
+| `PreToolUse` (user-level install: the same script) | What Claude runs now, shown while it works. At most every 10 seconds per session, the script sends the tool's name and one short detail: the description Claude gave a shell command (else the program's name), a file's name, a search pattern, a web host or query, a helper's description. Nothing else of the tool's input. It sends from a background process, so the tool doesn't wait |
+| `Stop` (user-level install: the same script as the prompt hook) | Claude finished its turn: "Running" while something it set up will wake it (a reminder, a cron, CI on a subscribed PR, a watched URL, helpers), else "Waiting for you". The script adds the tokens used per model, and the number of files Claude edited and the lines it added and removed since your last message, read from the edit results in the transcript (files in `/tmp` and `~/.claude` don't count) |
 | `Notification` | Only `notification_type` `permission_prompt` or `elicitation_dialog` counts as "Waiting for you" |
 | `SessionEnd` | The session closed (a project thread that stops between wakes only pauses) |
 
+When the Worker can't be reached, the script writes `~/.claude/clauder-state/offline`. For the next
+minute every hook in that container makes one 2-second try instead of two 4-second ones, and the
+tool hook doesn't send at all, so a Worker that is down doesn't slow Claude down. The installer
+keeps a copy of `~/.claude/settings.json` as it was before Clauder first changed it
+(`settings.json.clauder-backup`).
+
 Claude Code loads these settings once, at session start. The hook command and the HTTP hooks'
-headers carry the hooks' level (`X-Clauder-Hooks-Loaded`, such as `L2`), so the Worker knows which
+headers carry the hooks' level (`X-Clauder-Hooks-Loaded`, such as `L3`), so the Worker knows which
 hooks a session really runs. The level goes up only when the events change
 (`worker/src/hooks-level.txt`). A session on older settings can't report every wake source, so after its turn
 it shows Idle instead of Waiting for you. `hooks/settings.json` doesn't carry the version, so

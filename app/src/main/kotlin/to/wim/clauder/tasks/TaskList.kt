@@ -55,6 +55,10 @@ data class TaskList(
     /** The UTC day ("2026-11-23") on which the Worker left this session's last turn unread because
      * Workers AI's free daily allowance was used up, so there is no summary line. */
     val aiPausedOn: String? = null,
+    /** The tool Claude runs now, until its turn ends. */
+    val doing: Doing? = null,
+    /** What Claude changed since the person last wrote, until the person writes again. */
+    val work: WorkReceipt? = null,
 ) {
     /** What sessions are grouped by: the project's name, else the repository's. */
     val group: String? get() = project ?: repo
@@ -135,6 +139,14 @@ data class TaskList(
             if (tokens > 0) put("usage", JSONObject().put("tokens", tokens).put("cost", cost))
             put("hooksCurrent", !oldHooks)
             aiPausedOn?.let { put("aiPausedOn", it) }
+            doing?.let { put("doing", JSONObject().put("tool", it.tool).put("detail", it.detail ?: "")) }
+            work?.let {
+                put(
+                    "work",
+                    JSONObject().put("since", it.since).put("endedAt", it.endedAt).put("files", it.files)
+                        .put("added", it.added).put("removed", it.removed),
+                )
+            }
         }
 
     private fun itemsToJson(items: List<TaskItem>) = JSONArray(
@@ -180,6 +192,14 @@ data class TaskList(
         private fun pullRequest(number: Int, url: String, state: String?, ci: String?): PullRequest? {
             if (number <= 0 || !url.startsWith("https://github.com/")) return null
             return PullRequest(number, url, prState(state), ciState(ci))
+        }
+
+        private fun doing(tool: String?, detail: String?): Doing? =
+            tool?.trim()?.takeIf { it.isNotEmpty() }?.let { Doing(it, detail?.trim()?.takeIf { d -> d.isNotEmpty() }) }
+
+        private fun work(since: String?, endedAt: String?, files: Int, added: Int, removed: Int): WorkReceipt? {
+            if (since.isNullOrBlank() || endedAt.isNullOrBlank() || files < 0 || added < 0 || removed < 0) return null
+            return WorkReceipt(since, endedAt, files, added, removed).takeIf { !it.isEmpty }
         }
 
         private fun httpsOrNull(url: String?): String? = url?.trim()?.takeIf { it.startsWith("https://") && ' ' !in it }
@@ -244,6 +264,22 @@ data class TaskList(
                 cost = data["cost"]?.toDoubleOrNull() ?: 0.0,
                 oldHooks = data["hooks"] == "old",
                 aiPausedOn = data["aiPausedOn"]?.takeIf { it.isNotBlank() },
+                doing = data["doing"]?.takeIf { it.isNotBlank() }?.let { text ->
+                    try {
+                        val o = JSONObject(text)
+                        doing(o.optString("t"), o.optString("d"))
+                    } catch (e: org.json.JSONException) {
+                        null
+                    }
+                },
+                work = data["work"]?.takeIf { it.isNotBlank() }?.let { text ->
+                    try {
+                        val o = JSONObject(text)
+                        work(o.optString("s"), o.optString("e"), o.optInt("f", -1), o.optInt("a", -1), o.optInt("r", -1))
+                    } catch (e: org.json.JSONException) {
+                        null
+                    }
+                },
             )
         }
 
@@ -282,6 +318,10 @@ data class TaskList(
                 cost = json.optJSONObject("usage")?.optDouble("cost")?.takeIf { !it.isNaN() } ?: 0.0,
                 oldHooks = !json.optBoolean("hooksCurrent"),
                 aiPausedOn = json.optString("aiPausedOn").takeIf { it.isNotBlank() },
+                doing = json.optJSONObject("doing")?.let { doing(it.optString("tool"), it.optString("detail")) },
+                work = json.optJSONObject("work")?.let {
+                    work(it.optString("since"), it.optString("endedAt"), it.optInt("files", -1), it.optInt("added", -1), it.optInt("removed", -1))
+                },
             )
         }
 
