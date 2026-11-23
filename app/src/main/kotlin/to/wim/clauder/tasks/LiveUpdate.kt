@@ -29,6 +29,8 @@ data class LiveUpdate(
     val openUrl: String,
     /** What a working session waits on between turns: CI, a reminder or its helpers. */
     val holding: Holding? = null,
+    /** The workflow run Claude started, for [Holding.Run]. */
+    val runName: String? = null,
     /** When the reminder fires, for [Holding.Reminder]. */
     val wakeAtMillis: Long? = null,
     val helpers: Int = 0,
@@ -49,7 +51,7 @@ data class LiveUpdate(
      * a session that waits for you while the summary is the one Live Update. */
     val plain: Boolean = false,
 ) {
-    enum class Holding { Ci, Reminder, Helpers }
+    enum class Holding { Ci, Run, Reminder, Helpers }
 
     enum class Status { Tasks, Idle, Waiting, Done }
 
@@ -112,6 +114,7 @@ data class LiveUpdate(
                 timeoutMs = if (finished) DONE_TIMEOUT_MS else null,
                 openUrl = list.url?.takeIf { isClaudeUrl(it) } ?: CODE_URL,
                 holding = holding(list, wakeAt).takeIf { status == Status.Tasks },
+                runName = list.run?.name,
                 wakeAtMillis = wakeAt,
                 helpers = list.helpers,
                 prUrl = list.pr?.url,
@@ -129,6 +132,7 @@ data class LiveUpdate(
         /** What keeps a session working while no turn runs, most telling first. */
         fun holding(list: TaskList, wakeAtMillis: Long?): Holding? = when {
             list.pr?.state == PrState.Open && list.pr.ci == CiState.Running -> Holding.Ci
+            list.run?.state == CiState.Running -> Holding.Run
             wakeAtMillis != null -> Holding.Reminder
             list.helpers > 0 -> Holding.Helpers
             else -> null

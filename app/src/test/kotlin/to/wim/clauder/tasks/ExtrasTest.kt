@@ -220,4 +220,49 @@ class ExtrasTest {
         assertTrue(NotificationPlan.alertsAgain(asking, asking.copy(need = "Which colour?"), now))
         assertFalse(NotificationPlan.alertsAgain(asking, session(), now))
     }
+
+    private val release = WorkflowRun("Release", "https://github.com/wimvdon/clauder/actions/runs/500", CiState.Running)
+
+    @Test
+    fun `a run Claude started comes with the push and the cache`() {
+        val list = TaskList.fromPushData(
+            mapOf(
+                "type" to "tasklist", "key" to "k", "tasks" to "[]", "steps" to "[]",
+                "run" to """{"n":"Release","u":"https://github.com/wimvdon/clauder/actions/runs/500","s":"passed"}""",
+            ),
+        )!!
+        assertEquals(release.copy(state = CiState.Passed), list.run)
+        assertEquals(list.run, TaskList.fromJson(list.toJson())!!.run)
+        val bad = TaskList.fromPushData(
+            mapOf("type" to "tasklist", "key" to "k", "tasks" to "[]", "steps" to "[]", "run" to """{"n":"x","u":"https://evil.example/1","s":"passed"}"""),
+        )!!
+        assertNull(bad.run)
+        assertNull(TaskList.fromPushData(mapOf("type" to "tasklist", "key" to "k", "tasks" to "[]", "steps" to "[]", "run" to ""))!!.run)
+    }
+
+    @Test
+    fun `a running release is what the session waits on`() {
+        val running = session().copy(run = release)
+        assertEquals(LiveUpdate.Holding.Run, LiveUpdate.from(running, now)!!.holding)
+        assertEquals("Release", LiveUpdate.from(running, now)!!.runName)
+        // CI on its pull request comes first; a finished run is nothing to wait on.
+        assertEquals(LiveUpdate.Holding.Ci, LiveUpdate.from(running.copy(pr = pr), now)!!.holding)
+        assertNull(LiveUpdate.from(running.copy(run = release.copy(state = CiState.Passed)), now)!!.holding)
+    }
+
+    @Test
+    fun `a run that passes or fails alerts once`() {
+        val running = session().copy(run = release)
+        val passed = running.copy(seq = 2, run = release.copy(state = CiState.Passed))
+        assertNull(RunAlert.finished(session(), running))
+        assertEquals(passed.run, RunAlert.finished(running, passed))
+        // The same result again, such as the summary that follows, stays quiet.
+        assertNull(RunAlert.finished(passed, passed.copy(seq = 3)))
+        // A result the phone hadn't seen running still alerts, and so does a newer run.
+        assertEquals(passed.run, RunAlert.finished(null, passed))
+        assertEquals(passed.run, RunAlert.finished(session(), passed))
+        val failed = passed.copy(run = WorkflowRun("Release", "https://github.com/wimvdon/clauder/actions/runs/501", CiState.Failed))
+        assertEquals(failed.run, RunAlert.finished(passed, failed))
+        assertNull(RunAlert.finished(running, session()))
+    }
 }

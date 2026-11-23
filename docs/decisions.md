@@ -487,3 +487,13 @@ the small model writes one line about what Claude now works on, plus a title for
 a project. It is display only: no state depends on it. The message is dropped once read and never
 logged, so the hooks' rule "the prompt's text stays in the session" now has this one exception,
 which PRIVACY.md describes. No new hook events, so the hook level stays the same.
+
+## 2026-11-23: Follow the runs a session starts itself
+
+Wim expected a notification when Clauder 0.3.4's release finished. The Release run had no pull
+request, so the Worker dropped its webhooks, and the app only alerts when Claude waits. The tool
+hook now always sends `actions_run_trigger` calls with the repository and workflow, the Worker ties
+the run GitHub then creates to that session by workflow and time, and the app shows the run and
+alerts once when it passes or fails, on its own channel so it can be silenced apart from "Waiting
+for you". Matching by time is a small guess, so it only counts `workflow_dispatch` runs of the
+named workflow that start within 5 minutes. No new hook events, so the hook level stays L4.

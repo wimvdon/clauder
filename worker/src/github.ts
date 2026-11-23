@@ -340,3 +340,88 @@ export function logSummary(event: string, payload: Json): Json {
     attempt: typeof subject?.run_attempt === "number" ? subject.run_attempt : null,
   };
 }
+
+// Workflow runs a session started itself (actions_run_trigger), such as a release. They belong to
+// no pull request, so the session's own tool call ties them to it: the PreToolUse hook sends the
+// repository and the workflow (or the run, for a re-run), and the run GitHub then creates for
+// that workflow is the session's.
+
+export const DISPATCH_TOOL = "mcp__github__actions_run_trigger";
+
+/** A workflow a session asked GitHub to run: when, in which repository, and which workflow file
+ * or id ("release.yml") or, for a re-run, which run ("run:123"). */
+export interface Dispatch {
+  key: string;
+  /** "owner/name" from the tool call; null from hooks that don't send it. */
+  repo: string | null;
+  /** The session's repository folder, the fallback when [repo] is missing. */
+  folder: string | null;
+  target: string | null;
+  at: string;
+}
+
+/** The dispatch in a PreToolUse tool detail ("wimvdon/clauder release.yml"). */
+export function dispatchFrom(key: string, detail: string | undefined, folder: string | null, at: string): Dispatch {
+  const m = /^([\w.-]+\/[\w.-]+)\s+(\S+)$/.exec(detail?.trim() ?? "");
+  return { key, repo: m ? m[1] : null, folder, target: m ? m[2] : null, at };
+}
+
+/** A workflow run as the session shows it. */
+export interface WorkflowRun {
+  name: string;
+  url: string;
+  state: CiState;
+}
+
+/** What the Worker reads of a workflow_run event. */
+export interface RunEvent {
+  id: number;
+  run: WorkflowRun;
+  repo: string;
+  path: string;
+  workflowId: number | null;
+  event: string | null;
+  /** When the run (or its latest attempt) started. */
+  startedAt: string;
+}
+
+export function runOf(payload: Json): RunEvent | null {
+  const run = obj(payload.workflow_run);
+  const repo = str(obj(payload.repository)?.full_name);
+  const url = str(run?.html_url);
+  if (!run || typeof run.id !== "number" || !repo || !url || !url.startsWith("https://github.com/")) return null;
+  const startedAt = str(run.run_started_at) ?? str(run.created_at);
+  if (!startedAt) return null;
+  return {
+    id: run.id,
+    run: { name: (str(run.name) ?? "Workflow").slice(0, 60), url, state: groupCi(run.status, run.conclusion) },
+    repo,
+    path: str(run.path) ?? "",
+    workflowId: typeof run.workflow_id === "number" ? run.workflow_id : null,
+    event: str(run.event),
+    startedAt,
+  };
+}
+
+/** Whether [run] is the one [dispatch] asked for: same repository and workflow (or run), started
+ * between 30 seconds before and 5 minutes after the tool call. */
+export function matchesDispatch(dispatch: Dispatch, run: RunEvent): boolean {
+  const name = run.repo.split("/")[1] ?? "";
+  const sameRepo = dispatch.repo ? dispatch.repo.toLowerCase() === run.repo.toLowerCase() : dispatch.folder === name;
+  if (!sameRepo) return false;
+  const target = dispatch.target;
+  if (target?.startsWith("run:")) {
+    if (Number(target.slice(4)) !== run.id) return false;
+  } else {
+    if (run.event !== "workflow_dispatch") return false;
+    const file = run.path.split("/").pop() ?? "";
+    if (target && target !== file && target !== String(run.workflowId)) return false;
+  }
+  const delta = Date.parse(run.startedAt) - Date.parse(dispatch.at);
+  return delta >= -30_000 && delta <= 5 * 60_000;
+}
+
+/** The dispatch [run] belongs to, the latest that matches, or null. */
+export function claimDispatch(dispatches: Dispatch[], run: RunEvent): Dispatch | null {
+  return dispatches.filter((d) => matchesDispatch(d, run)).sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] ?? null;
+}

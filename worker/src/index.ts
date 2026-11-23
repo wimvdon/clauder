@@ -25,10 +25,12 @@ import { FcmClient, parseServiceAccount } from "./fcm";
 import { HOOKS_LEVEL, HOOKS_VERSION, installScript } from "./install";
 import { loadedIsCurrent, statusFrom } from "./hooks";
 import { readRequest, readTurn, type AskModel } from "./ask";
+import { doingFrom } from "./activity";
 import { allows, current, spend, utcDay, type Budget, type Priority } from "./budget";
-import { applyAsk, applyHook, applyPrUpdate, applyRequest, emptyList, needsStateRead, resolveByUser, sessionKey, toPushData, withoutAsk, type SessionList } from "./tasklist";
+import { applyAsk, applyHook, applyPrUpdate, applyRunUpdate, repoFromCwd, applyRequest, emptyList, needsStateRead, resolveByUser, sessionKey, toPushData, withoutAsk, type SessionList } from "./tasklist";
 import {
-  appFromConversion, applyEvent, changeOf, emptyTrack, headOf, logSummary, messagePage, prUrlsOf, startPage, verifySignature,
+  appFromConversion, applyEvent, changeOf, claimDispatch, dispatchFrom, emptyTrack, headOf, logSummary, messagePage, prUrlsOf, runOf,
+  startPage, verifySignature, DISPATCH_TOOL, type Dispatch, type WorkflowRun,
   type GithubApp, type PrChange, type PrTrack,
 } from "./github";
 
@@ -52,6 +54,10 @@ const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_GITHUB_BYTES = 2 * 1024 * 1024;
 /** A PR's webhook state is kept this long after its last event. */
 const PR_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+/** How long a workflow Claude asked for may take to show up as a run. */
+const DISPATCH_TTL_MS = 10 * 60 * 1000;
+/** A run stays tied to its session this long after its last event. */
+const RUN_TTL_MS = 2 * 24 * 60 * 60 * 1000;
 /** How long the one-time GitHub link works. */
 const CONNECT_TTL_MS = 30 * 60 * 1000;
 
@@ -101,6 +107,14 @@ export class Session extends DurableObject<Env> {
     const stored = (await this.ctx.storage.get<SessionList>("list")) ?? emptyList(key, url, now);
     const base = url && !stored.url ? { ...stored, url } : stored;
     let next = applyHook(base, body, now, hooksCurrent);
+    // Claude asked GitHub to run a workflow: the Hub ties the run GitHub creates to this session.
+    const input = body as { hook_event_name?: unknown; cwd?: unknown; clauder?: { tool?: unknown } } | null;
+    const tool = input?.hook_event_name === "PreToolUse" ? doingFrom(input.clauder?.tool) : null;
+    if (tool?.tool === DISPATCH_TOOL) {
+      // Older hook scripts send no detail; a detail that names no workflow (such as "cancel_workflow_run") starts none.
+      const dispatch = dispatchFrom(key, tool.detail, repoFromCwd(typeof input?.cwd === "string" ? input.cwd : null), now);
+      if (!tool.detail || dispatch.target) await hub(this.env).noteDispatch(dispatch);
+    }
     if (!next) {
       if (base !== stored) await this.ctx.storage.put("list", base);
       return null;
@@ -122,6 +136,17 @@ export class Session extends DurableObject<Env> {
       this.ctx.waitUntil(this.checkRequest(next.askRequest));
     }
     return next;
+  }
+
+  /** A workflow run this session started changed. */
+  async applyRun(run: WorkflowRun): Promise<boolean> {
+    const list = await this.ctx.storage.get<SessionList>("list");
+    if (!list) return false;
+    const next = applyRunUpdate(list, run, new Date().toISOString());
+    if (!next) return false;
+    await this.ctx.storage.put("list", next);
+    await this.schedulePush(PUSH_DEBOUNCE_MS);
+    return true;
   }
 
   /** A GitHub webhook changed the PR this session follows. */
@@ -241,7 +266,9 @@ export class Hub extends DurableObject<Env> {
     ctx.storage.sql.exec(
       `CREATE TABLE IF NOT EXISTS devices (token TEXT PRIMARY KEY, name TEXT NOT NULL, added_at TEXT NOT NULL);
        CREATE TABLE IF NOT EXISTS sessions (key TEXT PRIMARY KEY, list TEXT NOT NULL, updated_at INTEGER NOT NULL);
-       CREATE TABLE IF NOT EXISTS github_prs (url TEXT PRIMARY KEY, track TEXT NOT NULL, updated_at INTEGER NOT NULL);`,
+       CREATE TABLE IF NOT EXISTS github_prs (url TEXT PRIMARY KEY, track TEXT NOT NULL, updated_at INTEGER NOT NULL);
+       CREATE TABLE IF NOT EXISTS github_dispatches (id INTEGER PRIMARY KEY AUTOINCREMENT, dispatch TEXT NOT NULL, at INTEGER NOT NULL);
+       CREATE TABLE IF NOT EXISTS github_runs (id INTEGER PRIMARY KEY, key TEXT NOT NULL, updated_at INTEGER NOT NULL);`,
     );
   }
 
@@ -324,6 +351,38 @@ export class Hub extends DurableObject<Env> {
     return row ? changeOf(JSON.parse(row.track) as PrTrack) : null;
   }
 
+  /** A session asked GitHub to run a workflow (see [runEvent]). */
+  noteDispatch(dispatch: Dispatch): void {
+    const sql = this.ctx.storage.sql;
+    sql.exec("DELETE FROM github_dispatches WHERE at < ?", Date.now() - DISPATCH_TTL_MS);
+    sql.exec("INSERT INTO github_dispatches (dispatch, at) VALUES (?, ?)", JSON.stringify(dispatch), Date.now());
+  }
+
+  /** A workflow_run webhook: the session that started the run (by its tool call, or as already
+   * tied) gets its state. Returns how many sessions changed. */
+  private async runEvent(payload: Record<string, unknown>): Promise<number> {
+    const run = runOf(payload);
+    if (!run) return 0;
+    const sql = this.ctx.storage.sql;
+    const now = Date.now();
+    sql.exec("DELETE FROM github_runs WHERE updated_at < ?", now - RUN_TTL_MS);
+    let key = sql.exec<{ key: string }>("SELECT key FROM github_runs WHERE id = ?", run.id).toArray()[0]?.key;
+    // A re-run asked for by its run id is claimed again, also when the run was already tied.
+    const rows = sql.exec<{ id: number; dispatch: string }>("SELECT id, dispatch FROM github_dispatches").toArray();
+    const dispatches = rows.map((r) => ({ ...(JSON.parse(r.dispatch) as Dispatch), row: r.id }));
+    const claimed = claimDispatch(dispatches, run) as (Dispatch & { row: number }) | null;
+    if (claimed && (!key || claimed.target?.startsWith("run:"))) {
+      key = claimed.key;
+      sql.exec("DELETE FROM github_dispatches WHERE id = ?", claimed.row);
+    }
+    if (!key) return 0;
+    sql.exec(
+      "INSERT INTO github_runs (id, key, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET key = excluded.key, updated_at = excluded.updated_at",
+      run.id, key, now,
+    );
+    return (await this.env.SESSION.get(this.env.SESSION.idFromName(key)).applyRun(run.run)) ? 1 : 0;
+  }
+
   /** Applies a webhook to the PRs it is about and to the sessions that follow them. Returns how
    * many sessions changed. */
   async githubEvent(event: string, payload: Record<string, unknown>): Promise<number> {
@@ -331,6 +390,7 @@ export class Hub extends DurableObject<Env> {
     const now = Date.now();
     await this.ctx.storage.put("githubEventAt", new Date(now).toISOString());
     sql.exec("DELETE FROM github_prs WHERE updated_at < ?", now - PR_TTL_MS);
+    const runs = event === "workflow_run" ? await this.runEvent(payload) : 0;
     // The stored tracks; a PR seen for the first time starts empty (and isn't stored yet).
     const tracks = new Map<string, { track: PrTrack; stored: boolean }>();
     for (const url of prUrlsOf(event, payload)) {
@@ -361,7 +421,7 @@ export class Hub extends DurableObject<Env> {
         if (await this.env.SESSION.get(this.env.SESSION.idFromName(list.key)).applyPr(change)) changed++;
       }
     }
-    return changed;
+    return changed + runs;
   }
 
   /** Today's Workers AI use, counted in neurons (see budget.ts). */

@@ -19,6 +19,7 @@ import to.wim.clauder.links.ClaudeApp
 object TaskNotifier {
     private const val CHANNEL_PROGRESS = "task_progress"
     private const val CHANNEL_WAITING = "waiting"
+    private const val CHANNEL_RUNS = "runs"
 
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -34,6 +35,11 @@ object TaskNotifier {
                     context.getString(R.string.channel_waiting),
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply { description = context.getString(R.string.channel_waiting_description) },
+                NotificationChannel(
+                    CHANNEL_RUNS,
+                    context.getString(R.string.channel_runs),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply { description = context.getString(R.string.channel_runs_description) },
             ),
         )
     }
@@ -193,6 +199,7 @@ object TaskNotifier {
     /** "Waiting on CI for PR #22", "Back at 20:00", "3 helpers working". */
     fun holdingText(context: Context, update: LiveUpdate): String? = when (update.holding) {
         LiveUpdate.Holding.Ci -> context.getString(R.string.holding_ci, update.prNumber ?: 0)
+        LiveUpdate.Holding.Run -> context.getString(R.string.run_running, update.runName.orEmpty())
         LiveUpdate.Holding.Reminder -> update.wakeAtMillis?.let {
             context.getString(R.string.holding_reminder, android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(it)))
         }
@@ -238,6 +245,38 @@ object TaskNotifier {
         val files = receipt.files.takeIf { it > 0 }?.let { res.getQuantityString(R.plurals.receipt_files, it, it) }
         val lines = context.getString(R.string.receipt_lines, receipt.added, receipt.removed).takeIf { receipt.files > 0 }
         return listOfNotNull(time, files, lines).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    }
+
+    /** The line for a workflow run Claude started, such as "Release passed". */
+    fun runText(context: Context, run: WorkflowRun): String = context.getString(
+        when (run.state) {
+            CiState.Running -> R.string.run_running
+            CiState.Passed -> R.string.run_passed
+            CiState.Failed -> R.string.run_failed
+        },
+        run.name,
+    )
+
+    /** An alert that a workflow run Claude started (such as a release) passed or failed. Tapping
+     * it opens the run on GitHub. One per session: a newer result replaces it. */
+    fun showRunFinished(context: Context, list: TaskList, run: WorkflowRun) {
+        if (!canNotify(context)) return
+        val id = idFor(list.key) * 31 + 5
+        val open = linkIntent(context, id, run.url)
+        val notification = NotificationCompat.Builder(context, CHANNEL_RUNS)
+            .setSmallIcon(R.drawable.ic_stat_clauder)
+            .setContentTitle(runText(context, run))
+            .setContentText(list.title)
+            .setSubText(list.group)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(id, notification)
+        } catch (e: SecurityException) {
+            // The permission was taken away between the check and the call.
+        }
     }
 
     fun show(context: Context, list: TaskList, alert: Boolean = true, prefs: NotifyPrefs = NotifyPrefs()) {

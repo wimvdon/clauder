@@ -22,6 +22,10 @@ enum class Review { Approved, ChangesRequested }
  * review that approved it or asked for changes (from GitHub webhooks; null: none). */
 data class PullRequest(val number: Int, val url: String, val state: PrState, val ci: CiState?, val review: Review? = null)
 
+/** A workflow run the session started itself, such as a release, and how it is doing (from
+ * GitHub webhooks). */
+data class WorkflowRun(val name: String, val url: String, val state: CiState)
+
 /** One Claude session, as the Worker sends it. A project thread has steps (its progress
  * checklist, the plan the user follows); Claude Code also keeps tasks (its own work list). */
 data class TaskList(
@@ -42,6 +46,7 @@ data class TaskList(
     /** A one-line summary of Claude's last turn (read by a model on the Worker), until the next prompt. */
     val summary: String? = null,
     val pr: PullRequest? = null,
+    val run: WorkflowRun? = null,
     /** A page Claude's last reply attached that the phone can open, such as a mockup. */
     val link: String? = null,
     val linkTitle: String? = null,
@@ -148,6 +153,7 @@ data class TaskList(
                         .put("review", reviewName(it.review)),
                 )
             }
+            run?.let { put("run", JSONObject().put("name", it.name).put("url", it.url).put("state", it.state.name.lowercase())) }
             link?.let { put("link", JSONObject().put("url", it).put("title", linkTitle ?: "")) }
             wakeAt?.let { put("wakeAt", it) }
             if (helpers > 0) put("helpers", helpers)
@@ -225,6 +231,13 @@ data class TaskList(
             return PullRequest(number, url, prState(state), ciState(ci), review(review))
         }
 
+        /** Only https links on GitHub, with a known state. */
+        private fun workflowRun(name: String?, url: String?, state: String?): WorkflowRun? {
+            if (url == null || !url.startsWith("https://github.com/")) return null
+            val ci = ciState(state) ?: return null
+            return WorkflowRun(name?.trim()?.takeIf { it.isNotEmpty() } ?: "Workflow", url, ci)
+        }
+
         private fun doing(tool: String?, detail: String?): Doing? =
             tool?.trim()?.takeIf { it.isNotEmpty() }?.let { Doing(it, detail?.trim()?.takeIf { d -> d.isNotEmpty() }) }
 
@@ -287,6 +300,14 @@ data class TaskList(
                         null
                     }
                 },
+                run = data["run"]?.takeIf { it.isNotBlank() }?.let { text ->
+                    try {
+                        val o = JSONObject(text)
+                        workflowRun(o.optString("n"), o.optString("u"), o.optString("s"))
+                    } catch (e: org.json.JSONException) {
+                        null
+                    }
+                },
                 link = httpsOrNull(data["link"]),
                 linkTitle = data["linkTitle"]?.takeIf { it.isNotBlank() },
                 wakeAt = data["wakeAt"]?.takeIf { it.isNotBlank() },
@@ -345,6 +366,7 @@ data class TaskList(
                 pr = json.optJSONObject("pr")?.let {
                     pullRequest(it.optInt("number"), it.optString("url"), it.optString("state"), it.optString("ci"), it.optString("review"))
                 },
+                run = json.optJSONObject("run")?.let { workflowRun(it.optString("name"), it.optString("url"), it.optString("state")) },
                 link = httpsOrNull(json.optJSONObject("link")?.optString("url")),
                 linkTitle = json.optJSONObject("link")?.optString("title")?.takeIf { it.isNotBlank() },
                 wakeAt = json.optString("wakeAt").takeIf { it.isNotBlank() },

@@ -63,7 +63,14 @@ Clauder shows the task list of every running Claude Code session on the phone.
   newer commit starts the groups over; runs for older commits are ignored. Each change goes to the
   sessions whose followed PR has that URL (`Session.applyPr`), and a session that starts to follow
   a PR takes what the Hub already knows of it. Only the PR's CI, state and review change, never the
-  session's state: a PR subscription wakes Claude, and that turn's hooks decide. **Connecting:**
+  session's state: a PR subscription wakes Claude, and that turn's hooks decide. **Runs Claude
+  starts itself** (a release with `actions_run_trigger`) belong to no PR: the PreToolUse hook always
+  sends that tool call with `owner/repo workflow` (or `run:<id>` for a re-run), the Hub keeps it for
+  10 minutes (`github_dispatches`), and the first `workflow_dispatch` run of that workflow that
+  starts within 5 minutes is tied to the session (`github_runs`, 2 days). Hooks too old to send the
+  detail match on the session's folder name and the time. The session gets the run's name, link and
+  state (`run`), the app shows it and sends a one-off alert on the "Runs Claude started" channel when
+  it passes or fails. **Connecting:**
   the app asks `POST /github/connect` for a one-time link (30 minutes). The link's page hands
   GitHub an app manifest (GitHub's manifest flow): the person taps Create GitHub App, GitHub sends
   them back to `/github/callback` with a code, the Worker trades it for the app's webhook secret

@@ -68,7 +68,9 @@ if event == "PreToolUse":
     last = os.path.join(state, key + ".tool")
     quiet = tool in ("TodoWrite", "TaskCreate", "TaskUpdate", "TaskGet", "TaskList", "ToolSearch") or tool.startswith("mcp__hearthbot__")
     recent = age(last)
-    if not tool or quiet or was_offline or (recent is not None and recent < 10):
+    # A workflow Claude starts is always sent, so the Worker can follow its run (see github.ts).
+    dispatch = tool == "mcp__github__actions_run_trigger" and ti.get("method") in ("run_workflow", "rerun_workflow_run", "rerun_failed_jobs")
+    if not tool or quiet or was_offline or (recent is not None and recent < 10 and not dispatch):
         sys.exit(0)
     detail = ""
     if tool == "Bash":
@@ -88,6 +90,11 @@ if event == "PreToolUse":
         detail = ti.get("query") or ""
     elif tool in ("Agent", "Task"):
         detail = ti.get("description") or ""
+    elif dispatch:
+        target = ti.get("workflow_id") if ti.get("method") == "run_workflow" else "run:%s" % ti.get("run_id")
+        detail = "%s/%s %s" % (ti.get("owner") or "", ti.get("repo") or "", target or "")
+    elif tool == "mcp__github__actions_run_trigger":
+        detail = str(ti.get("method") or "")
     write(last, str(int(time.time())))
     info["tool"] = {"name": tool[:80], "detail": short(detail)} if detail else {"name": tool[:80]}
     body = {k: body.get(k) for k in ("hook_event_name", "session_id", "cwd")}

@@ -102,6 +102,18 @@ object NotificationPlan {
     fun alerts(status: LiveUpdate.Status, prefs: NotifyPrefs): Boolean = prefs.waitingAlerts && status == LiveUpdate.Status.Waiting
 }
 
+/** The workflow runs Claude started itself (such as a release) have no pull request to follow,
+ * so their result gets an alert of its own. */
+object RunAlert {
+    /** The run in [next] that just finished: it passed or failed, and the copy the phone had
+     * before ([previous]) didn't show that result for that run yet. Null otherwise. */
+    fun finished(previous: TaskList?, next: TaskList): WorkflowRun? {
+        val run = next.run?.takeIf { it.state != CiState.Running } ?: return null
+        val before = previous?.run
+        return run.takeIf { before == null || before.url != run.url || before.state != run.state }
+    }
+}
+
 /** Short numbers for tokens and cost, such as "1.2M tokens · ≈ $4.10". */
 object Usage {
     fun tokens(count: Long): String = when {

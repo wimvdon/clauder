@@ -18,7 +18,7 @@ import {
   type PullRequest,
   type Usage,
 } from "./extras.ts";
-import { applyPrChange, type PrChange } from "./github.ts";
+import { applyPrChange, type PrChange, type WorkflowRun } from "./github.ts";
 import { doingFrom, workFrom, type Doing, type Work } from "./activity.ts";
 
 export type { Link, PullRequest, Usage } from "./extras.ts";
@@ -81,6 +81,8 @@ export interface SessionList {
   agents?: string[];
   /** The pull request the session works on (the newest it opened or follows), with its CI. */
   pr?: PullRequest;
+  /** The workflow run the session started itself (such as a release), from GitHub's webhooks. */
+  run?: WorkflowRun;
   /** A link the last reply attached that the phone can open, such as a mockup or a page. */
   link?: Link;
   /** When a reminder Claude set (send_later) brings it back, if that is still ahead. */
@@ -846,6 +848,7 @@ export function toPushData(list: SessionList): Record<string, string> {
     updatedAt: list.updatedAt,
     tasks: encode(tasks),
     steps: encode(steps),
+    run: list.run ? JSON.stringify({ n: list.run.name, u: list.run.url, s: list.run.state }) : "",
     pr: list.pr ? JSON.stringify({ n: list.pr.number, u: list.pr.url, s: list.pr.state, c: list.pr.ci ?? "", ...(list.pr.review ? { r: list.pr.review } : {}) }) : "",
     link: list.link?.url ?? "",
     linkTitle: list.link?.title ?? "",
@@ -895,4 +898,11 @@ export function applyPrUpdate(list: SessionList, change: PrChange, now: string):
   const pr = applyPrChange(list.pr, change);
   if (!pr || pr === list.pr) return null;
   return { ...list, pr, seq: nextSeq(list, now), updatedAt: now };
+}
+
+/** A workflow run the session started changed: it began, or it passed or failed. A newer run
+ * replaces the one before it. Returns null when nothing changes. */
+export function applyRunUpdate(list: SessionList, run: WorkflowRun, now: string): SessionList | null {
+  if (JSON.stringify(list.run) === JSON.stringify(run)) return null;
+  return { ...list, run, seq: nextSeq(list, now), updatedAt: now };
 }
