@@ -187,4 +187,12 @@
         <item quantity="many">%d min</item>
         <item quantity="other">%d min</item>
     </plurals>
+    <string name="state_error">Detenido por un error</string>
+    <string name="state_error_need">Detenido por un error: %1$s</string>
+    <string name="activity_blocked">El modo automático bloqueó un paso: %1$s</string>
+    <string name="activity_blocked_plain">El modo automático bloqueó un paso</string>
+    <string name="activity_compacting">Compactando la conversación</string>
+    <string name="activity_push_failed">git push falló</string>
+    <string name="model_effort">esfuerzo %1$s</string>
+    <string name="model_plan_mode">Modo plan</string>
 </resources>

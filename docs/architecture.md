@@ -40,7 +40,7 @@ Clauder shows the task list of every running Claude Code session on the phone.
   armed but the Worker can't tell: Claude Code loads hook settings once, at session start, so a
   session started with older settings may set up a wake the Worker never hears of. The hooks say
   which settings the session loaded (`X-Clauder-Hooks-Loaded`, in the command's argument and the
-  HTTP hooks' headers): a level (`L3`, from `worker/src/hooks-level.txt`) that goes up only when the
+  HTTP hooks' headers): a level (`L4`, from `worker/src/hooks-level.txt`) that goes up only when the
   events the hooks send change, so other installer edits don't make live sessions look old
   (`worker/src/hooks.ts`; the hash `5ba5b56f378b` from before levels counts as level 1). Sessions
   on settings without the header are pushed with `hooks: "old"`, and the phone shows them with a
@@ -119,6 +119,18 @@ Clauder shows the task list of every running Claude Code session on the phone.
   (`~/.claude/clauder-prompt.py`, the same script as the prompt hook) that totals the tokens per
   model from the transcript (and its subagents); the Worker prices them with the API price table
   in `extras.ts` (an estimate: subscriptions don't bill per token).
+- **Errors, helpers, compaction and the model** (hooks level L4, `worker/test/events.test.ts`):
+  `StopFailure` ends a turn on an API error instead of `Stop`, so the Worker sets `waiting` with
+  `needKind: "error"`, `error` (its type) and `need` (the error text); the phone labels it "Stopped
+  by an error". A usage limit Claude Code won't wait out (`quota_auto_resume_stale`/`_disabled`)
+  does the same with `error: "usage_limit"`; `quota_auto_resume_fired` makes it `running` again.
+  Any later prompt or work clears it. `elicitation_url_dialog` waits like a question form.
+  `SubagentStart`/`SubagentStop` keep the running helper ids (`agents`, not pushed) and count them
+  in `helpers`. `PermissionDenied`, `PreCompact` and a failed `git push` (`PostToolUseFailure`) set
+  `doing` to `clauder:blocked` (detail: the policy), `clauder:compacting` or `clauder:push-failed`,
+  which the phone words on the "now" line (`Doing.Kind`). `SessionStart` (async command hook) and
+  `PostModelSwitch` give `model`; every event with them gives `effort` and `mode`
+  (`permission_mode`). The card shows "Opus 5.5 · high effort", plus "Plan mode" (`ModelName`).
 - **What Claude does now, and what it changed** (`worker/src/activity.ts`, `tasks/Activity.kt`):
   a PreToolUse command hook (the same script) sends, at most every 10 seconds per session and from a
   background process, the tool's name and one short detail (the description Claude gave a shell

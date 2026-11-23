@@ -177,8 +177,12 @@ object TaskNotifier {
     /** What a session's notification says it is doing now. */
     private fun statusText(context: Context, update: LiveUpdate, counts: String): String = when (update.status) {
         LiveUpdate.Status.Done -> update.headline ?: context.getString(R.string.state_done)
-        LiveUpdate.Status.Waiting -> (update.need ?: update.headline)?.let { context.getString(R.string.state_waiting_need, it) }
-            ?: context.getString(R.string.state_waiting)
+        LiveUpdate.Status.Waiting -> if (update.error) {
+            update.need?.let { context.getString(R.string.state_error_need, it) } ?: context.getString(R.string.state_error)
+        } else {
+            (update.need ?: update.headline)?.let { context.getString(R.string.state_waiting_need, it) }
+                ?: context.getString(R.string.state_waiting)
+        }
         LiveUpdate.Status.Idle -> update.headline ?: context.getString(R.string.state_idle)
         LiveUpdate.Status.Tasks -> update.headline
             ?: update.currentTask?.let { context.getString(R.string.notification_now, it) }
@@ -207,9 +211,19 @@ object TaskNotifier {
             Doing.Kind.WebSearch -> R.string.activity_web_search
             Doing.Kind.Helper -> R.string.activity_helper
             Doing.Kind.Other -> R.string.activity_tool
+            Doing.Kind.Blocked -> if (doing.detail == null) R.string.activity_blocked_plain else R.string.activity_blocked
+            Doing.Kind.Compacting -> R.string.activity_compacting
+            Doing.Kind.PushFailed -> R.string.activity_push_failed
         },
         doing.subject,
     )
+
+    /** "Opus 5.5 · high effort · Plan mode": the model and how it works, when the hooks said. */
+    fun modelText(context: Context, list: TaskList): String? = listOfNotNull(
+        list.model?.let { ModelName.readable(it) },
+        list.effort?.let { context.getString(R.string.model_effort, it) },
+        list.mode?.takeIf { it == "plan" }?.let { context.getString(R.string.model_plan_mode) },
+    ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
 
     /** "12 min · 3 files · +120 −30": how long since the person's message, and what changed. */
     fun receiptText(context: Context, receipt: WorkReceipt): String? {

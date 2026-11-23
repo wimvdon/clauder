@@ -210,7 +210,7 @@ export class Session extends DurableObject<Env> {
     if (await this.ctx.storage.get<boolean>("pushPending")) {
       await this.ctx.storage.put("pushPending", false);
       // The reply text stays here; the phone and /sessions get only what they show.
-      const { reply: _reply, askCheck: _askCheck, askRequest: _askRequest, staleFinish: _staleFinish, ...shown } = list;
+      const { reply: _reply, askCheck: _askCheck, staleFinish: _staleFinish, askRequest: _askRequest, agents: _agents, ...shown } = list;
       try {
         await hub(this.env).publish(shown);
       } catch (e) {
