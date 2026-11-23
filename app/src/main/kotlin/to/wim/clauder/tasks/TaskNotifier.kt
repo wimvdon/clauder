@@ -426,10 +426,8 @@ object TaskNotifier {
         update.bundle?.let { builder.setGroup(it) }
         update.timeoutMs?.let { builder.setTimeoutAfter(it) }
         val waiting = update.status == LiveUpdate.Status.Waiting
-        // A thread that waits for you can be marked resolved here: resolving it in the Claude app
-        // doesn't reach Clauder.
-        // A thread only claude.ai knows has no session on the Worker to mark.
-        if (waiting && !key.startsWith(TaskList.CLAUDE_AI_KEY_PREFIX)) {
+        // A thread that waits for you can be resolved from here, on claude.ai and on the Worker.
+        if (waiting) {
             val resolve = PendingIntent.getBroadcast(
                 context,
                 id * 31 + 3,

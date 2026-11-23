@@ -21,6 +21,7 @@ import to.wim.clauder.claudeai.ProjectChat
 import to.wim.clauder.claudeai.RemoteSnapshot
 import to.wim.clauder.claudeai.RemoteThreads
 import to.wim.clauder.push.Push
+import to.wim.clauder.push.WorkerClient
 import to.wim.clauder.settings.SettingsStore
 import to.wim.clauder.tasks.NotificationPlan
 import to.wim.clauder.tasks.SeqGate
@@ -69,6 +70,27 @@ class ClauderApp : Application() {
     /** Every session the phone knows, with claude.ai's last read laid over the hook sessions. */
     suspend fun board(): List<TaskList> =
         RemoteThreads.overlay(store.cachedSessions(), ClaudeAiSync.snapshot.value ?: claudeAiLogin.snapshot.first())
+
+    /**
+     * Mark resolved: resolves the thread behind [key] on claude.ai when signed in there (as the
+     * Claude app's own Resolve does), and tells the Worker for a hook session. True when either
+     * worked; the row then shows Done right away.
+     */
+    suspend fun resolveThread(key: String): Boolean {
+        val onClaudeAi = claudeAiLogin.sessionKey()?.let { sessionKey ->
+            ClaudeAiSync.restore(claudeAiLogin.snapshot.first())
+            ClaudeAiSync.resolve(ClaudeAiClient(sessionKey), claudeAiLogin.organization(), key)
+        }
+        onClaudeAi?.let { claudeAiLogin.saveSnapshot(it) }
+        val settings = store.current()
+        val onWorker = !key.startsWith(TaskList.CLAUDE_AI_KEY_PREFIX) && settings.isConnected &&
+            WorkerClient(settings.workerUrl, settings.token).resolve(key) is WorkerClient.Result.Ok
+        if (onClaudeAi == null && !onWorker) return false
+        TaskNotifier.cancel(this, key)
+        Widgets.updateTasks(this)
+        ClauderTileService.refresh(this)
+        return true
+    }
 
     /** Reads claude.ai in the background, when signed in there (see [syncClaudeAi]). */
     fun refreshClaudeAi() {

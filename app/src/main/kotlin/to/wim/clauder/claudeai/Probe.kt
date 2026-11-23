@@ -18,6 +18,9 @@ interface ClaudeAiCalls {
 
     /** Reads a server-sent event stream for at most [millis], then closes it. Body = the lines read. */
     suspend fun stream(path: String, millis: Long): CallResult
+
+    /** Sends [json] with PATCH and returns the answer. */
+    suspend fun patch(path: String, json: String): CallResult = CallResult(error = "unsupported")
 }
 
 /**

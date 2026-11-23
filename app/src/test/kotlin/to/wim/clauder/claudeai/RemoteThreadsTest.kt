@@ -128,6 +128,47 @@ class RemoteThreadsTest {
     }
 
     @Test
+    fun `a row finds its claude_ai thread, by thread id or by a bound hook session`() {
+        val snapshot = RemoteSnapshot(RemoteThreads.threads(threads, project), now, GOOD, listOf(project))
+        assertEquals("t1", RemoteThreads.threadFor(snapshot, "claudeai:t1")?.id)
+        assertEquals("t1", RemoteThreads.threadFor(snapshot, "cse_A")?.id)
+        assertEquals("t4", RemoteThreads.threadFor(snapshot, "session_D")?.id)
+        assertNull(RemoteThreads.threadFor(snapshot, "cse_unknown"))
+        assertNull(RemoteThreads.threadFor(null, "claudeai:t1"))
+    }
+
+    @Test
+    fun `mark resolved resolves the thread on claude_ai and shows it done at once`() = runBlocking {
+        val sent = mutableListOf<Pair<String, String>>()
+        var answer = CallResult(200, "{}")
+        val calls = object : ClaudeAiCalls {
+            override var organization: String? = null
+            override suspend fun get(path: String) = CallResult(404, "")
+            override suspend fun stream(path: String, millis: Long) = CallResult(404, "")
+            override suspend fun patch(path: String, json: String): CallResult {
+                sent += path to json
+                return answer
+            }
+        }
+        ClaudeAiSync.clear()
+        ClaudeAiSync.restore(RemoteSnapshot(RemoteThreads.threads(threads, project), now, GOOD, listOf(project)))
+        // A hook session's row resolves the thread it is bound to.
+        val after = ClaudeAiSync.resolve(calls, null, "cse_A")!!
+        assertEquals(listOf("v1/code/channels/chan_1/threads/t1" to "{\"resolved\":true}"), sent)
+        assertEquals(GOOD, calls.organization)
+        assertEquals(SessionState.Done, after.threads.first { it.id == "t1" }.state)
+        assertEquals(after, ClaudeAiSync.snapshot.value)
+        // Resolved, a row only claude.ai knows is no longer shown.
+        assertEquals(listOf("claudeai:t3"), RemoteThreads.overlay(emptyList(), after).map { it.key })
+        // claude.ai refusing, or a thread it doesn't list, changes nothing.
+        answer = CallResult(403, "{}")
+        assertNull(ClaudeAiSync.resolve(calls, GOOD, "claudeai:t3"))
+        assertNull(ClaudeAiSync.resolve(calls, GOOD, "claudeai:nope"))
+        assertEquals(SessionState.Running, ClaudeAiSync.snapshot.value!!.threads.first { it.id == "t3" }.state)
+        ClaudeAiSync.clear()
+    }
+
+    @Test
     fun `a snapshot reads back the same from JSON`() {
         val p = project.copy(chatMark = "4", threadsMark = "m", hasUnread = true)
         val snapshot = RemoteSnapshot(RemoteThreads.threads(threads, p), now, GOOD, listOf(p))

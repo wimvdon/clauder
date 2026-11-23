@@ -2,6 +2,16 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-23: Mark resolved also resolves the thread on claude.ai
+
+A thread without hooks that waited for Wim couldn't be cleared from Clauder: Mark resolved only told
+the Worker, which doesn't know such threads, and a resolve on the Worker never reached the Claude
+app either. Wim asked for a real resolve, for hook threads too. Mark resolved now sends the Claude
+app's own call (`PATCH v1/code/channels/{channel}/threads/{thread}`, body `{"resolved":true}`,
+found in Claude for Android 1.261120.19) from the phone, and still tells the Worker for hook
+sessions. Rejected: hiding the row in Clauder only, which would have left the thread open in the
+Claude app.
+
 ## 2026-11-23: claude.ai's thread list on the Tasks screen, laid over the hooks
 
 The live test (0.3.4) answered for projects, threads, project chat and the live stream. The Tasks

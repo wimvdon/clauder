@@ -98,7 +98,7 @@
     <string name="session_muted">Stummgeschaltet</string>
     <string name="action_mute">Stummschalten</string>
     <string name="action_resolve">Erledigt markieren</string>
-    <string name="resolve_failed">Worker nicht erreichbar. Versuche es noch einmal.</string>
+    <string name="resolve_failed">Erledigen hat nicht geklappt. Versuche es noch einmal.</string>
     <string name="action_unmute">Stummschaltung aufheben</string>
     <string name="waiting_alert">Hinweis, wenn Claude wartet</string>
     <string name="waiting_alert_body">Wähle Ton, Vibration und Pop-up für „Wartet auf dich“.</string>

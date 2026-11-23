@@ -102,7 +102,7 @@
     <string name="session_muted">Muted</string>
     <string name="action_mute">Mute</string>
     <string name="action_resolve">Mark resolved</string>
-    <string name="resolve_failed">Couldn\'t reach the Worker. Try again.</string>
+    <string name="resolve_failed">Couldn\'t resolve it. Try again.</string>
     <string name="action_unmute">Unmute</string>
     <string name="waiting_alert">Alert when Claude waits</string>
     <string name="waiting_alert_body">Choose the sound, vibration and pop-up for “Waiting for you”.</string>

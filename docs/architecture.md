@@ -222,6 +222,11 @@ Clauder shows the task list of every running Claude Code session on the phone.
   (`tasks/ResolveReceiver`) and on its card on the Tasks screen. Resolving a thread by hand in the Claude app sends no hook event, so
   the button tells the Worker (`POST /sessions/resolve`, `resolveByUser` in `worker/src/tasklist.ts`):
   the thread is Done until the person writes in it again, exactly as after `set_thread_resolved`.
+  When signed in to claude.ai it also resolves the thread there (`ClauderApp.resolveThread`,
+  `ClaudeAiSync.resolve`): `PATCH v1/code/channels/{channel}/threads/{thread}` with
+  `{"resolved":true}`, the call the Claude app's own Resolve makes. The thread is found in the last
+  claude.ai read (`RemoteThreads.threadFor`: by thread id, or by the hook session bound to it) and
+  shows Done at once. A thread only claude.ai knows has the button too; it resolves only there.
 - **Waiting alert:** "Waiting for you" uses its own channel (`waiting`, default importance), so it
   can alert while progress stays quiet. Settings opens that channel's system settings. It sounds
   once per wait (`NotificationPlan.alertsAgain`): later pushes while the thread keeps waiting with
@@ -263,7 +268,7 @@ Clauder shows the task list of every running Claude Code session on the phone.
   and questions, and only an Idle hook session takes claude.ai's state. When several hook sessions
   are bound to one thread, only the newest shows. A thread no hook knows is added while it waits or
   works (key `claudeai:<thread id>`, no steps); while it waits it gets a plain "Waiting for you"
-  alert without a Mark resolved button (there is no Worker session to mark). After each read,
+  alert with a Mark resolved button that resolves it on claude.ai. After each read,
   `ClauderApp.showRemoteChanges` updates the notification of each session whose shown state changed
   (`RemoteThreads.changes`), silently on the first read after signing in.
   **Project chat replies** (`claudeai/ProjectChat`): the project chat's Claude sends no hook events,

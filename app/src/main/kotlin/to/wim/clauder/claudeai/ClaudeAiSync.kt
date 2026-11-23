@@ -3,6 +3,7 @@ package to.wim.clauder.claudeai
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -57,6 +58,20 @@ object ClaudeAiSync {
             snapshotFlow.value = result
             result
         }
+    }
+
+    /**
+     * Resolves the thread behind the row [key] on claude.ai, the same way the Claude app's Resolve
+     * does. Returns the snapshot with that thread resolved (to save and show), or null when claude.ai
+     * doesn't list the thread or refused.
+     */
+    suspend fun resolve(calls: ClaudeAiCalls, organization: String?, key: String): RemoteSnapshot? {
+        val current = snapshotFlow.value ?: return null
+        val thread = RemoteThreads.threadFor(current, key) ?: return null
+        calls.organization = organization ?: current.organization
+        val answer = calls.patch(ClaudeAi.Paths.thread(thread.project.id, thread.id), RemoteThreads.RESOLVE_BODY)
+        if (!answer.ok) return null
+        return snapshotFlow.updateAndGet { now -> now?.let { RemoteThreads.resolved(it, thread.id) } }
     }
 
     /**
