@@ -56,8 +56,9 @@ Clauder shows the task list of every running Claude Code session on the phone.
   asking the user something, such as "Pick one: T1, T2 or T3". When a turn ends Running or Idle,
   the Worker sends the end of the turn's last reply (the last `post_message` text, else Stop's
   `last_assistant_message`) to Cloudflare Workers AI (`worker/src/ask.ts`, binding `AI`). If the
-  model answers that the reply waits on the user, the session becomes Waiting for you with the
-  question as `need`. The answer only counts for the turn it read (the reply it read must still be
+  model answers that the reply waits on the user and names the question, the session becomes
+  Waiting for you with the question as `need`; a "waiting" answer without a question doesn't
+  count. The answer only counts for the turn it read (the reply it read must still be
   the one waiting, until the next prompt; other events in between don't drop it); if the model
   fails, nothing changes. The same answer says whether the reply reports the work as finished
   with nothing left for the user (such as "PR merged, 0.2.11 is released"). If so, and the turn
