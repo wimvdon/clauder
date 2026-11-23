@@ -80,7 +80,10 @@ data class LiveUpdate(
             val list = session.shown(nowMillis)
             val wakeAt = list.wakeAtMillis(nowMillis)
             val items = list.items
-            if (items.isEmpty()) return null
+            // A thread only claude.ai knows has no steps: it gets a plain alert while it waits for
+            // you, and nothing otherwise (the Tasks screen and the widget still show it).
+            val bare = items.isEmpty() && list.fromClaudeAi && list.state == SessionState.Waiting
+            if (items.isEmpty() && !bare) return null
             if (list.endedEarly) return null
             val total = items.size
             val done = list.doneCount
@@ -93,7 +96,7 @@ data class LiveUpdate(
             }
             val finished = status == Status.Done
             // An idle session stays in the shade but isn't pinned as ongoing or promoted.
-            val plain = summaryMode && status == Status.Waiting
+            val plain = (summaryMode && status == Status.Waiting) || bare
             val live = !finished && status != Status.Idle && !plain
             return LiveUpdate(
                 title = list.title,

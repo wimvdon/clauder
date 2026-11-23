@@ -18,6 +18,9 @@
     <string name="channel_waiting_description">Wenn Claude anhält und auf deine Antwort wartet</string>
     <string name="channel_runs">Von Claude gestartete Läufe</string>
     <string name="channel_runs_description">Wenn ein von Claude gestarteter Workflow, etwa ein Release, erfolgreich ist oder fehlschlägt</string>
+    <string name="channel_replies">Antworten von Claude in Projektchats</string>
+    <string name="channel_replies_description">Wenn Claude dir in einem Projektchat antwortet</string>
+    <string name="chat_reply_label">Projektchat</string>
     <string name="run_running">%1$s läuft</string>
     <string name="run_passed">%1$s erfolgreich</string>
     <string name="run_failed">%1$s fehlgeschlagen</string>
@@ -199,6 +202,7 @@
     <string name="claude_ai_login_title">Bei claude.ai anmelden</string>
     <string name="claude_ai_login_help">Melde dich mit dem Code aus deiner E-Mail an. Die Anmeldung mit Google funktioniert hier vielleicht nicht.</string>
     <string name="claude_ai_connected">Bei claude.ai angemeldet</string>
+    <string name="claude_ai_sync_note">Clauder schaut etwa alle 15 Minuten auf claude.ai nach, und jede Minute, solange ein Projektchat auf Claudes Antwort wartet. Du bekommst eine Benachrichtigung, wenn Claude dir in einem Projektchat antwortet.</string>
     <string name="action_test_claude_ai">Testen</string>
     <string name="action_sign_out">Abmelden</string>
     <string name="claude_ai_testing">Wird getestet, das dauert etwa 20 Sekunden…</string>

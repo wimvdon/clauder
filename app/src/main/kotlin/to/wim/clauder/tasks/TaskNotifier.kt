@@ -20,6 +20,7 @@ object TaskNotifier {
     private const val CHANNEL_PROGRESS = "task_progress"
     private const val CHANNEL_WAITING = "waiting"
     private const val CHANNEL_RUNS = "runs"
+    private const val CHANNEL_REPLIES = "chat_replies"
 
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -40,6 +41,11 @@ object TaskNotifier {
                     context.getString(R.string.channel_runs),
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply { description = context.getString(R.string.channel_runs_description) },
+                NotificationChannel(
+                    CHANNEL_REPLIES,
+                    context.getString(R.string.channel_replies),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply { description = context.getString(R.string.channel_replies_description) },
             ),
         )
     }
@@ -279,6 +285,37 @@ object TaskNotifier {
         }
     }
 
+    private fun chatId(projectId: String): Int = "chat:$projectId".hashCode()
+
+    /** Claude replied in a project chat after your latest message there: the project's name and the
+     * reply's start. One per project; a later reply replaces it, quietly unless [ChatReply.sound]. */
+    fun showChatReply(context: Context, reply: to.wim.clauder.claudeai.ChatReply) {
+        if (!canNotify(context)) return
+        val id = chatId(reply.projectId)
+        val notification = NotificationCompat.Builder(context, CHANNEL_REPLIES)
+            .setSmallIcon(R.drawable.ic_stat_clauder)
+            .setContentTitle(reply.projectName)
+            .setContentText(reply.text)
+            .setSubText(context.getString(R.string.chat_reply_label))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(reply.text))
+            .setContentIntent(linkIntent(context, id, to.wim.clauder.claudeai.ProjectChat.url(reply.projectId)))
+            .setOnlyAlertOnce(!reply.sound)
+            .setSilent(!reply.sound)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(id, notification)
+        } catch (e: SecurityException) {
+            // The permission was taken away between the check and the call.
+        }
+    }
+
+    /** Takes a project chat's reply alert away, once the chat was read in the Claude app. */
+    fun cancelChatReply(context: Context, projectId: String) {
+        NotificationManagerCompat.from(context).cancel(chatId(projectId))
+    }
+
     fun show(context: Context, list: TaskList, alert: Boolean = true, prefs: NotifyPrefs = NotifyPrefs()) {
         val manager = NotificationManagerCompat.from(context)
         val update = LiveUpdate.from(list, summaryMode = prefs.summary)
@@ -362,7 +399,7 @@ object TaskNotifier {
             ?.takeIf { update.status != LiveUpdate.Status.Done }
             ?.let { context.getString(R.string.notification_next, it) }
         // Expanded: what Claude is on, what it waits on, the task after it and the count.
-        val expanded = listOfNotNull(text, holding, next, counts.takeIf { it != text }).joinToString("\n")
+        val expanded = listOfNotNull(text, holding, next, counts.takeIf { it != text && update.total > 0 }).joinToString("\n")
         val open = PendingIntent.getActivity(
             context,
             id,
@@ -391,7 +428,8 @@ object TaskNotifier {
         val waiting = update.status == LiveUpdate.Status.Waiting
         // A thread that waits for you can be marked resolved here: resolving it in the Claude app
         // doesn't reach Clauder.
-        if (waiting) {
+        // A thread only claude.ai knows has no session on the Worker to mark.
+        if (waiting && !key.startsWith(TaskList.CLAUDE_AI_KEY_PREFIX)) {
             val resolve = PendingIntent.getBroadcast(
                 context,
                 id * 31 + 3,

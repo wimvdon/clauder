@@ -96,6 +96,80 @@ class RemoteThreadsTest {
     }
 
     @Test
+    fun `a working or waiting thread keeps the hook's own state`() {
+        val fetchedAt = java.time.Instant.parse("2026-11-23T11:45:00Z").toEpochMilli()
+        val out = RemoteThreads.overlay(listOf(hook("session_A", SessionState.Running)), RemoteThreads.threads(threads, project), fetchedAt)
+        assertEquals(SessionState.Running, out.first { it.key == "session_A" }.state)
+    }
+
+    @Test
+    fun `two hook sessions bound to one thread show once, the newest`() {
+        val fetchedAt = java.time.Instant.parse("2026-11-23T11:45:00Z").toEpochMilli()
+        val twice = """{"sections":[{"status":"working","count":1,"data":[${root("t9", "working", "session_X", "").replace(
+            """{"id":"session_X","status":"idle","status_bucket":"completed","title":"Title t9"}""",
+            """{"id":"session_X","title":"Title t9"},{"id":"cse_Y","title":"Title t9"}""",
+        )}]}]}"""
+        val lists = listOf(
+            hook("cse_X", SessionState.Waiting, updatedAt = "2026-11-23T10:00:00Z"),
+            hook("session_Y", SessionState.Running, updatedAt = "2026-11-23T11:00:00Z"),
+        )
+        val out = RemoteThreads.overlay(lists, RemoteThreads.threads(twice, project), fetchedAt)
+        assertEquals(listOf("session_Y"), out.map { it.key })
+    }
+
+    @Test
+    fun `projects keep their chat and activity marks`() {
+        val body = """{"data":[{"id":"chan_1","name":"Clauder","last_activity_at":"2026-11-23T11:00:00Z","archived_at":null,
+            "last_timeline_seq":42,"last_message_seq":99,"has_unread":true}]}"""
+        val p = RemoteThreads.projects(body, now).single()
+        assertEquals("42", p.chatMark)
+        assertEquals("2026-11-23T11:00:00Z/99", p.threadsMark)
+        assertTrue(p.hasUnread)
+    }
+
+    @Test
+    fun `a snapshot reads back the same from JSON`() {
+        val p = project.copy(chatMark = "4", threadsMark = "m", hasUnread = true)
+        val snapshot = RemoteSnapshot(RemoteThreads.threads(threads, p), now, GOOD, listOf(p))
+        assertEquals(snapshot, RemoteThreads.snapshotFromJson(RemoteThreads.snapshotToJson(snapshot)))
+        assertNull(RemoteThreads.snapshotFromJson("nope"))
+    }
+
+    @Test
+    fun `changes name new states and rows that are gone`() {
+        val a = hook("a", SessionState.Running)
+        val b = hook("b", SessionState.Waiting)
+        val c = hook("claudeai:c", SessionState.Waiting)
+        val changes = RemoteThreads.changes(listOf(a, b, c), listOf(a, b.copy(state = SessionState.Done)))
+        assertEquals(listOf(b to b.copy(state = SessionState.Done)), changes.shown)
+        assertEquals(listOf("claudeai:c"), changes.gone)
+        val added = RemoteThreads.changes(emptyList(), listOf(c))
+        assertEquals(listOf<Pair<TaskList?, TaskList>>(null to c), added.shown)
+    }
+
+    @Test
+    fun `a project whose activity didn't change keeps the threads read before`() = runBlocking {
+        val marked = """{"data":[{"id":"chan_1","name":"Clauder","last_activity_at":"2026-11-23T11:00:00Z","archived_at":null,"last_message_seq":7}]}"""
+        val asked = mutableListOf<String>()
+        val calls = object : ClaudeAiCalls {
+            override var organization: String? = null
+            override suspend fun get(path: String): CallResult {
+                asked += path
+                return if (path.startsWith("v1/code/channels?")) CallResult(200, marked) else CallResult(200, threads)
+            }
+            override suspend fun stream(path: String, millis: Long) = CallResult(404, "")
+        }
+        val first = ClaudeAiSync.read(calls, GOOD, now)!!
+        asked.clear()
+        val second = ClaudeAiSync.read(calls, GOOD, now + 60_000, first)!!
+        assertEquals(listOf("v1/code/channels?scope=joined&limit=20"), asked)
+        assertEquals(first.threads.map { it.id }, second.threads.map { it.id })
+        asked.clear()
+        ClaudeAiSync.read(calls, GOOD, now + ClaudeAiSync.FULL_READ_MS + 1, first)
+        assertEquals(2, asked.size)
+    }
+
+    @Test
     fun `sync tries the kept organization, then the list, and keeps the one that answers`() = runBlocking {
         val asked = mutableListOf<String>()
         val calls = object : ClaudeAiCalls {

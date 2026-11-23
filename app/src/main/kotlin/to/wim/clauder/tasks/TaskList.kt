@@ -84,6 +84,9 @@ data class TaskList(
 
     val hasSteps: Boolean get() = steps.isNotEmpty()
 
+    /** A thread only claude.ai's own thread list knows (no hooks): it has no steps or tasks. */
+    val fromClaudeAi: Boolean get() = key.startsWith(CLAUDE_AI_KEY_PREFIX)
+
     /** What progress is counted on: the steps when there are any, else the tasks. */
     val items: List<TaskItem> get() = if (hasSteps) steps else tasks
 
@@ -188,6 +191,9 @@ data class TaskList(
     )
 
     companion object {
+        /** Keys of threads that only claude.ai knows, so they can't clash with session keys. */
+        const val CLAUDE_AI_KEY_PREFIX = "claudeai:"
+
         /** How long a session may stay silent before it counts as idle: long enough for a slow CI
          * run or a reminder later in the day. */
         const val STALE_MS = 12 * 60 * 60 * 1000L

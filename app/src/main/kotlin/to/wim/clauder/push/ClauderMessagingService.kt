@@ -28,7 +28,11 @@ class ClauderMessagingService : FirebaseMessagingService() {
             Push.record(app.store, listOf(list))
             val muted = app.store.muted.first()
             val alert = NotificationPlan.alertsAgain(previous, list, System.currentTimeMillis())
-            TaskNotifier.apply(app, list, app.store.cachedSessions(), muted, app.store.current().notify, alert)
+            // claude.ai's last read can say more (a thread resolved by hand), unless this push is newer.
+            val board = app.board()
+            // Not on the board: an older session of a thread that has a newer one, so it shows only once.
+            val shown = board.firstOrNull { it.key == list.key }
+            if (shown != null) TaskNotifier.apply(app, shown, board, muted, app.store.current().notify, alert) else TaskNotifier.cancel(app, list.key)
             if (list.key !in muted) RunAlert.finished(previous, list)?.let { TaskNotifier.showRunFinished(app, list, it) }
             val after = MuteList.afterPush(muted, list)
             if (after != muted) app.store.setMuted(after)

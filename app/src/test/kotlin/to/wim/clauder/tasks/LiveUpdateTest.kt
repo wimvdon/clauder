@@ -139,4 +139,27 @@ class LiveUpdateTest {
         assertNull(LiveUpdate.from(waiting.copy(need = "Pick T1, T2 or T3"))!!.headline)
         assertNull(LiveUpdate.from(list(SessionState.Running, TaskStatus.InProgress))!!.headline)
     }
+
+    @Test
+    fun `a thread only claude-ai knows alerts plainly while it waits, and is quiet otherwise`() {
+        val remote = TaskList(
+            key = "claudeai:t1", title = "Fix export", url = "https://claude.ai/code/session_A", state = SessionState.Waiting,
+            seq = 0, updatedAt = "t", tasks = emptyList(), project = "Clauder",
+        )
+        val update = LiveUpdate.from(remote)!!
+        assertEquals(LiveUpdate.Status.Waiting, update.status)
+        assertTrue(update.plain)
+        assertFalse(update.ongoing)
+        assertEquals(0, update.total)
+        assertEquals("https://claude.ai/code/session_A", update.openUrl)
+        assertNull(LiveUpdate.from(remote.copy(state = SessionState.Running)))
+        assertNull(LiveUpdate.from(remote.copy(key = "session_A")))
+    }
+
+    @Test
+    fun `threads only claude-ai knows count in the summary and the widget`() {
+        val remote = TaskList("claudeai:t1", "Fix export", null, SessionState.Waiting, 0, "2026-11-23T10:00:00Z", emptyList())
+        assertEquals(1, Summary.from(listOf(remote), emptySet(), 0).waiting)
+        assertEquals(listOf("claudeai:t1"), SessionBoard.sort(listOf(remote, remote.copy(key = "plain"))).map { it.key })
+    }
 }

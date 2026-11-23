@@ -18,6 +18,9 @@
     <string name="channel_waiting_description">Als Claude stopt en op je antwoord wacht</string>
     <string name="channel_runs">Runs die Claude startte</string>
     <string name="channel_runs_description">Als een workflow die Claude startte, zoals een release, slaagt of mislukt</string>
+    <string name="channel_replies">Antwoorden van Claude in projectchats</string>
+    <string name="channel_replies_description">Als Claude je antwoordt in een projectchat</string>
+    <string name="chat_reply_label">Projectchat</string>
     <string name="run_running">%1$s loopt</string>
     <string name="run_passed">%1$s geslaagd</string>
     <string name="run_failed">%1$s mislukt</string>
@@ -199,6 +202,7 @@
     <string name="claude_ai_login_title">Inloggen bij claude.ai</string>
     <string name="claude_ai_login_help">Log in met de code die je per e-mail krijgt. Inloggen met Google werkt hier misschien niet.</string>
     <string name="claude_ai_connected">Ingelogd bij claude.ai</string>
+    <string name="claude_ai_sync_note">Clauder kijkt ongeveer elke 15 minuten op claude.ai, en elke minuut zolang een projectchat op het antwoord van Claude wacht. Je krijgt een melding als Claude je antwoordt in een projectchat.</string>
     <string name="action_test_claude_ai">Testen</string>
     <string name="action_sign_out">Uitloggen</string>
     <string name="claude_ai_testing">Bezig met testen, dat duurt zo’n 20 seconden…</string>

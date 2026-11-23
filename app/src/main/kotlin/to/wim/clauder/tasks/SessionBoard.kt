@@ -101,7 +101,8 @@ object SessionBoard {
     /** Idle (nothing for you, nothing running) or finished. */
     fun isInactive(list: TaskList): Boolean = list.isFinished || list.state == SessionState.Idle
 
-    /** Sessions without steps or tasks (a session that only stopped or ended) are left out. */
+    /** Sessions without steps or tasks (a session that only stopped or ended) are left out, except
+     * threads only claude.ai knows, which never have any. */
     fun sort(lists: List<TaskList>): List<TaskList> =
-        lists.filter { it.items.isNotEmpty() && it.key != "demo" }.sortedByDescending { it.updatedAt }
+        lists.filter { (it.items.isNotEmpty() || it.fromClaudeAi) && it.key != "demo" }.sortedByDescending { it.updatedAt }
 }
