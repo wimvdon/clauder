@@ -50,7 +50,7 @@ import to.wim.clauder.tasks.TaskNotifier
 import to.wim.clauder.tasks.TaskList
 import to.wim.clauder.ui.tasks.stateLabelRes
 
-/** Home screen widget: the active sessions with their progress. */
+/** Home screen widget: the sessions that need input or are running, by project, with their progress. */
 class TasksWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val store = (context.applicationContext as ClauderApp).store
@@ -105,16 +105,55 @@ class TasksWidget : GlanceAppWidget() {
                     )
                 }
             }
-            // Only what is working or waiting is shown; idle and finished sessions stay in the app.
-            val sessions = SessionBoard.groups(active).flatMap { it.second }
+            // Needs input, then Running, each grouped by project like the app; idle and finished
+            // sessions stay in the app.
+            val rows = SessionBoard.rows(SessionBoard.board(active, now), inactiveOpen = false, withInactive = false)
             when {
                 !connected -> Message(context.getString(R.string.widget_connect))
-                sessions.isEmpty() -> Message(context.getString(R.string.widget_no_sessions))
+                rows.isEmpty() -> Message(context.getString(R.string.widget_no_sessions))
                 else -> LazyColumn {
-                    items(sessions, itemId = { it.key.hashCode().toLong() }) { list -> Session(context, list, list.key in muted) }
+                    items(rows, itemId = { SessionBoard.key(it).hashCode().toLong() }) { row ->
+                        when (row) {
+                            is SessionBoard.Row.StatusHeader -> StatusHeader(context, row)
+                            is SessionBoard.Row.ProjectHeader -> ProjectHeader(row.group ?: context.getString(R.string.tasks_section_other))
+                            is SessionBoard.Row.Session -> Session(context, row.list, row.list.key in muted)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    /** "Needs input" or "Running" with a count, in the serif face like the title. */
+    @Composable
+    private fun StatusHeader(context: Context, row: SessionBoard.Row.StatusHeader) {
+        val title = context.getString(
+            if (row.status == SessionBoard.Status.NeedsInput) R.string.tasks_section_needs_input else R.string.tasks_section_running,
+        )
+        Row(GlanceModifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                title,
+                style = TextStyle(
+                    color = if (row.status == SessionBoard.Status.NeedsInput) GlanceTheme.colors.primary else GlanceTheme.colors.onSurface,
+                    fontSize = 15.sp,
+                    fontFamily = FontFamily.Serif,
+                ),
+                maxLines = 1,
+                modifier = GlanceModifier.defaultWeight(),
+            )
+            Text("${row.count}", style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp), maxLines = 1)
+        }
+    }
+
+    /** A project's name above its sessions; it doesn't fold. */
+    @Composable
+    private fun ProjectHeader(text: String) {
+        Text(
+            text,
+            style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+            maxLines = 1,
+            modifier = GlanceModifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp),
+        )
     }
 
     /** One segment per step, like the notification. The empty ones are a groove in the surface
@@ -179,17 +218,6 @@ class TasksWidget : GlanceAppWidget() {
                     .padding(horizontal = 14.dp, vertical = 12.dp)
                     .clickable(startIntent(ClaudeApp.openIntent(context, url))),
             ) {
-                list.group?.let {
-                    Text(
-                        it,
-                        style = TextStyle(
-                            color = if (waiting) GlanceTheme.colors.onPrimaryContainer else GlanceTheme.colors.primary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                        maxLines = 1,
-                    )
-                }
                 Text(
                     list.title,
                     style = TextStyle(color = onContainer, fontSize = 15.sp, fontWeight = FontWeight.Medium),

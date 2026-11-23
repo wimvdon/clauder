@@ -64,22 +64,29 @@ class SessionBoardTest {
     }
 
     @Test
-    fun `the board groups active sessions by project and puts every inactive one in one list`() {
+    fun `the board splits sessions into needs input, running and inactive, each grouped by project`() {
         val running = list("a", 1, "5").copy(project = "Noter")
         val idle = list("b", 1, "4").copy(project = "Clauder", state = SessionState.Idle)
         val done = list("c", 1, "3").copy(project = "Noter", state = SessionState.Done)
         val waiting = list("d", 1, "2").copy(project = "Clauder", state = SessionState.Waiting)
         val loose = list("e", 1, "1").copy(state = SessionState.Ended)
         val onlyIdle = list("f", 1, "6").copy(repo = "rss", state = SessionState.Idle)
+        val alsoRunning = list("g", 1, "0").copy(project = "Clauder")
         assertEquals(
             SessionBoard.Board(
-                sections = listOf(
+                needsInput = listOf(SessionBoard.Section("Clauder", listOf(waiting))),
+                running = listOf(
                     SessionBoard.Section("Noter", listOf(running)),
-                    SessionBoard.Section("Clauder", listOf(waiting)),
+                    SessionBoard.Section("Clauder", listOf(alsoRunning)),
                 ),
-                inactive = listOf(onlyIdle, idle, done, loose),
+                inactive = listOf(
+                    SessionBoard.Section("rss", listOf(onlyIdle)),
+                    SessionBoard.Section("Clauder", listOf(idle)),
+                    SessionBoard.Section("Noter", listOf(done)),
+                    SessionBoard.Section(null, listOf(loose)),
+                ),
             ),
-            SessionBoard.board(listOf(onlyIdle, running, idle, done, waiting, loose), nowMillis = 0),
+            SessionBoard.board(listOf(onlyIdle, running, idle, done, waiting, loose, alsoRunning), nowMillis = 0),
         )
     }
 
@@ -93,54 +100,73 @@ class SessionBoardTest {
             project = "Clauder",
         )
         val board = SessionBoard.board(listOf(working), now)
-        assertEquals(listOf(working.copy(state = SessionState.Running)), board.sections.single().active)
-        assertEquals(emptyList<TaskList>(), board.inactive)
+        assertEquals(listOf(working.copy(state = SessionState.Running)), board.running.single().sessions)
+        assertEquals(emptyList<SessionBoard.Section>(), board.inactive)
     }
 
     @Test
-    fun `the inactive list sits below every project and starts folded`() {
+    fun `sections come in order with plain project headers, and only inactive folds`() {
         val running = list("a", 1, "5").copy(project = "Noter")
         val waiting = list("d", 1, "4").copy(project = "Clauder", state = SessionState.Waiting)
         val done = list("c", 1, "3").copy(project = "Noter", state = SessionState.Done)
         val idle = list("b", 1, "2").copy(project = "rss", state = SessionState.Idle)
-        val board = SessionBoard.Board(
-            listOf(SessionBoard.Section("Noter", listOf(running)), SessionBoard.Section("Clauder", listOf(waiting))),
-            listOf(done, idle),
+        val board = SessionBoard.board(listOf(running, waiting, done, idle), nowMillis = 0)
+        val needs = SessionBoard.Status.NeedsInput
+        val run = SessionBoard.Status.Running
+        val off = SessionBoard.Status.Inactive
+        assertEquals(
+            listOf(
+                SessionBoard.Row.StatusHeader(needs, 1, open = true),
+                SessionBoard.Row.ProjectHeader(needs, "Clauder"),
+                SessionBoard.Row.Session(needs, waiting),
+                SessionBoard.Row.StatusHeader(run, 1, open = true),
+                SessionBoard.Row.ProjectHeader(run, "Noter"),
+                SessionBoard.Row.Session(run, running),
+                SessionBoard.Row.StatusHeader(off, 2, open = false),
+            ),
+            SessionBoard.rows(board, inactiveOpen = false),
         )
         assertEquals(
             listOf(
-                SessionBoard.Row.Header("Noter", 1, open = true),
-                SessionBoard.Row.Active(running),
-                SessionBoard.Row.Header("Clauder", 1, open = true),
-                SessionBoard.Row.Active(waiting),
-                SessionBoard.Row.InactiveHeader(2, open = false),
+                SessionBoard.Row.StatusHeader(off, 2, open = true),
+                SessionBoard.Row.ProjectHeader(off, "Noter"),
+                SessionBoard.Row.Session(off, done),
+                SessionBoard.Row.ProjectHeader(off, "rss"),
+                SessionBoard.Row.Session(off, idle),
             ),
-            SessionBoard.rows(board, foldedGroups = emptySet(), inactiveOpen = false),
-        )
-        assertEquals(
-            listOf(
-                SessionBoard.Row.Header("Noter", 1, open = false),
-                SessionBoard.Row.Header("Clauder", 1, open = true),
-                SessionBoard.Row.Active(waiting),
-                SessionBoard.Row.InactiveHeader(2, open = true),
-                SessionBoard.Row.Inactive(done),
-                SessionBoard.Row.Inactive(idle),
-            ),
-            SessionBoard.rows(board, foldedGroups = setOf("Noter"), inactiveOpen = true),
+            SessionBoard.rows(board, inactiveOpen = true).drop(6),
         )
     }
 
     @Test
-    fun `a lone list without a project has no header, and only inactive sessions show just the inactive list`() {
+    fun `the widget leaves out inactive sessions`() {
+        val running = list("a", 1, "5").copy(project = "Noter")
+        val done = list("c", 1, "3").copy(project = "Noter", state = SessionState.Done)
+        val board = SessionBoard.board(listOf(running, done), nowMillis = 0)
+        assertEquals(
+            listOf(
+                SessionBoard.Row.StatusHeader(SessionBoard.Status.Running, 1, open = true),
+                SessionBoard.Row.ProjectHeader(SessionBoard.Status.Running, "Noter"),
+                SessionBoard.Row.Session(SessionBoard.Status.Running, running),
+            ),
+            SessionBoard.rows(board, inactiveOpen = true, withInactive = false),
+        )
+        assertEquals(emptyList<SessionBoard.Row>(), SessionBoard.rows(SessionBoard.board(listOf(done), 0), false, withInactive = false))
+    }
+
+    @Test
+    fun `a section with only sessions without a project has no project header, and keys are unique`() {
         val loose = list("a", 1, "5")
         val done = list("e", 1, "1").copy(project = "Noter", state = SessionState.Ended)
+        val waiting = list("w", 1, "2").copy(project = "Noter", state = SessionState.Waiting)
+        val rows = SessionBoard.rows(SessionBoard.board(listOf(loose, done, waiting), 0), inactiveOpen = true)
         assertEquals(
-            listOf(SessionBoard.Row.Active(loose)),
-            SessionBoard.rows(SessionBoard.Board(listOf(SessionBoard.Section(null, listOf(loose))), emptyList()), emptySet(), false),
+            listOf(
+                SessionBoard.Row.StatusHeader(SessionBoard.Status.Running, 1, open = true),
+                SessionBoard.Row.Session(SessionBoard.Status.Running, loose),
+            ),
+            rows.subList(3, 5),
         )
-        assertEquals(
-            listOf(SessionBoard.Row.InactiveHeader(1, open = false)),
-            SessionBoard.rows(SessionBoard.Board(emptyList(), listOf(done)), emptySet(), false),
-        )
+        assertEquals(rows.size, rows.map { SessionBoard.key(it) }.toSet().size)
     }
 }

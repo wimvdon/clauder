@@ -29,50 +29,73 @@ object SessionBoard {
         return if (rest.isEmpty()) named else named + (null to rest)
     }
 
-    /** One project (or repository) on the Tasks screen, with its sessions that are working or waiting. */
-    data class Section(val group: String?, val active: List<TaskList>)
+    /** The three parts of the Tasks screen, top to bottom. */
+    enum class Status { NeedsInput, Running, Inactive }
 
-    /** The Tasks screen's content: projects with something working or waiting, and one list of
-     * every idle or finished session, whatever its project. */
-    data class Board(val sections: List<Section>, val inactive: List<TaskList>)
+    /** One project (or repository) inside a status section, with its sessions in that status. */
+    data class Section(val group: String?, val sessions: List<TaskList>)
 
-    /** [lists] with each session's state as shown at [nowMillis] (see [TaskList.shown]): active
-     * sessions grouped by project (sessions without a project last), and all inactive sessions in
-     * one list, newest first. A project with only inactive sessions gets no section. */
+    /** The Tasks screen's content: sessions that wait for you, sessions that are working (CI waits
+     * included), and idle or finished ones, each grouped by project. */
+    data class Board(val needsInput: List<Section>, val running: List<Section>, val inactive: List<Section>) {
+        fun sections(status: Status): List<Section> = when (status) {
+            Status.NeedsInput -> needsInput
+            Status.Running -> running
+            Status.Inactive -> inactive
+        }
+    }
+
+    /** Which section [list] belongs in, by its shown state. */
+    fun status(list: TaskList): Status = when {
+        isInactive(list) -> Status.Inactive
+        list.state == SessionState.Waiting -> Status.NeedsInput
+        else -> Status.Running
+    }
+
+    /** [lists] with each session's state as shown at [nowMillis] (see [TaskList.shown]), split by
+     * [status] and grouped by project within each (sessions without a project last). */
     fun board(lists: List<TaskList>, nowMillis: Long): Board {
-        val (inactive, active) = lists.map { it.shown(nowMillis) }.partition { isInactive(it) }
-        return Board(groups(active).map { (group, members) -> Section(group, members) }, inactive)
+        val byStatus = lists.map { it.shown(nowMillis) }.groupBy { status(it) }
+        fun sections(status: Status) = groups(byStatus[status].orEmpty()).map { (group, members) -> Section(group, members) }
+        return Board(sections(Status.NeedsInput), sections(Status.Running), sections(Status.Inactive))
     }
 
-    /** One line of the Tasks screen. */
+    /** One line of the Tasks screen or the widget. */
     sealed interface Row {
-        /** A project's header; tapping it folds the project. */
-        data class Header(val group: String?, val count: Int, val open: Boolean) : Row
+        /** A status section's title with its count. Only the Inactive one folds, by tapping it. */
+        data class StatusHeader(val status: Status, val count: Int, val open: Boolean) : Row
 
-        /** A session that is working or waiting for you, shown in full. */
-        data class Active(val list: TaskList) : Row
+        /** A project's name inside a status section: a plain label, it doesn't fold. */
+        data class ProjectHeader(val status: Status, val group: String?) : Row
 
-        /** "Inactive" with a count, below every project; tapping it shows or hides the list. */
-        data class InactiveHeader(val count: Int, val open: Boolean) : Row
-
-        /** An idle or finished session, as one line with its project or repository above the title. */
-        data class Inactive(val list: TaskList) : Row
+        /** A session inside a status section. */
+        data class Session(val status: Status, val list: TaskList) : Row
     }
 
-    /** The Tasks screen, top to bottom. Projects start open ([foldedGroups] holds the ones the user
-     * closed, by group name, "" for sessions without a project); the inactive list starts folded
-     * and shows only while [inactiveOpen]. */
-    fun rows(board: Board, foldedGroups: Set<String>, inactiveOpen: Boolean): List<Row> = buildList {
-        board.sections.forEach { section ->
-            val open = section.group.orEmpty() !in foldedGroups
-            // A lone list of sessions without a project needs no header to fold it.
-            if (section.group != null || board.sections.size > 1) add(Row.Header(section.group, section.active.size, open))
-            if (open) section.active.forEach { add(Row.Active(it)) }
+    /** The Tasks screen, top to bottom: Needs input, Running, Inactive, leaving out empty sections.
+     * Inactive starts folded and shows its sessions only while [inactiveOpen]; the widget passes
+     * [withInactive] false to leave it out. A section whose only sessions have no project needs
+     * no project header. */
+    fun rows(board: Board, inactiveOpen: Boolean, withInactive: Boolean = true): List<Row> = buildList {
+        Status.entries.forEach { status ->
+            if (status == Status.Inactive && !withInactive) return@forEach
+            val sections = board.sections(status)
+            if (sections.isEmpty()) return@forEach
+            val open = status != Status.Inactive || inactiveOpen
+            add(Row.StatusHeader(status, sections.sumOf { it.sessions.size }, open))
+            if (!open) return@forEach
+            sections.forEach { section ->
+                if (section.group != null || sections.size > 1) add(Row.ProjectHeader(status, section.group))
+                section.sessions.forEach { add(Row.Session(status, it)) }
+            }
         }
-        if (board.inactive.isNotEmpty()) {
-            add(Row.InactiveHeader(board.inactive.size, inactiveOpen))
-            if (inactiveOpen) board.inactive.forEach { add(Row.Inactive(it)) }
-        }
+    }
+
+    /** A stable key per row, for lazy lists. */
+    fun key(row: Row): String = when (row) {
+        is Row.StatusHeader -> "status:${row.status}"
+        is Row.ProjectHeader -> "project:${row.status}:${row.group.orEmpty()}"
+        is Row.Session -> row.list.key
     }
 
     /** Idle (nothing for you, nothing running) or finished. */

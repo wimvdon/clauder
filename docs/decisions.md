@@ -388,3 +388,13 @@ phone. The model read that as waiting on the user but couldn't say what the ques
 phone showed "Claude asks you something". Now a "waiting" answer only counts when the model names
 the question, and the prompt says that test steps for later and a next step Claude takes itself
 (such as merging once CI passes) aren't requests.
+
+## 2026-11-23: The Tasks screen and widget are split by status
+
+Wim asked for sections instead of one list of projects with an Inactive list below: Needs input
+(waiting for you), then Running (working, CI waits included), then Inactive. Inside each section,
+sessions are grouped by project under a plain header that doesn't fold, so a project with a
+waiting and a working thread shows up in both sections. Only Inactive folds (it starts folded),
+and the widget shows the same two active sections without it. Project folding is gone: with the
+status split, a long project no longer pushes waiting threads out of view. Inactive rows lost the
+project line above their title, since the project header now says it.
