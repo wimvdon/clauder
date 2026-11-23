@@ -160,6 +160,7 @@
         <item quantity="other">%d attive</item>
         <item quantity="many">%d attive</item>
     </plurals>
+    <string name="ai_paused_note">Nessun riepilogo: la quota gratuita di IA di oggi è esaurita. I riepiloghi tornano alle %1$s.</string>
     <string name="setup_check_running">Controllo degli hook…</string>
     <string name="setup_check_ok">Gli hook funzionano. Ultimo evento: %1$s.</string>
     <string name="setup_check_old">Arrivano eventi (l’ultimo %1$s), ma quella sessione usa hook vecchi. Le sessioni e i thread che avvii da ora in poi ricevono quelli nuovi.</string>

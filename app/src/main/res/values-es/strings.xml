@@ -160,6 +160,7 @@
         <item quantity="other">%d activas</item>
         <item quantity="many">%d activas</item>
     </plurals>
+    <string name="ai_paused_note">Sin resumen: se ha agotado la cuota gratuita de IA de hoy. Los resúmenes vuelven a las %1$s.</string>
     <string name="setup_check_running">Comprobando los hooks…</string>
     <string name="setup_check_ok">Los hooks funcionan. Último evento: %1$s.</string>
     <string name="setup_check_old">Llegan eventos (el último %1$s), pero esa sesión usa hooks antiguos. Las sesiones e hilos que inicies a partir de ahora recibirán los nuevos.</string>
