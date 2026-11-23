@@ -242,14 +242,19 @@ Clauder shows the task list of every running Claude Code session on the phone.
   in `device_state` (not backed up); the encrypted claude.ai sign-in in `claude_ai_login` (not
   backed up). See `settings/SettingsStore.kt` and `claudeai/ClaudeAiLogin.kt`.
 - **Worker client:** `push/WorkerClient.kt` (plain `HttpURLConnection`, no extra library).
-- **claude.ai (first step):** Settings → claude.ai opens claude.ai's own sign-in page in a WebView
+- **claude.ai:** Settings → claude.ai opens claude.ai's own sign-in page in a WebView
   (`ui/claudeai/ClaudeAiLoginScreen`). As soon as claude.ai sets its `sessionKey` cookie, the app
   keeps an encrypted copy (`claudeai/ClaudeAiLogin`: AES-GCM with a key in the Android Keystore, in
   the DataStore `claude_ai_login`, not backed up) and clears the WebView's cookies and site data.
   **Test** calls the private endpoints the Claude app uses (`claudeai/ClaudeAi`, `claudeai/ClaudeAiClient`)
   and shows a copyable report of HTTP codes, field names, counts and status values only
-  (`claudeai/Probe`). Nothing else uses the sign-in yet; the Tasks screen still comes from the
-  Worker. The calls run on the phone because claude.ai answers server traffic with a Cloudflare
+  (`claudeai/Probe`). While signed in, `claudeai/ClaudeAiSync` reads the thread lists of projects
+  active in the last 7 days (at most once a minute: when the Tasks screen opens or refreshes, and
+  after each push) into memory, and `claudeai/RemoteThreads.overlay` lays them over the Worker's
+  sessions on the Tasks screen only: a hook session bound to a thread (`bound_sessions[].id` = the
+  session key) takes the thread's state unless a hook reported after the read, and a thread no hook
+  knows is added while it waits or works (key `claudeai:<thread id>`, no steps). The widget, Live
+  Updates and alerts still come from the Worker alone. The calls run on the phone because claude.ai answers server traffic with a Cloudflare
   bot check; the sign-in never goes to the Worker. Endpoints and shapes: `docs/spike-claude-ai-api.md`.
 
 ## Structure

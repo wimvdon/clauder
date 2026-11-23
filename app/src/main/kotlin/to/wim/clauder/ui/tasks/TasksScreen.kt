@@ -67,6 +67,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import to.wim.clauder.ClauderApp
 import to.wim.clauder.R
+import to.wim.clauder.claudeai.ClaudeAiSync
+import to.wim.clauder.claudeai.RemoteThreads
 import to.wim.clauder.links.ClaudeApp
 import to.wim.clauder.push.Push
 import to.wim.clauder.push.WorkerClient
@@ -99,13 +101,19 @@ private const val RESOLVE_REFRESH_MS = 1_500L
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(app: ClauderApp, settings: Settings, resumes: Int, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
-    val sessions by Push.sessions.collectAsState()
+    val hookSessions by Push.sessions.collectAsState()
+    val remote by ClaudeAiSync.snapshot.collectAsState()
+    // claude.ai's own thread list, when signed in there: threads without hooks, and resolves by hand.
+    val sessions = remember(hookSessions, remote) {
+        remote?.let { RemoteThreads.overlay(hookSessions, it.threads, it.fetchedAtMillis) } ?: hookSessions
+    }
     val muted by app.store.muted.collectAsState(emptySet())
     var load by remember { mutableStateOf(Load.Loading) }
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     suspend fun fetch() {
+        app.refreshClaudeAi()
         if (!settings.isConnected) return
         when (val result = WorkerClient(settings.workerUrl, settings.token).sessions()) {
             is WorkerClient.Result.Ok -> {
@@ -441,12 +449,16 @@ private fun usageLabel(list: TaskList): String? =
     if (list.tokens > 0) stringResource(R.string.usage_line, Usage.tokens(list.tokens), Usage.dollars(list.cost)) else null
 
 @Composable
-private fun countsLabel(list: TaskList): String = pluralStringResource(
-    if (list.hasSteps) R.plurals.step_counts else R.plurals.notification_counts,
-    list.items.size,
-    list.doneCount,
-    list.items.size,
-)
+private fun countsLabel(list: TaskList): String? = if (list.items.isEmpty()) {
+    null // a thread only claude.ai reports: Clauder doesn't know its steps
+} else {
+    pluralStringResource(
+        if (list.hasSteps) R.plurals.step_counts else R.plurals.notification_counts,
+        list.items.size,
+        list.doneCount,
+        list.items.size,
+    )
+}
 
 @Composable
 private fun SessionCard(list: TaskList, muted: Boolean, hookFix: String, onUnmute: (TaskList) -> Unit, onResolve: (TaskList) -> Unit) {
@@ -478,7 +490,7 @@ private fun SessionCard(list: TaskList, muted: Boolean, hookFix: String, onUnmut
                 )
             }
             Text(
-                "${stringResource(stateLabelRes(list))} · ${countsLabel(list)}",
+                listOfNotNull(stringResource(stateLabelRes(list)), countsLabel(list)).joinToString(" · "),
                 style = MaterialTheme.typography.labelLarge,
                 color = if (list.state == SessionState.Waiting) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -500,7 +512,7 @@ private fun SessionCard(list: TaskList, muted: Boolean, hookFix: String, onUnmut
                 )
             }
             // Resolving the thread in the Claude app doesn't reach Clauder, so it can be done here.
-            if (list.state == SessionState.Waiting) {
+            if (list.state == SessionState.Waiting && !RemoteThreads.isRemoteOnly(list)) {
                 FilledTonalButton(onClick = { onResolve(list) }) {
                     Icon(painterResource(R.drawable.ic_check_circle), contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -509,7 +521,7 @@ private fun SessionCard(list: TaskList, muted: Boolean, hookFix: String, onUnmut
             }
             if (list.oldHooks) OldHooksNote(hookFix)
             SessionExtras(list)
-            SegmentedProgress(list)
+            if (list.items.isNotEmpty()) SegmentedProgress(list)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 list.items.forEach { TaskRow(it) }
             }

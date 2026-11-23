@@ -35,6 +35,7 @@ class ClauderMessagingService : FirebaseMessagingService() {
             Widgets.updateTasks(app)
             ClauderTileService.refresh(app)
         }
+        app.refreshClaudeAi()
     }
 
     // Firebase Messaging 26 reports a new token through onRegistered; older paths still call

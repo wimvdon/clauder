@@ -17,8 +17,11 @@ sign in to claude.ai in Settings, to claude.ai.
   these messages to the phone.
 - **To claude.ai, only after you sign in there in Settings:** claude.ai's own sign-in page, shown
   in the app. Clauder keeps the sign-in cookie claude.ai sets (`sessionKey`) and the id of the
-  claude.ai organization you last used (`lastActiveOrg`), and, when you tap **Test**, sends them
-  to claude.ai with requests for your organization list, your projects, a project's threads and chat
+  claude.ai organization you last used (`lastActiveOrg`). While you stay signed in, Clauder sends
+  them to claude.ai to read your projects active in the last 7 days and each one's thread list
+  (titles, status, session ids), when the Tasks screen opens or refreshes and after each push, at
+  most once a minute. What it reads stays in the app's memory and is shown on the Tasks screen; it
+  is not saved or sent anywhere. When you tap **Test**, it also sends them with requests for your organization list, your projects, a project's threads and chat
   messages, your notification count and a few seconds of the live thread and session updates.
   The test report on screen holds only HTTP codes, field names, counts, status values, times,
   organization capabilities and claude.ai's own error text, no names or message text. The sign-in is a full login to your claude.ai account; it is sent
