@@ -47,6 +47,22 @@ class ExtrasTest {
     }
 
     @Test
+    fun `a review verdict from GitHub's webhooks comes with the PR and is saved`() {
+        val list = TaskList.fromPushData(
+            mapOf(
+                "type" to "tasklist", "key" to "k", "tasks" to "[]", "steps" to "[]",
+                "pr" to """{"n":22,"u":"https://github.com/wimvdon/clauder/pull/22","s":"open","c":"passed","r":"changes_requested"}""",
+            ),
+        )!!
+        assertEquals(Review.ChangesRequested, list.pr?.review)
+        assertEquals(list, TaskList.fromJson(list.toJson()))
+        val approved = """{"key":"k","tasks":[],"steps":[],"pr":{"number":22,"url":"https://github.com/wimvdon/clauder/pull/22","state":"open","ci":"passed","review":"approved"}}"""
+        assertEquals(Review.Approved, TaskList.fromJson(org.json.JSONObject(approved))?.pr?.review)
+        val none = TaskList.fromPushData(mapOf("type" to "tasklist", "key" to "k", "tasks" to "[]", "steps" to "[]", "pr" to """{"n":22,"u":"https://github.com/wimvdon/clauder/pull/22","s":"open","c":""}"""))!!
+        assertNull(none.pr?.review)
+    }
+
+    @Test
     fun `links that aren't https and PRs that aren't on GitHub are dropped`() {
         val list = TaskList.fromPushData(
             mapOf(

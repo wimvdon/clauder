@@ -78,6 +78,7 @@ import to.wim.clauder.tasks.LiveUpdate
 import to.wim.clauder.tasks.MuteList
 import to.wim.clauder.tasks.PrState
 import to.wim.clauder.tasks.PullRequest
+import to.wim.clauder.tasks.Review
 import to.wim.clauder.tasks.SegmentBar
 import to.wim.clauder.tasks.SessionBoard
 import to.wim.clauder.tasks.SessionState
@@ -377,6 +378,7 @@ private fun SessionExtras(list: TaskList) {
     val update = LiveUpdate.from(list, now)
     val line = listOfNotNull(
         list.pr?.let { prLabel(it) },
+        list.pr?.takeIf { it.state == PrState.Open }?.review?.let { reviewLabel(it) },
         update?.holding?.takeIf { it != LiveUpdate.Holding.Ci }?.let { TaskNotifier.holdingText(context, update) },
         list.doing?.takeIf { list.state == SessionState.Running }?.let { TaskNotifier.activityText(context, it) },
         list.work?.takeIf { list.state != SessionState.Running }?.let { TaskNotifier.receiptText(context, it) },
@@ -408,6 +410,14 @@ private fun SessionExtras(list: TaskList) {
         }
     }
 }
+
+@Composable
+private fun reviewLabel(review: Review): String = stringResource(
+    when (review) {
+        Review.Approved -> R.string.pr_review_approved
+        Review.ChangesRequested -> R.string.pr_review_changes
+    },
+)
 
 @Composable
 private fun prLabel(pr: PullRequest): String = when {

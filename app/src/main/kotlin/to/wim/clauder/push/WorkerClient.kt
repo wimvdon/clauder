@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import to.wim.clauder.settings.HookStatus
+import to.wim.clauder.settings.GithubStatus
 import to.wim.clauder.tasks.TaskList
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -33,6 +34,13 @@ class WorkerClient(private val baseUrl: String, private val token: String) {
     /** Marks a session's thread resolved, as the person did in the Claude app. */
     suspend fun resolve(key: String): Result<Boolean> =
         call("POST", "/sessions/resolve", JSONObject().put("key", key).toString()) { JSONObject(it).optBoolean("resolved") }
+
+    /** Whether GitHub is connected (GET /github). */
+    suspend fun github(): Result<GithubStatus> = call("GET", "/github", null) { GithubStatus.fromJson(JSONObject(it)) }
+
+    /** A one-time link that creates the GitHub App and connects it (POST /github/connect). */
+    suspend fun githubConnect(): Result<String?> =
+        call("POST", "/github/connect", "{}") { GithubStatus.connectUrl(JSONObject(it), baseUrl) }
 
     suspend fun sendTest(): Result<TestResult> = call("POST", "/test", "{}") {
         val o = JSONObject(it)

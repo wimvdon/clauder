@@ -38,7 +38,7 @@ gave a shell command (or only the program's name), a file's name, a search patte
 address's host or a search query. No other tool input is sent. When you send a prompt, a
 small script on the session's machine adds the names and ids of the claude.ai project and thread,
 read from the session's own transcript, and what kind of event woke the session (a message, a
-coordinator note or a background event such as CI); the prompt's text is left out. If you connect GitHub (Settings in Clauder), GitHub also sends the Worker webhooks from a
+coordinator note or a background event such as CI); the prompt's text is left out. If you connect GitHub (Settings → GitHub in Clauder, which asks your Worker for a one-time link and opens it in your browser), GitHub also sends the Worker webhooks from a
 GitHub App on your own account that can only read: check runs, check suites, workflow runs, pull
 requests and reviews of the repositories you install it on. The Worker keeps, per pull request,
 its head commit, its state, the result of each workflow or check suite and the latest review

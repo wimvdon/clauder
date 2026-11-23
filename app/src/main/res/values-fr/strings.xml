@@ -187,4 +187,14 @@
         <item quantity="many">%d min</item>
         <item quantity="other">%d min</item>
     </plurals>
+    <string name="section_github">GitHub</string>
+    <string name="github_checking">Vérification de GitHub…</string>
+    <string name="github_intro">Connectez GitHub pour que Clauder affiche les résultats de la CI et l’état des pull requests dès que GitHub les a. GitHub vous demande de créer une petite app qui ne peut que lire les checks et les pull requests, puis de l’installer sur vos dépôts.</string>
+    <string name="github_no_events">GitHub est connecté, mais rien n’est encore arrivé. Vérifiez que l’app est installée sur vos dépôts.</string>
+    <string name="github_ok">GitHub est connecté. Dernière mise à jour %1$s.</string>
+    <string name="github_failed">Impossible de joindre le Worker. %1$s</string>
+    <string name="action_connect_github">Connecter GitHub</string>
+    <string name="action_github_repos">Choisir les dépôts</string>
+    <string name="pr_review_approved">Approuvée</string>
+    <string name="pr_review_changes">Modifications demandées</string>
 </resources>

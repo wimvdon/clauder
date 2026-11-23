@@ -69,6 +69,11 @@ Clauder shows the task list of every running Claude Code session on the phone.
   them back to `/github/callback` with a code, the Worker trades it for the app's webhook secret
   (kept in the Hub; the private key is dropped) and sends them on to install the app on their
   repositories. `GET /github` says whether it is connected and when the last webhook came.
+  In the app, Settings → GitHub (shown once the Worker is connected) reads `GET /github`
+  (`settings/GithubStatus`), and **Connect GitHub** asks for the one-time link and opens it in the
+  browser; once connected, **Choose repositories** opens the app's install page. The latest review
+  verdict comes with the PR (`r` in the push: `approved` or `changes_requested`) and shows as
+  "Approved" or "Changes requested" after the PR line while the PR is open.
   **Reply check:** a turn can end both waiting on CI (or a reminder, a watched URL, helpers) and
   asking the user something, such as "Pick one: T1, T2 or T3". When a turn ends Running or Idle,
   the Worker sends the end of the turn's last reply (the last `post_message` text, else Stop's
