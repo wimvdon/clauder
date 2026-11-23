@@ -149,4 +149,5 @@
         <item quantity="one">%d aktiv</item>
         <item quantity="other">%d aktiv</item>
     </plurals>
+    <string name="ai_paused_note">Keine Zusammenfassung: Das kostenlose KI-Kontingent für heute ist aufgebraucht. Ab %1$s gibt es wieder Zusammenfassungen.</string>
 </resources>

@@ -24,7 +24,7 @@ the text of the turn's last reply until that turn ends. When a turn ends while s
 set up (such as CI on a pull request or a reminder) will still wake the session, the Worker has
 the end of that last reply read by a language model on Cloudflare Workers AI, in your own
 Cloudflare account, to see whether Claude asks you something. Only the answer (the question, in a
-few words) is kept and shown on the phone; the reply text is then dropped. It also receives the pull requests Claude
+few words) is kept and shown on the phone; the reply text is then dropped. The Worker counts how much of Workers AI's free daily allowance these reads use (token counts only, no text), so it can stop before the allowance runs out. It also receives the pull requests Claude
 opens, reads or merges and their CI results, the `git push` commands Claude runs (with their
 output; no other shell commands are sent), the reminders Claude sets, and, at the end of each
 turn, how many tokens the session used per model (counted on the session's machine from its

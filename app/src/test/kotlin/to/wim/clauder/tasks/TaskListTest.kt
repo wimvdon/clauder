@@ -187,4 +187,17 @@ class TaskListTest {
         val current = TaskList.fromPushData(push())!!
         assertFalse(TaskList.listFromJson(TaskList.listToJson(listOf(current))).single().oldHooks)
     }
+
+    @Test
+    fun `a summary paused for the day's AI allowance shows only that day and survives the cache`() {
+        val paused = TaskList.fromPushData(push() + ("aiPausedOn" to "2026-11-23"))!!
+        val day = java.time.Instant.parse("2026-11-23T18:00:00Z").toEpochMilli()
+        val nextDay = java.time.Instant.parse("2026-11-24T00:00:01Z").toEpochMilli()
+        assertTrue(paused.aiPaused(day))
+        assertFalse(paused.aiPaused(nextDay))
+        assertFalse(paused.copy(summary = "CI running").aiPaused(day))
+        assertFalse(TaskList.fromPushData(push() + ("aiPausedOn" to ""))!!.aiPaused(day))
+        assertEquals(java.time.Instant.parse("2026-11-24T00:00:00Z").toEpochMilli(), paused.aiResumesMillis(day))
+        assertEquals("2026-11-23", TaskList.listFromJson(TaskList.listToJson(listOf(paused))).single().aiPausedOn)
+    }
 }

@@ -149,4 +149,5 @@
         <item quantity="one">%d bezig</item>
         <item quantity="other">%d bezig</item>
     </plurals>
+    <string name="ai_paused_note">Geen samenvatting: de gratis AI-ruimte van vandaag is op. Om %1$s komen de samenvattingen terug.</string>
 </resources>

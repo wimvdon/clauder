@@ -158,4 +158,5 @@
         <item quantity="other">%d attive</item>
         <item quantity="many">%d attive</item>
     </plurals>
+    <string name="ai_paused_note">Nessun riepilogo: la quota gratuita di IA di oggi è esaurita. I riepiloghi tornano alle %1$s.</string>
 </resources>

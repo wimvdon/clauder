@@ -6,8 +6,17 @@
 // still wake the thread, so the thread may be waiting on that or on the user. Plain logic around
 // an injected model, so it runs under plain Node tests.
 
+import { estimateTokens, isAllocationError, neurons, reportedUsage } from "./budget.ts";
+
 /** Big enough to read Dutch and English replies well, and fast. */
 export const ASK_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
+/** About seven times cheaper; good enough for a summary line, which changes no state. */
+export const SUMMARY_MODEL = "@cf/meta/llama-3.1-8b-instruct-fp8-fast";
+
+/** "full": whether the reply asks something or says the work is finished, and its summary.
+ * "summary": only the summary line. */
+export type ReadMode = "full" | "summary";
 
 /** The end of a long reply is where it asks; the start is mostly the report. */
 export const MAX_REPLY_CHARS = 3000;
@@ -52,6 +61,14 @@ const SYSTEM = [
   '"finished": true or false}.',
 ].join(" ");
 
+const SUMMARY_SYSTEM = [
+  "You read the last message an AI assistant sent to its user at the end of its turn.",
+  "Write a summary: one line of at most 12 words, in the language of the message, saying",
+  "where the work stands for the user, such as \"Snoozer CI running; mockups ready, pick T1-T3\".",
+  "No greeting, no \"Claude\", no full stop at the end.",
+  'Reply with JSON only: {"summary": "the line"}.',
+].join(" ");
+
 /** The tail of a reply, cut at a line break when it is long. */
 export function replyTail(text: string): string {
   if (text.length <= MAX_REPLY_CHARS) return text;
@@ -60,15 +77,19 @@ export function replyTail(text: string): string {
   return nl > 0 && nl < 500 ? tail.slice(nl + 1) : tail;
 }
 
-export function askInput(reply: string): Record<string, unknown> {
+export function askInput(reply: string, mode: ReadMode = "full"): Record<string, unknown> {
   return {
     messages: [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: mode === "full" ? SYSTEM : SUMMARY_SYSTEM },
       { role: "user", content: `<message>\n${replyTail(reply)}\n</message>` },
     ],
-    max_tokens: 180,
+    max_tokens: mode === "full" ? 180 : 60,
     temperature: 0,
   };
+}
+
+export function modelFor(mode: ReadMode): string {
+  return mode === "full" ? ASK_MODEL : SUMMARY_MODEL;
 }
 
 function oneLine(value: unknown, max: number): string {
@@ -77,7 +98,8 @@ function oneLine(value: unknown, max: number): string {
 }
 
 /** The model's answer, or null when it can't be read (then nothing changes). */
-export function parseTurn(output: unknown): TurnRead | null {
+/** The JSON object in the model's answer (as text or already parsed), or null. */
+function jsonOf(output: unknown): object | null {
   const response = typeof output === "object" && output !== null ? (output as { response?: unknown }).response : output;
   let value: unknown = response;
   if (typeof response === "string") {
@@ -89,7 +111,12 @@ export function parseTurn(output: unknown): TurnRead | null {
       return null;
     }
   }
-  if (typeof value !== "object" || value === null) return null;
+  return typeof value === "object" && value !== null ? value : null;
+}
+
+export function parseTurn(output: unknown): TurnRead | null {
+  const value = jsonOf(output);
+  if (value === null) return null;
   const { waiting, question, summary, finished } = value as {
     waiting?: unknown; question?: unknown; summary?: unknown; finished?: unknown;
   };
@@ -99,12 +126,38 @@ export function parseTurn(output: unknown): TurnRead | null {
   return { question: asked, summary: oneLine(summary, MAX_SUMMARY_CHARS), finished: finished === true && !waiting };
 }
 
-/** Reads the reply, or null when the model fails or answers unreadably. */
-export async function readTurn(model: AskModel, reply: string): Promise<TurnRead | null> {
-  if (!reply.trim()) return { question: "", summary: "", finished: false };
+/** The summary-only answer, as a read that asks nothing and doesn't finish anything. */
+export function parseSummary(output: unknown): TurnRead | null {
+  const value = jsonOf(output);
+  if (value === null) return null;
+  const summary = oneLine((value as { summary?: unknown }).summary, MAX_SUMMARY_CHARS);
+  return summary ? { question: "", summary, finished: false } : null;
+}
+
+/** A read, the neurons it used, and whether Workers AI refused it for the day's allocation. */
+export interface ReadResult {
+  read: TurnRead | null;
+  neurons: number;
+  allocationUsed: boolean;
+}
+
+/** Reads the reply. The read is null when the model fails or answers unreadably. */
+export async function readTurn(model: AskModel, reply: string, mode: ReadMode = "full"): Promise<ReadResult> {
+  if (!reply.trim()) return { read: { question: "", summary: "", finished: false }, neurons: 0, allocationUsed: false };
+  const input = askInput(reply, mode);
+  const name = modelFor(mode);
   try {
-    return parseTurn(await model.run(ASK_MODEL, askInput(reply)));
-  } catch {
-    return null;
+    const output = await model.run(name, input);
+    const usage = reportedUsage(output) ?? {
+      input: estimateTokens(JSON.stringify(input.messages)),
+      output: estimateTokens(JSON.stringify(output ?? "")),
+    };
+    return {
+      read: mode === "full" ? parseTurn(output) : parseSummary(output),
+      neurons: neurons(name, usage.input, usage.output),
+      allocationUsed: false,
+    };
+  } catch (e) {
+    return { read: null, neurons: 0, allocationUsed: isAllocationError(e) };
   }
 }

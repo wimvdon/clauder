@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ASK_MODEL, askInput, MAX_REPLY_CHARS, parseTurn, readTurn, replyTail } from "../src/ask.ts";
+import { ASK_MODEL, askInput, MAX_REPLY_CHARS, parseSummary, parseTurn, readTurn, replyTail, SUMMARY_MODEL } from "../src/ask.ts";
 
 test("the model's JSON answer is read, as text or as an object", () => {
   assert.deepEqual(
@@ -29,16 +29,18 @@ test("readTurn sends the reply's tail to the model and survives failures", async
       return { response: '{"waiting": true, "question": "Kies T1, T2 of T3", "summary": "Mockups klaar, kies T1-T3"}' };
     },
   };
-  assert.deepEqual(await readTurn(model, "Kies er een: T1, T2 of T3."), { question: "Kies T1, T2 of T3", summary: "Mockups klaar, kies T1-T3", finished: false });
+  assert.deepEqual((await readTurn(model, "Kies er een: T1, T2 of T3.")).read, { question: "Kies T1, T2 of T3", summary: "Mockups klaar, kies T1-T3", finished: false });
   assert.equal(calls[0].model, ASK_MODEL);
   const messages = calls[0].input.messages as Array<{ role: string; content: string }>;
   assert.equal(messages[0].role, "system");
   assert.match(messages[1].content, /Kies er een/);
-  assert.deepEqual(await readTurn(model, "   "), { question: "", summary: "", finished: false });
+  assert.deepEqual((await readTurn(model, "   ")).read, { question: "", summary: "", finished: false });
   assert.match(messages[0].content, /"finished"/);
   assert.equal(calls.length, 1);
-  const broken = { async run(): Promise<unknown> { throw new Error("quota"); } };
-  assert.equal(await readTurn(broken, "Merge?"), null);
+  const broken = { async run(): Promise<unknown> { throw new Error("timeout"); } };
+  assert.deepEqual(await readTurn(broken, "Merge?"), { read: null, neurons: 0, allocationUsed: false });
+  const limited = { async run(): Promise<unknown> { throw new Error("3036: You have used up your daily free allocation of 10,000 neurons."); } };
+  assert.equal((await readTurn(limited, "Merge?")).allocationUsed, true);
 });
 
 test("a long reply keeps its end, where it asks", () => {
@@ -49,4 +51,32 @@ test("a long reply keeps its end, where it asks", () => {
   assert.ok(tail.startsWith("report line"));
   assert.equal(replyTail("short"), "short");
   assert.equal((askInput("x").messages as unknown[]).length, 2);
+});
+
+test("each read reports its neurons, from the usage the model gives or an estimate", async () => {
+  const reported = { async run() { return { response: '{"waiting": false, "summary": "CI running"}', usage: { prompt_tokens: 1000, completion_tokens: 50 } }; } };
+  const full = await readTurn(reported, "CI runs.");
+  assert.ok(Math.abs(full.neurons - (1000 * 26_668 + 50 * 204_805) / 1e6) < 1e-9);
+  const bare = { async run() { return { response: '{"waiting": false, "summary": "CI running"}' } ; } };
+  const estimated = await readTurn(bare, "CI runs.");
+  assert.ok(estimated.neurons > 5 && estimated.neurons < 40, String(estimated.neurons));
+});
+
+test("summary mode asks the small model for the line only", async () => {
+  const calls: string[] = [];
+  const model = {
+    async run(m: string, input: Record<string, unknown>) {
+      calls.push(m);
+      const system = (input.messages as Array<{ content: string }>)[0].content;
+      assert.doesNotMatch(system, /"finished"/);
+      return { response: '{"summary": "Card is up, pick a colour."}', usage: { prompt_tokens: 300, completion_tokens: 15 } };
+    },
+  };
+  const result = await readTurn(model, "Card is up.", "summary");
+  assert.deepEqual(calls, [SUMMARY_MODEL]);
+  assert.deepEqual(result.read, { question: "", summary: "Card is up, pick a colour", finished: false });
+  assert.ok(result.neurons < 2);
+  assert.equal(parseSummary({ response: "no json" }), null);
+  assert.equal(parseSummary({ response: '{"summary": ""}' }), null);
+  assert.equal((askInput("x", "summary").max_tokens as number) < (askInput("x").max_tokens as number), true);
 });

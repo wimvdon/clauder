@@ -379,3 +379,16 @@ Older hook scripts that don't send the source still end it on any prompt. The sa
 background notification injected into the running turn wiping the reply Claude had just sent, so
 the check at the turn's end had nothing to read: a background wake now keeps the reply and the
 pending check, and only the person's message clears them.
+
+## 2026-11-23: Workers AI stays inside its free daily allocation
+
+Wim asked whether Workers AI could take on a larger role without risking wrong states or leaving
+the free tier (10,000 neurons a day). The Worker log showed about 30 neurons a read and up to
+about 20 reads an hour on a busy evening, so a long busy day could run out, and then every read
+failed without notice. The Worker now counts the neurons of every call per UTC day and stops the
+reads that only write a line first (from 7,000), so the reads that decide a state run longest.
+Reads that can't change the state only ask for the summary, of Llama 3.1 8B, which costs about a
+seventh of the 70B model; the reads that decide Waiting for you and Done stay on the 70B model. Wim
+picked this together with a "Working on" line from the person's message (a separate change).
+Ideas left out: an AI that decides Running or Done on its own, reads CI results or judges how
+urgent an alert is, because hook data decides those exactly or a wrong guess would hide an alert.

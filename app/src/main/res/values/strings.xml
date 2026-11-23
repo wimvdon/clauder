@@ -153,4 +153,5 @@
         <item quantity="one">%d working</item>
         <item quantity="other">%d working</item>
     </plurals>
+    <string name="ai_paused_note">No summary: today\'s free AI allowance is used up. Summaries are back at %1$s.</string>
 </resources>

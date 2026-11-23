@@ -158,4 +158,5 @@
         <item quantity="other">%d activas</item>
         <item quantity="many">%d activas</item>
     </plurals>
+    <string name="ai_paused_note">Sin resumen: se ha agotado la cuota gratuita de IA de hoy. Los resúmenes vuelven a las %1$s.</string>
 </resources>

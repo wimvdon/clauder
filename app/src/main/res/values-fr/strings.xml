@@ -158,4 +158,5 @@
         <item quantity="other">%d en cours</item>
         <item quantity="many">%d en cours</item>
     </plurals>
+    <string name="ai_paused_note">Pas de résumé : le quota d\'IA gratuit du jour est épuisé. Les résumés reviennent à %1$s.</string>
 </resources>

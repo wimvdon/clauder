@@ -52,6 +52,9 @@ data class TaskList(
     /** The session runs hook settings from before they reported every wake source, so the Worker
      * can't always tell whether it waits for you. Those hooks can't update themselves. */
     val oldHooks: Boolean = false,
+    /** The UTC day ("2026-11-23") on which the Worker left this session's last turn unread because
+     * Workers AI's free daily allowance was used up, so there is no summary line. */
+    val aiPausedOn: String? = null,
 ) {
     /** What sessions are grouped by: the project's name, else the repository's. */
     val group: String? get() = project ?: repo
@@ -91,6 +94,15 @@ data class TaskList(
 
     private fun updatedMillis(): Long? = parseMillis(updatedAt)
 
+    /** True while summaries are paused for the day's AI allowance and this session has none. The
+     * allowance starts again at midnight UTC, so a pause from an earlier day no longer counts. */
+    fun aiPaused(nowMillis: Long): Boolean =
+        summary == null && aiPausedOn != null && aiPausedOn == java.time.Instant.ofEpochMilli(nowMillis).toString().take(10)
+
+    /** When the AI allowance starts again: the next midnight UTC after [nowMillis]. */
+    fun aiResumesMillis(nowMillis: Long): Long =
+        (nowMillis / DAY_MS + 1) * DAY_MS
+
     /** When the reminder fires, if it is still ahead at [nowMillis]. */
     fun wakeAtMillis(nowMillis: Long): Long? = wakeAt?.let(::parseMillis)?.takeIf { it > nowMillis }
 
@@ -122,6 +134,7 @@ data class TaskList(
             if (helpers > 0) put("helpers", helpers)
             if (tokens > 0) put("usage", JSONObject().put("tokens", tokens).put("cost", cost))
             put("hooksCurrent", !oldHooks)
+            aiPausedOn?.let { put("aiPausedOn", it) }
         }
 
     private fun itemsToJson(items: List<TaskItem>) = JSONArray(
@@ -141,6 +154,8 @@ data class TaskList(
         /** How long a session may stay silent before it counts as idle: long enough for a slow CI
          * run or a reminder later in the day. */
         const val STALE_MS = 12 * 60 * 60 * 1000L
+
+        private const val DAY_MS = 24 * 60 * 60 * 1000L
 
         private fun parseMillis(text: String): Long? = try {
             java.time.Instant.parse(text).toEpochMilli()
@@ -228,6 +243,7 @@ data class TaskList(
                 tokens = data["tokens"]?.toLongOrNull() ?: 0,
                 cost = data["cost"]?.toDoubleOrNull() ?: 0.0,
                 oldHooks = data["hooks"] == "old",
+                aiPausedOn = data["aiPausedOn"]?.takeIf { it.isNotBlank() },
             )
         }
 
@@ -265,6 +281,7 @@ data class TaskList(
                 tokens = json.optJSONObject("usage")?.optLong("tokens") ?: 0,
                 cost = json.optJSONObject("usage")?.optDouble("cost")?.takeIf { !it.isNaN() } ?: 0.0,
                 oldHooks = !json.optBoolean("hooksCurrent"),
+                aiPausedOn = json.optString("aiPausedOn").takeIf { it.isNotBlank() },
             )
         }
 
