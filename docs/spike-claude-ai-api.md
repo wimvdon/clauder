@@ -16,7 +16,9 @@ calls them and reports what comes back (`claudeai/Probe.kt`).
   (the account's organization), `Anthropic-Version: 2023-06-01` and
   `Anthropic-Beta: ccr-byoc-2025-07-29`. Clauder takes the organization from the `lastActiveOrg`
   cookie the sign-in page sets, or else the first one in `GET api/organizations` (the web app's
-  own endpoint, which does sit under `/api/`).
+  own endpoint, which does sit under `/api/`). The 0.3.3 test found 2 organizations and got
+  400 `invalid_request_error` on channels (sent without `scope`) and 404 on the rest, so the Test
+  now sends `scope=joined` and tries each organization until channels answers.
 - The cookie is a full account login. Signing out of claude.ai ends it.
 - From a server (this container) every call gets Cloudflare's bot check (HTTP 403,
   `cf-mitigated: challenge`). We don't try to get past it, so the calls run on the phone.
@@ -25,7 +27,7 @@ calls them and reports what comes back (`claudeai/Probe.kt`).
 
 | Call | Returns |
 | --- | --- |
-| `GET v1/code/channels` (`cursor`, `limit`) | `data[]` projects (`id`, `name`, `has_working_session`, `needs_attention_thread_count`, `last_activity_at`, `has_unread`, …), `next_cursor` |
+| `GET v1/code/channels` (`scope=joined`, as the app always sends; `cursor`, `limit`, `include_members`, `include_archived`, `include_needs_attention_thread_count`, `template`) | `data[]` projects (`id`, `name`, `has_working_session`, `needs_attention_thread_count`, `last_activity_at`, `has_unread`, …), `next_cursor` |
 | `GET v1/code/channels/{id}/threads` (`status`, `cursor`, `limit`) | `sections[]`: `status`, `count`, `data[]` thread roots, `next_cursor` |
 | `GET v1/code/channels/{id}/timeline` (`limit`, `cursor`, `thread_roots_only`, `bound_only`, `include_thread_progress_rows`, …) | the project chat: `data[]` messages, `next_cursor`, `draft`, `linked_sessions` |
 | `GET v1/code/channels/{id}/messages/stream` (SSE; `scope` = `channel`, `timeline` or `thread`; `thread_id`, `from_id`, `from=tail`, `thread_progress_rows=1`) | live events, below |

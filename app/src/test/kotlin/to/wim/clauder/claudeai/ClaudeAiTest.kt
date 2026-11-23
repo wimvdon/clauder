@@ -127,7 +127,7 @@ class ClaudeAiTest {
         assertEquals(
             listOf(
                 "api/organizations",
-                "v1/code/channels?limit=20",
+                "v1/code/channels?scope=joined&limit=20",
                 "v1/code/channels/chan_1/threads?limit=20",
                 "v1/code/channels/chan_1/timeline?limit=10",
                 "v1/code/channels/chan_1/messages/stream?scope=channel",
@@ -136,8 +136,8 @@ class ClaudeAiTest {
             ),
             asked,
         )
-        assertEquals("organization: HTTP 200, found (1 in list)", report.lines().first())
-        assertTrue(report.lines()[1].startsWith("channels: HTTP 200, projects=1"))
+        assertEquals("organizations: HTTP 200, 1 in list, capabilities=[]", report.lines().first())
+        assertTrue(report.lines()[1].startsWith("channels (org 1 of 1): HTTP 200, projects=1"))
         assertTrue(report.contains("notifications summary: HTTP 200, [newest_cursor,unseen_count]"))
         assertFalse(report.contains("Clauder"))
         assertFalse(report.contains("Fix it"))
@@ -145,21 +145,44 @@ class ClaudeAiTest {
 
     @Test
     fun `no project means no thread calls`() = runBlocking {
-        val asked = mutableListOf<String>()
+        val tried = mutableListOf<String?>()
         val calls = object : ClaudeAiCalls {
             override var organization: String? = null
-            override suspend fun get(path: String): CallResult {
-                asked += path
-                return CallResult(404, """{"type":"error","error":{"type":"not_found_error","message":"x"}}""")
+            override suspend fun get(path: String): CallResult = when {
+                path == "api/organizations" -> CallResult(200, """[{"uuid":"$OTHER"},{"uuid":"$ORG"}]""")
+                path.startsWith("v1/code/channels?") -> {
+                    tried += organization
+                    CallResult(400, """{"type":"error","error":{"type":"invalid_request_error","message":"scope is required"}}""")
+                }
+                else -> CallResult(404, """{"type":"error","error":{"type":"not_found_error","message":"Not found"}}""")
             }
             override suspend fun stream(path: String, millis: Long) = CallResult(401, "")
         }
         val report = Probe.run(calls, savedOrganization = ORG)
-        assertEquals(ORG, calls.organization)
-        assertFalse(asked.contains("api/organizations"))
+        assertEquals(listOf<String?>(ORG, OTHER), tried)
+        assertTrue(report.contains("sign-in org=#2"))
+        assertTrue(report.contains("channels (org 1 of 2): HTTP 400, invalid_request_error: scope is required"))
+        assertTrue(report.contains("channels (org 2 of 2): HTTP 400"))
         assertTrue(report.contains("threads: skipped (no project)"))
-        assertTrue(report.startsWith("organization: from sign-in\nchannels: HTTP 404, not_found_error"))
-        assertFalse(report.contains("message"))
+        assertTrue(report.contains("notifications summary: HTTP 404, not_found_error: Not found"))
+        assertFalse(report.contains(ORG))
+    }
+
+    @Test
+    fun `the first organization that answers is kept`() = runBlocking {
+        val calls = object : ClaudeAiCalls {
+            override var organization: String? = null
+            override suspend fun get(path: String): CallResult = when {
+                path == "api/organizations" -> CallResult(200, """[{"uuid":"$OTHER"},{"uuid":"$ORG"}]""")
+                path.startsWith("v1/code/channels?") ->
+                    if (organization == ORG) CallResult(200, """{"data":[]}""") else CallResult(400, "{}")
+                else -> CallResult(200, "{}")
+            }
+            override suspend fun stream(path: String, millis: Long) = CallResult(200, "")
+        }
+        val report = Probe.run(calls)
+        assertEquals(ORG, calls.organization)
+        assertTrue(report.contains("channels (org 2 of 2): HTTP 200, projects=0"))
     }
 
     @Test
@@ -167,8 +190,12 @@ class ClaudeAiTest {
         assertEquals(ORG, ClaudeAi.organizationFrom("a=1; lastActiveOrg=$ORG; sessionKey=k"))
         assertNull(ClaudeAi.organizationFrom("lastActiveOrg=not-a-uuid"))
         assertNull(ClaudeAi.organizationFrom(null))
-        assertEquals(ORG, ClaudeAi.firstOrganization("""[{"name":"x"},{"uuid":"$ORG"}]"""))
-        assertNull(ClaudeAi.firstOrganization("{}"))
+        assertEquals(listOf(ORG), ClaudeAi.organizations("""[{"name":"x"},{"uuid":"$ORG"}]"""))
+        assertEquals(emptyList<String>(), ClaudeAi.organizations("{}"))
+        assertEquals(
+            listOf("[chat,claude_max]", "[]"),
+            ClaudeAi.organizationCapabilities("""[{"uuid":"$ORG","name":"Secret","capabilities":["claude_max","chat"]},{"uuid":"x"}]"""),
+        )
     }
 
     @Test
@@ -184,5 +211,6 @@ class ClaudeAiTest {
 
     private companion object {
         const val ORG = "0b2c6a1e-3f4d-4e5a-9b8c-7d6e5f4a3b2c"
+        const val OTHER = "11111111-2222-4333-8444-555555555555"
     }
 }
