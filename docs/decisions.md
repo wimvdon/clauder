@@ -2,6 +2,17 @@
 
 Newest first. Add an entry for every notable choice: what was decided, why, and what was rejected.
 
+## 2026-11-23: claude.ai's thread list on the Tasks screen, laid over the hooks
+
+The live test (0.3.4) answered for projects, threads, project chat and the live stream. The Tasks
+screen now reads each recent project's thread list and lays it over the Worker's sessions: a
+thread's status (resolved, needs input, working, idle) wins over the hooks unless a hook reported
+after the read, and threads without hooks are added while they wait or work. The hooks stay the
+main source: they know steps, tasks, CI and summaries, and push instantly. Reads happen when the
+screen opens or refreshes and after each push, at most once a minute, with no background job.
+Rejected for now: the live stream (needs the app open, or a foreground service), and using
+claude.ai for the widget and alerts (next, once this proves stable).
+
 ## 2026-11-23: Read thread state from claude.ai's private API, on the phone only
 
 Hooks can't see threads without hooks, threads Wim resolves by hand or project chat replies, but

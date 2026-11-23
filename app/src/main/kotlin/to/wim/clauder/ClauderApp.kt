@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import to.wim.clauder.claudeai.ClaudeAiClient
 import to.wim.clauder.claudeai.ClaudeAiLogin
+import to.wim.clauder.claudeai.ClaudeAiSync
 import to.wim.clauder.push.Push
 import to.wim.clauder.settings.SettingsStore
 import to.wim.clauder.tasks.SeqGate
@@ -48,6 +50,16 @@ class ClauderApp : Application() {
                 .collect { prefs ->
                     TaskNotifier.applyAll(this@ClauderApp, store.cachedSessions(), store.muted.first(), prefs)
                 }
+        }
+    }
+
+    /** Reads claude.ai's thread lists in the background, when signed in there (see [ClaudeAiSync]). */
+    fun refreshClaudeAi() {
+        scope.launch {
+            val key = claudeAiLogin.sessionKey() ?: return@launch
+            ClaudeAiSync.refresh(ClaudeAiClient(key), claudeAiLogin.organization(), System.currentTimeMillis()) {
+                claudeAiLogin.saveOrganization(it)
+            }
         }
     }
 
