@@ -2,10 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import {
-  appFromConversion, appManifest, applyEvent, applyPrChange, changeOf, ciOf, emptyTrack, prUrlsOf, startPage, verifySignature,
-  type PrTrack,
+  appFromConversion, appManifest, applyEvent, applyPrChange, changeOf, ciOf, claimDispatch, dispatchFrom, emptyTrack, matchesDispatch,
+  prUrlsOf, runOf, startPage, verifySignature, type PrTrack,
 } from "../src/github.ts";
-import { applyPrUpdate, emptyList, toPushData } from "../src/tasklist.ts";
+import { applyPrUpdate, applyRunUpdate, emptyList, toPushData } from "../src/tasklist.ts";
 
 const URL22 = "https://github.com/wimvdon/clauder/pull/22";
 const repository = { id: 1, full_name: "wimvdon/clauder" };
@@ -153,4 +153,65 @@ test("only the webhook secret and where to install are kept of the new app", () 
   assert.deepEqual(app, { id: 3, slug: "clauder-wim-d57", url: "https://github.com/apps/clauder-wim-d57", webhookSecret: "w", createdAt: "now" });
   assert.equal(appFromConversion({ id: 3, slug: "x", html_url: "https://evil.example/x", webhook_secret: "w" }, "now"), null);
   assert.equal(appFromConversion({ id: 3, slug: "x", html_url: "https://github.com/apps/x" }, "now"), null);
+});
+
+function release(over: Record<string, unknown> = {}, action = "requested") {
+  return {
+    action,
+    repository,
+    workflow_run: {
+      id: 500, name: "Release", html_url: "https://github.com/wimvdon/clauder/actions/runs/500", path: ".github/workflows/release.yml",
+      workflow_id: 9, event: "workflow_dispatch", status: "queued", conclusion: null, run_started_at: "2026-11-23T11:41:20Z",
+      pull_requests: [], ...over,
+    },
+  };
+}
+
+test("the release a session started is read from its workflow_run", () => {
+  const run = runOf(release())!;
+  assert.deepEqual(run.run, { name: "Release", url: "https://github.com/wimvdon/clauder/actions/runs/500", state: "running" });
+  assert.equal(runOf(release({ status: "completed", conclusion: "success" }, "completed"))!.run.state, "passed");
+  assert.equal(runOf(release({ status: "completed", conclusion: "failure" }, "completed"))!.run.state, "failed");
+  assert.equal(runOf(release({ html_url: "https://evil.example/x" })), null);
+  // A release has no pull request, so no PR is tracked for it.
+  assert.deepEqual(prUrlsOf("workflow_run", release()), []);
+});
+
+test("a dispatch from the tool call claims the run GitHub creates for it", () => {
+  const at = "2026-11-23T11:41:10Z";
+  const d = dispatchFrom("cse_1", "wimvdon/clauder release.yml", "clauder", at);
+  assert.deepEqual(d, { key: "cse_1", repo: "wimvdon/clauder", folder: "clauder", target: "release.yml", at });
+  const run = runOf(release())!;
+  assert.equal(matchesDispatch(d, run), true);
+  assert.equal(matchesDispatch({ ...d, target: "9" }, run), true);
+  assert.equal(matchesDispatch({ ...d, target: "ci.yml" }, run), false);
+  assert.equal(matchesDispatch({ ...d, repo: "wimvdon/other" }, run), false);
+  // Too long after the tool call, or a run that wasn't dispatched.
+  assert.equal(matchesDispatch(d, runOf(release({ run_started_at: "2026-11-23T11:50:00Z" }))!), false);
+  assert.equal(matchesDispatch(d, runOf(release({ event: "push" }))!), false);
+  // An older hook script sends no detail: the session's folder and the time decide.
+  const bare = dispatchFrom("cse_2", undefined, "clauder", at);
+  assert.equal(bare.repo, null);
+  assert.equal(matchesDispatch(bare, run), true);
+  assert.equal(matchesDispatch({ ...bare, folder: "other" }, run), false);
+  // A re-run is matched by its run id.
+  const rerun = dispatchFrom("cse_3", "wimvdon/clauder run:500", null, at);
+  assert.equal(matchesDispatch(rerun, run), true);
+  assert.equal(matchesDispatch({ ...rerun, target: "run:501" }, run), false);
+  // The latest matching dispatch wins.
+  const later = { ...d, key: "cse_4", at: "2026-11-23T11:41:15Z" };
+  assert.equal(claimDispatch([d, later, { ...d, key: "cse_5", target: "ci.yml" }], run)?.key, "cse_4");
+  assert.equal(claimDispatch([], run), null);
+});
+
+test("the session shows its run, and a finished run is pushed", () => {
+  const now = "2026-11-23T11:44:30Z";
+  const list = emptyList("cse_1", null, now);
+  const running = applyRunUpdate(list, runOf(release())!.run, now)!;
+  assert.equal(running.run?.state, "running");
+  assert.ok(running.seq > list.seq);
+  assert.equal(applyRunUpdate(running, runOf(release())!.run, now), null);
+  const passed = applyRunUpdate(running, runOf(release({ status: "completed", conclusion: "success" }, "completed"))!.run, now)!;
+  assert.deepEqual(JSON.parse(toPushData(passed).run), { n: "Release", u: "https://github.com/wimvdon/clauder/actions/runs/500", s: "passed" });
+  assert.equal(toPushData(list).run, "");
 });

@@ -16,6 +16,11 @@
     <string name="channel_progress_description">De voortgang van elke Claude-sessie, live</string>
     <string name="channel_waiting">Wacht op jou</string>
     <string name="channel_waiting_description">Als Claude stopt en op je antwoord wacht</string>
+    <string name="channel_runs">Runs die Claude startte</string>
+    <string name="channel_runs_description">Als een workflow die Claude startte, zoals een release, slaagt of mislukt</string>
+    <string name="run_running">%1$s loopt</string>
+    <string name="run_passed">%1$s geslaagd</string>
+    <string name="run_failed">%1$s mislukt</string>
     <string name="tasks_setup_title">Verbind met je Worker</string>
     <string name="tasks_setup_body">Vul in Instellingen het token van je Worker in om hier de takenlijsten van Claude te zien.</string>
     <string name="action_open_settings">Naar instellingen</string>

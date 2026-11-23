@@ -379,7 +379,8 @@ private fun SessionExtras(list: TaskList) {
     val line = listOfNotNull(
         list.pr?.let { prLabel(it) },
         list.pr?.takeIf { it.state == PrState.Open }?.review?.let { reviewLabel(it) },
-        update?.holding?.takeIf { it != LiveUpdate.Holding.Ci }?.let { TaskNotifier.holdingText(context, update) },
+        list.run?.let { TaskNotifier.runText(context, it) },
+        update?.holding?.takeIf { it != LiveUpdate.Holding.Ci && it != LiveUpdate.Holding.Run }?.let { TaskNotifier.holdingText(context, update) },
         list.doing?.takeIf { list.state == SessionState.Running }?.let { TaskNotifier.activityText(context, it) },
         list.work?.takeIf { list.state != SessionState.Running }?.let { TaskNotifier.receiptText(context, it) },
         TaskNotifier.modelText(context, list),
@@ -389,10 +390,10 @@ private fun SessionExtras(list: TaskList) {
         Text(
             line.joinToString(" · "),
             style = MaterialTheme.typography.bodyMedium,
-            color = if (list.pr?.ci == CiState.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (list.pr?.ci == CiState.Failed || list.run?.state == CiState.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    if (list.link != null || list.pr != null) {
+    if (list.link != null || list.pr != null || list.run != null) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             list.link?.let { url ->
                 OutlinedButton(onClick = { ClaudeApp.openAny(context, url) }) {
@@ -406,6 +407,11 @@ private fun SessionExtras(list: TaskList) {
             list.pr?.let { pr ->
                 OutlinedButton(onClick = { ClaudeApp.openAny(context, pr.url) }) {
                     Text(stringResource(R.string.action_open_pr, pr.number), maxLines = 1)
+                }
+            }
+            list.run?.takeIf { list.pr == null || list.link == null }?.let { run ->
+                OutlinedButton(onClick = { ClaudeApp.openAny(context, run.url) }) {
+                    Text(stringResource(R.string.action_open_named, run.name), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

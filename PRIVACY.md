@@ -61,7 +61,10 @@ If you connect GitHub (Settings → GitHub in Clauder, which asks your Worker fo
 GitHub App on your own account that can only read: check runs, check suites, workflow runs, pull
 requests and reviews of the repositories you install it on. The Worker keeps, per pull request,
 its head commit, its state, the result of each workflow or check suite and the latest review
-verdict, for 14 days after its last event, plus a short summary of each webhook in the debug log.
+verdict, for 14 days after its last event, and for a workflow a Claude session started itself
+(such as a release) the run's name, link and result, tied to that session for 2 days (to tie them,
+the tool hook sends the repository and workflow name of that one tool call). It also keeps a short
+summary of each webhook in the debug log.
 It keeps the app's webhook secret to check that a webhook comes from GitHub, and throws away the
 app's private key and client secret right away. It keeps each session's task
 list for a day after its last change, and the last 500 raw events for debugging. It runs in your

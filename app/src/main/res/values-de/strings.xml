@@ -16,6 +16,11 @@
     <string name="channel_progress_description">Live-Fortschritt jeder Claude-Sitzung</string>
     <string name="channel_waiting">Wartet auf dich</string>
     <string name="channel_waiting_description">Wenn Claude anhält und auf deine Antwort wartet</string>
+    <string name="channel_runs">Von Claude gestartete Läufe</string>
+    <string name="channel_runs_description">Wenn ein von Claude gestarteter Workflow, etwa ein Release, erfolgreich ist oder fehlschlägt</string>
+    <string name="run_running">%1$s läuft</string>
+    <string name="run_passed">%1$s erfolgreich</string>
+    <string name="run_failed">%1$s fehlgeschlagen</string>
     <string name="tasks_setup_title">Mit deinem Worker verbinden</string>
     <string name="tasks_setup_body">Gib in den Einstellungen das Token deines Workers ein, um hier Claudes Aufgabenlisten zu sehen.</string>
     <string name="action_open_settings">Zu den Einstellungen</string>

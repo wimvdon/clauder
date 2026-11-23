@@ -8,6 +8,7 @@ import kotlinx.coroutines.runBlocking
 import to.wim.clauder.ClauderApp
 import to.wim.clauder.tasks.MuteList
 import to.wim.clauder.tasks.NotificationPlan
+import to.wim.clauder.tasks.RunAlert
 import to.wim.clauder.tasks.TaskList
 import to.wim.clauder.tasks.TaskNotifier
 import to.wim.clauder.tile.ClauderTileService
@@ -28,6 +29,7 @@ class ClauderMessagingService : FirebaseMessagingService() {
             val muted = app.store.muted.first()
             val alert = NotificationPlan.alertsAgain(previous, list, System.currentTimeMillis())
             TaskNotifier.apply(app, list, app.store.cachedSessions(), muted, app.store.current().notify, alert)
+            if (list.key !in muted) RunAlert.finished(previous, list)?.let { TaskNotifier.showRunFinished(app, list, it) }
             val after = MuteList.afterPush(muted, list)
             if (after != muted) app.store.setMuted(after)
             Widgets.updateTasks(app)

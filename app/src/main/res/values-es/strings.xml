@@ -16,6 +16,11 @@
     <string name="channel_progress_description">Progreso en directo de cada sesión de Claude</string>
     <string name="channel_waiting">Te está esperando</string>
     <string name="channel_waiting_description">Cuando Claude se detiene y espera tu respuesta</string>
+    <string name="channel_runs">Ejecuciones que inició Claude</string>
+    <string name="channel_runs_description">Cuando un flujo de trabajo que inició Claude, como una versión, termina bien o falla</string>
+    <string name="run_running">%1$s en curso</string>
+    <string name="run_passed">%1$s correcto</string>
+    <string name="run_failed">%1$s falló</string>
     <string name="tasks_setup_title">Conéctate a tu Worker</string>
     <string name="tasks_setup_body">Añade el token de tu Worker en Ajustes para ver aquí las listas de tareas de Claude.</string>
     <string name="action_open_settings">Abrir ajustes</string>
